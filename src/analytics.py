@@ -6,7 +6,9 @@ from src.portfolio import Portfolio
 
 
 def compute_daily_returns(prices: pd.DataFrame) -> pd.DataFrame:
-    return prices.pct_change().dropna()
+    # how="all": un ticker quotato da poco non deve cancellare lo storico degli altri;
+    # mean/std/cov di pandas ignorano già i NaN residui per colonna.
+    return prices.pct_change().dropna(how="all")
 
 
 def _weights_series(portfolio: Portfolio) -> pd.Series:
