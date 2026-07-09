@@ -1,8 +1,10 @@
 import pandas as pd
+import pytest
 
 from src.analytics import (
     compute_daily_returns,
     per_ticker_annualized_stats,
+    per_ticker_cumulative_return,
     portfolio_expected_return,
     portfolio_volatility,
 )
@@ -36,6 +38,18 @@ def test_portfolio_volatility_is_non_negative():
     returns = compute_daily_returns(PRICES)
     volatility = portfolio_volatility(returns, PORTFOLIO)
     assert volatility >= 0
+
+
+def test_per_ticker_cumulative_return():
+    result = per_ticker_cumulative_return(PRICES)
+    assert result["AAPL"] == pytest.approx(105 / 100 - 1)
+    assert result["MSFT"] == pytest.approx(204 / 200 - 1)
+
+
+def test_per_ticker_cumulative_return_ignores_leading_nans():
+    prices = pd.DataFrame({"NEW": [float("nan"), float("nan"), 10.0, 12.0]})
+    result = per_ticker_cumulative_return(prices)
+    assert result["NEW"] == pytest.approx(0.2)
 
 
 def test_per_ticker_annualized_stats_matches_manual_calc():

@@ -28,6 +28,18 @@ def portfolio_volatility(returns: pd.DataFrame, portfolio: Portfolio) -> float:
     return float(variance**0.5)
 
 
+def per_ticker_cumulative_return(prices: pd.DataFrame) -> pd.Series:
+    """Rendimento cumulato per ticker: ultimo prezzo valido / primo prezzo valido - 1."""
+
+    def column_return(series: pd.Series) -> float:
+        valid = series.dropna()
+        if len(valid) < 2:
+            return float("nan")
+        return float(valid.iloc[-1] / valid.iloc[0] - 1)
+
+    return prices.apply(column_return)
+
+
 def per_ticker_annualized_stats(returns: pd.DataFrame, trading_days: int = 252) -> pd.DataFrame:
     """Rendimento e volatilità annualizzati per ciascun ticker, dai rendimenti giornalieri."""
     return pd.DataFrame(
