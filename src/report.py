@@ -17,6 +17,11 @@ def generate_report(portfolio: Portfolio, period: str = "1y") -> None:
     prices = fetch_price_history(tickers, period=period)
     returns = compute_daily_returns(prices)
 
+    if returns.empty:
+        raise ValueError(
+            f"Dati insufficienti per calcolare i rendimenti nel periodo '{period}'"
+        )
+
     expected_return = portfolio_expected_return(returns, portfolio)
     volatility = portfolio_volatility(returns, portfolio)
 
