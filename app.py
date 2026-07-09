@@ -5,6 +5,7 @@ Avvio: streamlit run app.py
 
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -16,7 +17,6 @@ from src.analytics import (
 )
 from src.fundamentals import fetch_fundamentals
 from src.market_data import fetch_price_history
-from src.portfolio import weights_sum_to_one
 
 # Palette categorica validata (dataviz skill, light mode)
 PALETTE = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"]
@@ -24,7 +24,22 @@ TRADING_DAYS = 252
 NASDAQ100_PRICES = Path("data/nasdaq100_prices.csv")
 
 st.set_page_config(page_title="Portfolio Intelligence", page_icon="📈", layout="wide")
-st.title("Portfolio Intelligence")
+
+st.markdown(
+    """
+    <style>
+    [data-testid="stMetric"] {
+        background: rgba(42, 120, 214, 0.07);
+        border: 1px solid rgba(128, 128, 128, 0.18);
+        border-radius: 14px;
+        padding: 18px 20px;
+    }
+    [data-testid="stMetricLabel"] { opacity: 0.75; }
+    .block-container { padding-top: 2.2rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 @st.cache_data(ttl=3600, show_spinner="Scarico i prezzi da Yahoo Finance...")
@@ -37,73 +52,122 @@ def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
     return fetch_fundamentals(list(tickers))
 
 
+def eur(value: float) -> str:
+    return f"{value:,.0f} €".replace(",", ".")
+
+
+# ---------------------------------------------------------------- sidebar
+with st.sidebar:
+    st.header("Il tuo portafoglio")
+    st.caption("Inserisci quanto investi su ogni titolo, in euro.")
+
+    positions = st.data_editor(
+        pd.DataFrame({"ticker": ["AAPL", "MSFT", "NVDA"], "importo": [4000, 3000, 3000]}),
+        num_rows="dynamic",
+        hide_index=True,
+        column_config={
+            "ticker": st.column_config.TextColumn("Titolo", required=True),
+            "importo": st.column_config.NumberColumn(
+                "Importo", min_value=0.0, step=500.0, format="%d €", required=True
+            ),
+        },
+        key="positions",
+    )
+    period = st.selectbox("Orizzonte storico", ["1mo", "6mo", "1y", "2y", "5y"], index=2)
+    st.caption("Dati di mercato: Yahoo Finance")
+
+amounts = {
+    str(row.ticker).upper().strip(): float(row.importo)
+    for row in positions.itertuples()
+    if str(row.ticker).strip() and float(row.importo or 0) > 0
+}
+total = sum(amounts.values())
+portfolio = [{"ticker": t, "weight": amount / total} for t, amount in amounts.items()] if total else []
+
+# ---------------------------------------------------------------- main
+st.title("Portfolio Intelligence")
+
 tab_portfolio, tab_fundamentals, tab_nasdaq = st.tabs(
-    ["Portafoglio", "Fondamentali", "Nasdaq-100"]
+    ["📊  Andamento", "🏢  Fondamentali", "🏆  Nasdaq-100"]
 )
 
 with tab_portfolio:
-    st.subheader("Rendimento e rischio del portafoglio")
-
-    default_positions = pd.DataFrame(
-        {"ticker": ["AAPL", "MSFT", "NVDA"], "weight": [0.4, 0.3, 0.3]}
-    )
-    col_input, col_period = st.columns([3, 1])
-    with col_input:
-        positions = st.data_editor(
-            default_positions,
-            num_rows="dynamic",
-            column_config={
-                "ticker": st.column_config.TextColumn("Ticker", required=True),
-                "weight": st.column_config.NumberColumn(
-                    "Peso", min_value=0.0, max_value=1.0, step=0.05, required=True
-                ),
-            },
-            key="positions",
-        )
-    with col_period:
-        period = st.selectbox("Periodo", ["1mo", "6mo", "1y", "2y", "5y"], index=2)
-
-    portfolio = [
-        {"ticker": str(row.ticker).upper().strip(), "weight": float(row.weight)}
-        for row in positions.itertuples()
-        if str(row.ticker).strip()
-    ]
-
     if not portfolio:
-        st.info("Aggiungi almeno una posizione.")
-    elif not weights_sum_to_one(portfolio):
-        total = sum(p["weight"] for p in portfolio)
-        st.warning(f"I pesi devono sommare a 1 (attuale: {total:.2f}).")
+        st.info("Aggiungi almeno un titolo con un importo positivo nella barra laterale.")
     else:
         try:
-            tickers = tuple(p["ticker"] for p in portfolio)
+            tickers = tuple(sorted(amounts))
             prices = cached_prices(tickers, period)
             returns = compute_daily_returns(prices)
 
-            daily_ret = portfolio_expected_return(returns, portfolio)
-            daily_vol = portfolio_volatility(returns, portfolio)
+            annual_ret = portfolio_expected_return(returns, portfolio) * TRADING_DAYS
+            annual_vol = portfolio_volatility(returns, portfolio) * TRADING_DAYS**0.5
 
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Rendimento giornaliero", f"{daily_ret:.4%}")
-            m2.metric("Volatilità giornaliera", f"{daily_vol:.4%}")
-            m3.metric("Rendimento annualizzato", f"{daily_ret * TRADING_DAYS:.2%}")
-            m4.metric("Volatilità annualizzata", f"{daily_vol * TRADING_DAYS**0.5:.2%}")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Investimento", eur(total))
+            m2.metric(
+                "Guadagno atteso in 1 anno",
+                eur(total * annual_ret),
+                delta=f"{annual_ret:+.1%}",
+            )
+            m3.metric(
+                "Oscillazione tipica in 1 anno",
+                f"± {eur(total * annual_vol)}",
+                delta=f"{annual_vol:.1%}",
+                delta_color="off",
+            )
+            st.caption(
+                "Stime basate sull'andamento storico del periodo selezionato: "
+                "non sono una previsione."
+            )
 
-            st.markdown("**Prezzi normalizzati (base 100)**")
-            normalized = prices / prices.iloc[0] * 100
-            st.line_chart(normalized, color=PALETTE[: len(normalized.columns)])
+            col_alloc, col_chart = st.columns([2, 3])
+
+            with col_alloc:
+                st.markdown("**Come sono distribuiti i tuoi soldi**")
+                alloc = pd.DataFrame(
+                    {"ticker": list(amounts), "importo": list(amounts.values())}
+                )
+                base = alt.Chart(alloc).encode(
+                    y=alt.Y("ticker:N", sort="-x", title=None),
+                    x=alt.X("importo:Q", title=None, axis=None),
+                )
+                bars = base.mark_bar(cornerRadiusEnd=4, height=22).encode(
+                    color=alt.Color(
+                        "ticker:N",
+                        scale=alt.Scale(domain=sorted(amounts), range=PALETTE),
+                        legend=None,
+                    )
+                )
+                labels = base.mark_text(align="left", dx=6).encode(
+                    text=alt.Text("importo:Q", format=",.0f")
+                )
+                st.altair_chart(
+                    (bars + labels).properties(height=42 * len(alloc) + 20),
+                    use_container_width=True,
+                )
+
+            with col_chart:
+                st.markdown("**Se avessi investito 100 € in ciascun titolo**")
+                normalized = prices / prices.iloc[0] * 100
+                st.line_chart(
+                    normalized,
+                    color=PALETTE[: len(normalized.columns)],
+                    height=300,
+                )
         except ValueError as exc:
             st.error(f"{exc}")
 
 with tab_fundamentals:
     st.subheader("Ricavi, margini, debito, crescita e multipli")
 
-    tickers_text = st.text_input("Ticker separati da spazio", "AAPL MSFT NVDA")
-    tickers = tuple(t.upper() for t in tickers_text.split())
+    default_tickers = " ".join(sorted(amounts)) if amounts else "AAPL MSFT NVDA"
+    tickers_text = st.text_input("Ticker separati da spazio", default_tickers)
+    fund_tickers = tuple(t.upper() for t in tickers_text.split())
 
-    if tickers:
+    if fund_tickers:
         try:
-            data = cached_fundamentals(tickers)
+            data = cached_fundamentals(fund_tickers)
             st.dataframe(
                 data,
                 column_config={
@@ -148,25 +212,33 @@ with tab_nasdaq:
         stats = per_ticker_annualized_stats(compute_daily_returns(prices))
         stats = stats.rename_axis("ticker").reset_index()
 
-        st.markdown("**Rischio vs rendimento** — ogni punto è un titolo")
-        st.scatter_chart(
-            stats,
-            x="annual_volatility",
-            y="annual_return",
-            x_label="Volatilità annualizzata",
-            y_label="Rendimento annualizzato",
-            color=PALETTE[0],
-        )
+        col_scatter, col_table = st.columns([3, 2])
 
-        st.markdown("**Classifica completa**")
-        st.dataframe(
-            stats.sort_values("annual_return", ascending=False),
-            column_config={
-                "ticker": st.column_config.TextColumn("Ticker"),
-                "annual_return": st.column_config.NumberColumn("Rendimento annuo", format="percent"),
-                "annual_volatility": st.column_config.NumberColumn(
-                    "Volatilità annua", format="percent"
-                ),
-            },
-            hide_index=True,
-        )
+        with col_scatter:
+            st.markdown("**Rischio vs rendimento** — ogni punto è un titolo")
+            st.scatter_chart(
+                stats,
+                x="annual_volatility",
+                y="annual_return",
+                x_label="Volatilità annualizzata",
+                y_label="Rendimento annualizzato",
+                color=PALETTE[0],
+                height=420,
+            )
+
+        with col_table:
+            st.markdown("**Classifica completa**")
+            st.dataframe(
+                stats.sort_values("annual_return", ascending=False),
+                column_config={
+                    "ticker": st.column_config.TextColumn("Ticker"),
+                    "annual_return": st.column_config.NumberColumn(
+                        "Rendimento annuo", format="percent"
+                    ),
+                    "annual_volatility": st.column_config.NumberColumn(
+                        "Volatilità annua", format="percent"
+                    ),
+                },
+                hide_index=True,
+                height=420,
+            )
