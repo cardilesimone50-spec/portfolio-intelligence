@@ -24,3 +24,13 @@ def portfolio_volatility(returns: pd.DataFrame, portfolio: Portfolio) -> float:
     cov_matrix = returns.cov()
     variance = weights @ cov_matrix @ weights
     return float(variance**0.5)
+
+
+def per_ticker_annualized_stats(returns: pd.DataFrame, trading_days: int = 252) -> pd.DataFrame:
+    """Rendimento e volatilità annualizzati per ciascun ticker, dai rendimenti giornalieri."""
+    return pd.DataFrame(
+        {
+            "annual_return": returns.mean() * trading_days,
+            "annual_volatility": returns.std() * trading_days**0.5,
+        }
+    )

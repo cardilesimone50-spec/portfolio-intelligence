@@ -2,6 +2,7 @@ import pandas as pd
 
 from src.analytics import (
     compute_daily_returns,
+    per_ticker_annualized_stats,
     portfolio_expected_return,
     portfolio_volatility,
 )
@@ -35,3 +36,13 @@ def test_portfolio_volatility_is_non_negative():
     returns = compute_daily_returns(PRICES)
     volatility = portfolio_volatility(returns, PORTFOLIO)
     assert volatility >= 0
+
+
+def test_per_ticker_annualized_stats_matches_manual_calc():
+    returns = compute_daily_returns(PRICES)
+    stats = per_ticker_annualized_stats(returns, trading_days=252)
+
+    assert list(stats.columns) == ["annual_return", "annual_volatility"]
+    assert list(stats.index) == ["AAPL", "MSFT"]
+    assert stats.loc["AAPL", "annual_return"] == returns["AAPL"].mean() * 252
+    assert stats.loc["AAPL", "annual_volatility"] == returns["AAPL"].std() * 252**0.5
