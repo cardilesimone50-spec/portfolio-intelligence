@@ -3,6 +3,31 @@
 > Obiettivo: diventare il miglior software open-source di Portfolio Intelligence.
 > Documento di lavoro del CTO — aggiornato al 2026-07-11.
 
+## MVP — "Il check-up onesto in 60 secondi per l'investitore europeo"
+
+**Proposta di valore**: carichi il portafoglio (editor, CSV o Excel) e in meno di
+un minuto ottieni uno score di salute, i problemi concreti, il rischio misurato
+**in euro cambio incluso** e un report PDF condivisibile. La parola chiave è
+*onesto*: rendimento composto (non medie gonfiate), rischio cambio incluso,
+limiti di ogni stima dichiarati.
+
+**Differenziatore**: quasi nessun tool retail misura il rischio in EUR per
+l'investitore europeo — su titoli USA il cambio EUR/USD può dominare il
+risultato e gli altri lo ignorano.
+
+**Nel funnel MVP**: input rapido → check-up (score/problemi/opportunità) →
+metriche EUR → report PDF.
+**Power features fuori dal funnel** (restano ma non sono l'MVP): backtest,
+galassia, Markowitz, correlazioni Nasdaq-100.
+
+**Metrica north-star**: tempo dal primo avvio al primo report generato < 60s.
+
+Stato: ✅ LICENSE MIT · ✅ conversione EUR con rischio cambio (toggle, default ON)
+· ✅ rendimento annualizzato composto · ✅ risk-free configurabile per
+Sharpe/Sortino — restano: parser broker su file reali (P1-8), deploy pubblico.
+
+---
+
 ## Stato attuale
 
 - ~3.600 righe Python; engine a package (`data / portfolio / analytics / fundamentals / visualization`), dashboard Streamlit (`app.py`, 857 righe), 84 test unitari verdi, CI GitHub Actions.

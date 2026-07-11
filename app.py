@@ -30,6 +30,7 @@ from src.analytics.insights import (
     stock_scores,
 )
 from src.analytics.performance import (
+    annualized_geometric_return,
     annualized_sharpe,
     beta_alpha,
     max_drawdown,
@@ -38,6 +39,7 @@ from src.analytics.performance import (
 )
 from src.analytics.simulation import simulate_shock
 from src.data.cache import load_nasdaq100_prices
+from src.data.fx import convert_to_eur, fetch_eurusd
 from src.data.importers import parse_positions
 from src.data.store import (
     list_portfolios,
@@ -147,6 +149,11 @@ def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
     return fetch_fundamentals(list(tickers))
 
 
+@st.cache_data(ttl=3600, show_spinner="Scarico il cambio EUR/USD...")
+def cached_eurusd(period: str) -> pd.Series:
+    return fetch_eurusd(period)
+
+
 def eur(value: float) -> str:
     return f"{value:,.0f} €".replace(",", ".")
 
@@ -204,6 +211,13 @@ with tab_dash:
         period = st.selectbox(
             "Orizzonte storico", ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
         )
+        in_eur = st.toggle(
+            "💱 Misura tutto in euro (include il rischio cambio)",
+            value=True,
+            help="I titoli USA quotano in dollari: convertendo in EUR le metriche "
+            "includono anche le oscillazioni EUR/USD, che è il rischio reale di "
+            "un investitore europeo.",
+        )
 
         with st.expander("📂 Importa da CSV/Excel"):
             uploaded = st.file_uploader(
@@ -255,19 +269,23 @@ with tab_dash:
         try:
             tickers = tuple(sorted(amounts))
             prices = cached_prices(tickers, period)
+            bench_prices = cached_prices((BENCHMARK,), period)
+            if in_eur:
+                eurusd = cached_eurusd(period)
+                prices = convert_to_eur(prices, eurusd)
+                bench_prices = convert_to_eur(bench_prices, eurusd)
             returns = compute_daily_returns(prices)
 
             pf_daily = portfolio_daily_returns(returns, portfolio)
             pf_value = (1 + pf_daily).cumprod()
             cum_return = float(pf_value.iloc[-1] - 1)
 
-            annual_ret = portfolio_expected_return(returns, portfolio) * TRADING_DAYS
+            annual_ret = annualized_geometric_return(pf_daily)
             annual_vol = portfolio_volatility(returns, portfolio) * TRADING_DAYS**0.5
             drawdown = max_drawdown(pf_value)
             min_periods = max(15, min(60, len(returns) // 2))
             avg_corr = average_pairwise_correlation(returns, min_periods=min_periods)
 
-            bench_prices = cached_prices((BENCHMARK,), period)
             bench_daily = compute_daily_returns(bench_prices)[BENCHMARK]
             beta, alpha = beta_alpha(pf_daily, bench_daily)
 
@@ -476,16 +494,25 @@ with tab_analysis:
         prices = computed["prices"]
         pf_daily = computed["pf_daily"]
 
-        sharpe = annualized_sharpe(returns, portfolio)
-        sortino = sortino_ratio(returns, portfolio)
+        sharpe = annualized_sharpe(returns, portfolio, risk_free_rate=risk_free)
+        sortino = sortino_ratio(returns, portfolio, risk_free_rate=risk_free)
         var_95 = value_at_risk(pf_daily)
+
+        risk_free = st.number_input(
+            "Tasso risk-free annuo (%) per Sharpe/Sortino",
+            min_value=0.0, max_value=10.0, value=3.0, step=0.25,
+            help="Il rendimento senza rischio (es. titoli di stato a breve). "
+            "Con tassi positivi, uno Sharpe calcolato a tasso zero è gonfiato.",
+        ) / 100
 
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Investimento", eur(total))
         m2.metric(
-            "Guadagno atteso in 1 anno",
+            "Rendimento annualizzato (composto)",
             eur(total * computed["annual_ret"]),
             delta=f"{computed['annual_ret']:+.1%}",
+            help="CAGR del periodo osservato: a differenza della media aritmetica "
+            "non sovrastima in presenza di volatilità.",
         )
         m3.metric(
             "Oscillazione tipica in 1 anno",

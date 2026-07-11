@@ -19,6 +19,23 @@ def per_ticker_annualized_stats(returns: pd.DataFrame, trading_days: int = TRADI
     )
 
 
+def annualized_geometric_return(
+    daily_returns: pd.Series, trading_days: int = TRADING_DAYS
+) -> float:
+    """Rendimento annualizzato composto (CAGR sul periodo osservato).
+
+    A differenza della media aritmetica × 252, non sovrastima in presenza
+    di volatilità: è il numero onesto da mostrare a un investitore.
+    """
+    valid = daily_returns.dropna()
+    if len(valid) == 0:
+        return float("nan")
+    total = float((1 + valid).prod())
+    if total <= 0:
+        return -1.0
+    return total ** (trading_days / len(valid)) - 1
+
+
 def annualized_sharpe(
     returns: pd.DataFrame, portfolio: Portfolio, risk_free_rate: float = 0.0
 ) -> float:

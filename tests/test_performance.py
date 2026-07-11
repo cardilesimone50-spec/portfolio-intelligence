@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from src.analytics.performance import (
+    annualized_geometric_return,
     annualized_sharpe,
     beta_alpha,
     max_drawdown,
@@ -34,6 +35,20 @@ def test_annualized_sharpe_subtracts_risk_free_rate():
     assert annualized_sharpe(returns, PORTFOLIO, risk_free_rate=0.03) < annualized_sharpe(
         returns, PORTFOLIO
     )
+
+
+def test_annualized_geometric_return_compounds():
+    daily = pd.Series([0.01] * 252)
+    assert annualized_geometric_return(daily) == pytest.approx(1.01**252 - 1)
+
+
+def test_geometric_return_below_arithmetic_with_volatility():
+    # +10% poi -10% = perdita composta; la media aritmetica direbbe zero
+    daily = pd.Series([0.10, -0.10] * 50)
+    geometric = annualized_geometric_return(daily)
+    arithmetic = float(daily.mean()) * 252
+    assert geometric < arithmetic
+    assert geometric < 0
 
 
 def test_max_drawdown():
