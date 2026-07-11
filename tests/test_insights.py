@@ -142,6 +142,32 @@ def test_find_opportunities_flags_missing_defensive_sectors_and_cheap_stock():
     assert "INTC" in text  # P/E 18 sotto soglia
 
 
+def test_reduce_position_renormalizes():
+    from src.analytics.insights import reduce_position
+
+    pf = [{"ticker": "A", "weight": 0.6}, {"ticker": "B", "weight": 0.4}]
+    reduced = reduce_position(pf, "A", reduction=0.5)
+    weights = {p["ticker"]: p["weight"] for p in reduced}
+    assert sum(weights.values()) == pytest.approx(1.0)
+    assert weights["A"] == pytest.approx(0.3 / 0.7)
+    assert weights["A"] < 0.6  # ridotto davvero
+
+
+def test_reduce_position_unknown_ticker_raises():
+    from src.analytics.insights import reduce_position
+
+    with pytest.raises(ValueError, match="ZZZ"):
+        reduce_position([{"ticker": "A", "weight": 1.0}], "ZZZ")
+
+
+def test_equal_weight_portfolio():
+    from src.analytics.insights import equal_weight_portfolio
+
+    pf = [{"ticker": "A", "weight": 0.9}, {"ticker": "B", "weight": 0.1}]
+    equal = equal_weight_portfolio(pf)
+    assert all(p["weight"] == pytest.approx(0.5) for p in equal)
+
+
 def test_generate_insights_mentions_top_risk_contributors():
     contrib = risk_contributions(RETURNS, PORTFOLIO)
     insights = generate_insights("1y", 0.12, contrib, 0.7, -0.20, 1.3, "QQQ")

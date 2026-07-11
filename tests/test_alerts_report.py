@@ -57,7 +57,7 @@ def test_build_report_produces_valid_pdf():
         positions={"AAPL": 4000.0, "MSFT": 3000.0},
         period="1y",
         cum_return=0.184,
-        risk_score=72,
+        health_score=72,
         metrics={"Sharpe ratio": "1.01", "VaR 95%": "-197 €"},
         insights=["**AAPL** e **MSFT** dominano il rischio."],
         suggestions=["Diversifica su più settori."],

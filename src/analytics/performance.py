@@ -59,15 +59,20 @@ def max_drawdown(prices: pd.Series) -> float:
 def sortino_ratio(
     returns: pd.DataFrame, portfolio: Portfolio, risk_free_rate: float = 0.0
 ) -> float:
-    """Come lo Sharpe, ma penalizza solo la volatilità al ribasso."""
+    """Come lo Sharpe, ma penalizza solo la volatilità al ribasso.
+
+    Downside deviation calcolata su TUTTE le osservazioni (rendimenti positivi
+    troncati a zero), come da definizione standard: mediare solo sui giorni
+    negativi la sovrastimerebbe.
+    """
     daily = portfolio_daily_returns(returns, portfolio)
-    downside = daily[daily < 0]
-    if len(downside) == 0:
-        return float("inf")
-    downside_deviation = float((downside**2).mean() ** 0.5) * TRADING_DAYS**0.5
-    if downside_deviation == 0:
+    if len(daily) == 0:
         return float("nan")
+    downside = daily.clip(upper=0.0)
+    downside_deviation = float((downside**2).mean() ** 0.5) * TRADING_DAYS**0.5
     annual_return = float(daily.mean()) * TRADING_DAYS
+    if downside_deviation == 0:
+        return float("inf") if annual_return > risk_free_rate else float("nan")
     return (annual_return - risk_free_rate) / downside_deviation
 
 

@@ -172,6 +172,23 @@ def monthly_returns(daily_returns: pd.Series, months: int = 12) -> pd.Series:
 DEFENSIVE_SECTORS = ("Healthcare", "Consumer Defensive", "Utilities")
 
 
+def reduce_position(portfolio: Portfolio, ticker: str, reduction: float = 0.5) -> Portfolio:
+    """Riduce il peso di `ticker` di `reduction` e rinormalizza: la quota
+    liberata si redistribuisce proporzionalmente sugli altri titoli."""
+    weights = weights_series(portfolio).copy()
+    if ticker not in weights.index:
+        raise ValueError(f"Ticker '{ticker}' non presente nel portafoglio")
+    weights[ticker] *= 1 - reduction
+    weights = weights / weights.sum()
+    return [{"ticker": t, "weight": float(w)} for t, w in weights.items() if w > 0]
+
+
+def equal_weight_portfolio(portfolio: Portfolio) -> Portfolio:
+    """Stesso portafoglio, pesi uguali su tutti i titoli."""
+    n = len(portfolio)
+    return [{"ticker": p["ticker"], "weight": 1 / n} for p in portfolio]
+
+
 def portfolio_health_score(dna: dict[str, float], radar: dict[str, float]) -> int:
     """Punteggio di salute 0-100: 40% basso rischio, 30% Quality,
     15% Value, 15% diversificazione (bassa concentrazione)."""

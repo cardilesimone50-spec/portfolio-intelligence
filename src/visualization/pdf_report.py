@@ -27,7 +27,7 @@ def build_report(
     positions: dict[str, float],
     period: str,
     cum_return: float,
-    risk_score: int,
+    health_score: int,
     metrics: dict[str, str],
     insights: list[str],
     suggestions: list[str],
@@ -60,12 +60,12 @@ def build_report(
 
     summary = Table(
         [
-            ["Investimento", "Valore stimato", "Rendimento (" + period + ")", "Rischio"],
+            ["Investimento", "Valore stimato", "Rendimento (" + period + ")", "Health Score"],
             [
                 _eur(total),
                 _eur(total * (1 + cum_return)),
                 f"{cum_return:+.1%}",
-                f"{risk_score}/100",
+                f"{health_score}/100",
             ],
         ],
         colWidths=[43 * mm] * 4,
