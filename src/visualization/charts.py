@@ -49,6 +49,47 @@ def correlation_bars(series: pd.Series) -> alt.Chart:
     return (bars + labels).properties(height=26 * len(df) + 20)
 
 
+def efficient_frontier_chart(frontier: pd.DataFrame, points: pd.DataFrame) -> alt.Chart:
+    """Frontiera efficiente (linea) + portafogli notevoli (punti etichettati).
+
+    `points` ha colonne: nome, annual_return, annual_volatility.
+    """
+    line = (
+        alt.Chart(frontier)
+        .mark_line(strokeWidth=2, color="#9b9a91")
+        .encode(
+            x=alt.X("annual_volatility:Q", title="Volatilità annualizzata",
+                    axis=alt.Axis(format="%")),
+            y=alt.Y("annual_return:Q", title="Rendimento annualizzato",
+                    axis=alt.Axis(format="%")),
+        )
+    )
+    dots = (
+        alt.Chart(points)
+        .mark_point(size=140, filled=True)
+        .encode(
+            x="annual_volatility:Q",
+            y="annual_return:Q",
+            color=alt.Color(
+                "nome:N",
+                scale=alt.Scale(domain=list(points["nome"]), range=PALETTE),
+                legend=alt.Legend(title=None, orient="top"),
+            ),
+            tooltip=[
+                alt.Tooltip("nome:N", title="Portafoglio"),
+                alt.Tooltip("annual_return:Q", title="Rendimento", format=".1%"),
+                alt.Tooltip("annual_volatility:Q", title="Volatilità", format=".1%"),
+            ],
+        )
+    )
+    labels = (
+        alt.Chart(points)
+        .mark_text(align="left", dx=10, fontWeight="bold")
+        .encode(x="annual_volatility:Q", y="annual_return:Q", text="nome:N")
+    )
+    return (line + dots + labels).properties(height=380)
+
+
 def correlation_heatmap(corr: pd.DataFrame) -> alt.Chart:
     """Heatmap della matrice di correlazione con valori nelle celle."""
     heat_df = (

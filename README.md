@@ -1,8 +1,10 @@
 # Portfolio Intelligence
 
 Dashboard Python per l'analisi di portafogli azionari su dati Yahoo Finance:
-rendimento/rischio in euro, correlazioni, fondamentali, classifiche Nasdaq-100
-e ottimizzazione dei pesi (Markowitz long-only).
+rendimento/rischio in euro (Sharpe, Sortino, max drawdown, VaR, beta/alpha vs
+Nasdaq-100), correlazioni, fondamentali, classifiche Nasdaq-100 e ottimizzazione
+di Markowitz con frontiera efficiente. Storico prezzi in SQLite con
+aggiornamento incrementale.
 
 ## Avvio
 
@@ -19,9 +21,9 @@ python -m pytest                                  # test
 
 ```
 src/
-├── data/            accesso rete (yahoo_client), cache CSV, validazione input
-├── portfolio/       tipi base, rendimenti, rischio, ottimizzazione pesi
-├── analytics/       metriche di performance (Sharpe, drawdown, statistiche annualizzate)
+├── data/            accesso rete (yahoo_client), database SQLite (store), validazione
+├── portfolio/       tipi base, rendimenti, rischio, ottimizzazione e frontiera efficiente
+├── analytics/       performance: Sharpe, Sortino, drawdown, VaR, beta/alpha
 ├── fundamentals/    bilanci e multipli di valutazione
 ├── visualization/   grafici Altair riusabili
 ├── cli.py           parsing argomenti CLI

@@ -6,14 +6,26 @@ Avvio: streamlit run app.py
 import pandas as pd
 import streamlit as st
 
-from src.analytics.performance import annualized_sharpe
-from src.data.cache import NASDAQ100_PRICES, load_nasdaq100_prices
+from src.analytics.performance import (
+    annualized_sharpe,
+    beta_alpha,
+    max_drawdown,
+    sortino_ratio,
+    value_at_risk,
+)
+from src.data.cache import load_nasdaq100_prices
+from src.data.store import load_prices as load_stored_prices
 from src.data.yahoo_client import fetch_price_history
 from src.fundamentals.valuation import fetch_fundamentals
-from src.portfolio.optimization import max_sharpe_weights, minimum_variance_weights
+from src.portfolio.optimization import (
+    efficient_frontier,
+    max_sharpe_weights,
+    minimum_variance_weights,
+)
 from src.portfolio.returns import (
     compute_daily_returns,
     per_ticker_cumulative_return,
+    portfolio_daily_returns,
     portfolio_expected_return,
 )
 from src.portfolio.risk import (
@@ -27,7 +39,10 @@ from src.visualization.charts import (
     allocation_bars,
     correlation_bars,
     correlation_heatmap,
+    efficient_frontier_chart,
 )
+
+BENCHMARK = "QQQ"  # ETF sul Nasdaq-100
 
 TRADING_DAYS = 252
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
@@ -64,6 +79,14 @@ def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
 
 def eur(value: float) -> str:
     return f"{value:,.0f} €".replace(",", ".")
+
+
+def load_market_db() -> pd.DataFrame | None:
+    """Prezzi Nasdaq-100 dal database SQLite, con fallback sul vecchio CSV."""
+    prices = load_stored_prices()
+    if prices is not None:
+        return prices
+    return load_nasdaq100_prices()
 
 
 st.title("Portfolio Intelligence")
@@ -118,6 +141,16 @@ with tab_portfolio:
                 annual_vol = portfolio_volatility(returns, portfolio) * TRADING_DAYS**0.5
                 sharpe = annualized_sharpe(returns, portfolio)
 
+                pf_daily = portfolio_daily_returns(returns, portfolio)
+                pf_value = (1 + pf_daily).cumprod()
+                drawdown = max_drawdown(pf_value)
+                sortino = sortino_ratio(returns, portfolio)
+                var_95 = value_at_risk(pf_daily)
+
+                bench_prices = cached_prices((BENCHMARK,), period)
+                bench_daily = compute_daily_returns(bench_prices)[BENCHMARK]
+                beta, alpha = beta_alpha(pf_daily, bench_daily)
+
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Investimento", eur(total))
                 m2.metric(
@@ -136,6 +169,33 @@ with tab_portfolio:
                     f"{sharpe:.2f}",
                     help="Rendimento per unità di rischio: sopra 1 è buono, sopra 2 ottimo.",
                 )
+
+                r1, r2, r3, r4 = st.columns(4)
+                r1.metric(
+                    "Sortino ratio",
+                    f"{sortino:.2f}",
+                    help="Come lo Sharpe ma conta solo i giorni negativi: "
+                    "premia chi sale senza crollare.",
+                )
+                r2.metric(
+                    "Perdita massima storica",
+                    f"{drawdown:.1%}",
+                    help="Max drawdown: la peggior discesa dal picco nel periodo scelto.",
+                )
+                r3.metric(
+                    "VaR 95% (1 giorno)",
+                    eur(total * var_95),
+                    help="Nel 95% dei giorni non perdi più di questa cifra "
+                    "(stima storica, non una garanzia).",
+                )
+                r4.metric(
+                    f"Beta vs {BENCHMARK}",
+                    f"{beta:.2f}",
+                    delta=f"α {alpha:+.1%}/anno",
+                    delta_color="off",
+                    help="Beta 1 = ti muovi come il Nasdaq-100; >1 amplifichi. "
+                    "Alpha: extra-rendimento non spiegato dal mercato.",
+                )
                 st.caption(
                     "Stime basate sull'andamento storico del periodo selezionato: "
                     "non sono una previsione."
@@ -149,28 +209,74 @@ with tab_portfolio:
                 st.line_chart(normalized, color=PALETTE[: len(normalized.columns)], height=320)
 
                 if len(amounts) >= 2:
-                    with st.expander("💡 Pesi suggeriti dall'ottimizzatore"):
-                        st.caption(
-                            "Pesi calcolati sui rendimenti storici del periodo scelto "
-                            "(ottimizzazione di Markowitz, solo posizioni long). "
-                            "Il passato non garantisce il futuro."
+                    st.divider()
+                    st.markdown("### 💡 Puoi fare di meglio? Ottimizzazione di Markowitz")
+                    st.caption(
+                        "La linea grigia è la frontiera efficiente: per ogni livello di "
+                        "rischio, il miglior rendimento raggiungibile combinando i tuoi "
+                        "titoli. Calcolata sui rendimenti storici del periodo scelto: "
+                        "il passato non garantisce il futuro."
+                    )
+
+                    w_current = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
+                    candidates = {
+                        "Attuale": w_current,
+                        "Minimo rischio": minimum_variance_weights(returns),
+                        "Massimo Sharpe": max_sharpe_weights(returns),
+                    }
+
+                    def pf_stats(weights: pd.Series) -> tuple[float, float]:
+                        pf = [
+                            {"ticker": t, "weight": float(w)}
+                            for t, w in weights.items()
+                            if w > 0
+                        ]
+                        ret = portfolio_expected_return(returns, pf) * TRADING_DAYS
+                        vol = portfolio_volatility(returns, pf) * TRADING_DAYS**0.5
+                        return ret, vol
+
+                    points = pd.DataFrame(
+                        [
+                            {"nome": name, "annual_return": r, "annual_volatility": v}
+                            for name, (r, v) in (
+                                (name, pf_stats(w)) for name, w in candidates.items()
+                            )
+                        ]
+                    )
+
+                    col_frontier, col_compare = st.columns([3, 2], gap="large")
+                    with col_frontier:
+                        frontier = efficient_frontier(returns)
+                        st.altair_chart(
+                            efficient_frontier_chart(frontier, points),
+                            use_container_width=True,
                         )
-                        w_minvar = minimum_variance_weights(returns)
-                        w_sharpe = max_sharpe_weights(returns)
-                        suggestions = pd.DataFrame(
-                            {
-                                "Attuale": pd.Series(
-                                    {p["ticker"]: p["weight"] for p in portfolio}
-                                ),
-                                "Minimo rischio": w_minvar,
-                                "Massimo Sharpe": w_sharpe,
-                            }
+                    with col_compare:
+                        st.markdown("**Confronto**")
+                        compare = points.set_index("nome")
+                        compare["sharpe"] = (
+                            compare["annual_return"] / compare["annual_volatility"]
                         )
                         st.dataframe(
-                            suggestions,
+                            compare,
+                            column_config={
+                                "annual_return": st.column_config.NumberColumn(
+                                    "Rendimento", format="percent"
+                                ),
+                                "annual_volatility": st.column_config.NumberColumn(
+                                    "Volatilità", format="percent"
+                                ),
+                                "sharpe": st.column_config.NumberColumn(
+                                    "Sharpe", format="%.2f"
+                                ),
+                            },
+                        )
+                        st.markdown("**Pesi suggeriti**")
+                        st.dataframe(
+                            pd.DataFrame(candidates),
                             column_config={
                                 c: st.column_config.NumberColumn(c, format="percent")
-                                for c in suggestions.columns
+                                for c in candidates
                             },
                         )
             except ValueError as exc:
@@ -185,7 +291,7 @@ with tab_corr:
         "Titoli molto correlati non diversificano il rischio."
     )
 
-    all_prices = load_nasdaq100_prices()
+    all_prices = load_market_db()
     if all_prices is None:
         st.info(
             "Serve il database Nasdaq-100: esegui `python download_nasdaq100.py` dal terminale."
@@ -305,7 +411,7 @@ with tab_fundamentals:
 with tab_nasdaq:
     st.subheader("I 103 componenti del Nasdaq-100 a confronto")
 
-    all_prices = load_nasdaq100_prices()
+    all_prices = load_market_db()
     if all_prices is None:
         st.info(
             "Database non ancora scaricato: esegui `python download_nasdaq100.py` dal terminale."

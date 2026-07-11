@@ -17,6 +17,12 @@ def portfolio_expected_return(returns: pd.DataFrame, portfolio: Portfolio) -> fl
     return float((mean_returns * weights).sum())
 
 
+def portfolio_daily_returns(returns: pd.DataFrame, portfolio: Portfolio) -> pd.Series:
+    """Serie dei rendimenti giornalieri dell'intero portafoglio (somma pesata)."""
+    weights = weights_series(portfolio)
+    return returns[weights.index].mul(weights).sum(axis=1, min_count=1).dropna()
+
+
 def per_ticker_cumulative_return(prices: pd.DataFrame) -> pd.Series:
     """Rendimento cumulato per ticker: ultimo prezzo valido / primo prezzo valido - 1."""
 

@@ -2,7 +2,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.portfolio.optimization import max_sharpe_weights, minimum_variance_weights
+from src.portfolio.optimization import (
+    efficient_frontier,
+    max_sharpe_weights,
+    minimum_variance_weights,
+)
 
 rng = np.random.default_rng(7)
 
@@ -30,6 +34,16 @@ def test_max_sharpe_prefers_high_return_per_risk():
     assert weights.sum() == pytest.approx(1.0)
     assert (weights >= 0).all()
     assert weights.idxmax() == "GOOD"
+
+
+def test_efficient_frontier_is_increasing_in_return():
+    frontier = efficient_frontier(RETURNS, n_points=10)
+    assert len(frontier) >= 5
+    assert frontier["annual_return"].is_monotonic_increasing
+    assert (frontier["annual_volatility"] > 0).all()
+    # il primo punto è il portafoglio a minima varianza
+    minvar_vol = frontier["annual_volatility"].iloc[0]
+    assert minvar_vol == frontier["annual_volatility"].min()
 
 
 def test_min_variance_of_independent_equal_assets_is_split():

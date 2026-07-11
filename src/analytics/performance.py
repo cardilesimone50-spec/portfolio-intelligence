@@ -3,7 +3,7 @@
 import pandas as pd
 
 from src.portfolio import Portfolio
-from src.portfolio.returns import portfolio_expected_return
+from src.portfolio.returns import portfolio_daily_returns, portfolio_expected_return
 from src.portfolio.risk import portfolio_volatility
 
 TRADING_DAYS = 252
@@ -37,3 +37,48 @@ def max_drawdown(prices: pd.Series) -> float:
         return float("nan")
     drawdowns = valid / valid.cummax() - 1
     return float(drawdowns.min())
+
+
+def sortino_ratio(
+    returns: pd.DataFrame, portfolio: Portfolio, risk_free_rate: float = 0.0
+) -> float:
+    """Come lo Sharpe, ma penalizza solo la volatilità al ribasso."""
+    daily = portfolio_daily_returns(returns, portfolio)
+    downside = daily[daily < 0]
+    if len(downside) == 0:
+        return float("inf")
+    downside_deviation = float((downside**2).mean() ** 0.5) * TRADING_DAYS**0.5
+    if downside_deviation == 0:
+        return float("nan")
+    annual_return = float(daily.mean()) * TRADING_DAYS
+    return (annual_return - risk_free_rate) / downside_deviation
+
+
+def value_at_risk(daily_returns: pd.Series, confidence: float = 0.95) -> float:
+    """VaR storico giornaliero: perdita che non viene superata nel `confidence`%
+    dei giorni, come numero negativo (es. -0.03 = -3%)."""
+    valid = daily_returns.dropna()
+    if len(valid) < 20:
+        return float("nan")
+    return float(valid.quantile(1 - confidence))
+
+
+def beta_alpha(
+    portfolio_returns: pd.Series, benchmark_returns: pd.Series
+) -> tuple[float, float]:
+    """Beta e alpha (annualizzato) del portafoglio rispetto a un benchmark.
+
+    Beta ~1: si muove come il benchmark; >1 amplifica; <1 attenua.
+    Alpha: extra-rendimento annuo non spiegato dal benchmark.
+    """
+    aligned = pd.concat(
+        {"pf": portfolio_returns, "bench": benchmark_returns}, axis=1
+    ).dropna()
+    if len(aligned) < 20:
+        return float("nan"), float("nan")
+    bench_var = float(aligned["bench"].var())
+    if bench_var == 0:
+        return float("nan"), float("nan")
+    beta = float(aligned["pf"].cov(aligned["bench"])) / bench_var
+    alpha = (float(aligned["pf"].mean()) - beta * float(aligned["bench"].mean())) * TRADING_DAYS
+    return beta, alpha
