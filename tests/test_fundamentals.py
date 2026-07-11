@@ -1,6 +1,6 @@
 import pytest
 
-from src.fundamentals import fetch_fundamentals
+from src.fundamentals.valuation import fetch_fundamentals
 
 FAKE_INFO = {
     "shortName": "Example Corp",
@@ -26,7 +26,7 @@ class FakeTicker:
 
 
 def test_fetch_fundamentals_maps_fields(monkeypatch):
-    monkeypatch.setattr("src.fundamentals.yf.Ticker", FakeTicker)
+    monkeypatch.setattr("src.data.yahoo_client.yf.Ticker", FakeTicker)
 
     data = fetch_fundamentals(["EXMP"])
 
@@ -43,7 +43,7 @@ def test_fetch_fundamentals_maps_fields(monkeypatch):
 
 
 def test_fetch_fundamentals_skips_tickers_without_data(monkeypatch):
-    monkeypatch.setattr("src.fundamentals.yf.Ticker", FakeTicker)
+    monkeypatch.setattr("src.data.yahoo_client.yf.Ticker", FakeTicker)
 
     data = fetch_fundamentals(["EXMP", "NODATA"])
 
@@ -51,7 +51,7 @@ def test_fetch_fundamentals_skips_tickers_without_data(monkeypatch):
 
 
 def test_fetch_fundamentals_all_missing_raises(monkeypatch):
-    monkeypatch.setattr("src.fundamentals.yf.Ticker", FakeTicker)
+    monkeypatch.setattr("src.data.yahoo_client.yf.Ticker", FakeTicker)
 
     with pytest.raises(ValueError, match="NODATA"):
         fetch_fundamentals(["NODATA"])

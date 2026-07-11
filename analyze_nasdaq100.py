@@ -5,20 +5,19 @@ from pathlib import Path
 
 import pandas as pd
 
-from download_nasdaq100 import OUTPUT_PATH, download_nasdaq100_prices
-from src.analytics import compute_daily_returns, per_ticker_annualized_stats
+from download_nasdaq100 import download_nasdaq100_prices
+from src.analytics.performance import per_ticker_annualized_stats
+from src.data.cache import load_nasdaq100_prices
+from src.portfolio.returns import compute_daily_returns
 
 RESULT_PATH = Path("data/nasdaq100_returns.csv")
 
 
-def load_prices() -> pd.DataFrame:
-    if OUTPUT_PATH.exists():
-        return pd.read_csv(OUTPUT_PATH, index_col=0, parse_dates=True)
-    return download_nasdaq100_prices()
-
-
 def main() -> None:
-    prices = load_prices()
+    prices = load_nasdaq100_prices()
+    if prices is None:
+        prices = download_nasdaq100_prices()
+
     returns = compute_daily_returns(prices)
     stats = per_ticker_annualized_stats(returns).sort_values("annual_return", ascending=False)
 

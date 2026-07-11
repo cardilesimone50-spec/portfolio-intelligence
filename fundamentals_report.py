@@ -4,7 +4,7 @@ per una lista di ticker passata da linea di comando."""
 import argparse
 import sys
 
-from src.fundamentals import fetch_fundamentals
+from src.fundamentals.valuation import fetch_fundamentals
 
 
 def _fmt_money(value: float | None) -> str:

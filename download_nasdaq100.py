@@ -1,14 +1,12 @@
 """Scarica lo storico dei prezzi (5 anni) di tutti i componenti del Nasdaq-100
 e li salva come CSV locale in data/nasdaq100_prices.csv."""
 
-from pathlib import Path
-
 import pandas as pd
 import yfinance as yf
 
-from src.nasdaq100 import get_nasdaq100_tickers
+from src.data.cache import NASDAQ100_PRICES, save_nasdaq100_prices
+from src.data.yahoo_client import get_nasdaq100_tickers
 
-OUTPUT_PATH = Path("data/nasdaq100_prices.csv")
 PERIOD = "5y"
 
 
@@ -32,9 +30,8 @@ def download_nasdaq100_prices() -> pd.DataFrame:
 
 def main() -> None:
     prices = download_nasdaq100_prices()
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    prices.to_csv(OUTPUT_PATH)
-    print(f"Salvati {prices.shape[0]} giorni x {prices.shape[1]} ticker in {OUTPUT_PATH}")
+    save_nasdaq100_prices(prices)
+    print(f"Salvati {prices.shape[0]} giorni x {prices.shape[1]} ticker in {NASDAQ100_PRICES}")
 
 
 if __name__ == "__main__":

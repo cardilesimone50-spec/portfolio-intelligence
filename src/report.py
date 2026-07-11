@@ -1,12 +1,10 @@
 """Genera un report di rendimento e volatilità per un portafoglio."""
 
-from src.analytics import (
-    compute_daily_returns,
-    portfolio_expected_return,
-    portfolio_volatility,
-)
-from src.market_data import fetch_price_history
-from src.portfolio import Portfolio, weights_sum_to_one
+from src.data.validators import weights_sum_to_one
+from src.data.yahoo_client import fetch_price_history
+from src.portfolio import Portfolio
+from src.portfolio.returns import compute_daily_returns, portfolio_expected_return
+from src.portfolio.risk import portfolio_volatility
 
 
 def generate_report(portfolio: Portfolio, period: str = "1y") -> None:

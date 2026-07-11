@@ -1,13 +1,13 @@
 import pandas as pd
 import pytest
 
-from src.analytics import (
+from src.analytics.performance import per_ticker_annualized_stats
+from src.portfolio.returns import (
     compute_daily_returns,
-    per_ticker_annualized_stats,
     per_ticker_cumulative_return,
     portfolio_expected_return,
-    portfolio_volatility,
 )
+from src.portfolio.risk import portfolio_volatility
 
 PRICES = pd.DataFrame(
     {

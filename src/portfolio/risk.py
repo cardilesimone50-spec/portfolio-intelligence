@@ -1,53 +1,15 @@
-"""Calcolo di rendimento e rischio di un portafoglio a partire dai prezzi storici."""
+"""Misure di rischio: volatilità e correlazioni."""
 
 import pandas as pd
 
-from src.portfolio import Portfolio
-
-
-def compute_daily_returns(prices: pd.DataFrame) -> pd.DataFrame:
-    # how="all": un ticker quotato da poco non deve cancellare lo storico degli altri;
-    # mean/std/cov di pandas ignorano già i NaN residui per colonna.
-    return prices.pct_change().dropna(how="all")
-
-
-def _weights_series(portfolio: Portfolio) -> pd.Series:
-    return pd.Series({position["ticker"]: position["weight"] for position in portfolio})
-
-
-def portfolio_expected_return(returns: pd.DataFrame, portfolio: Portfolio) -> float:
-    weights = _weights_series(portfolio)
-    mean_returns = returns.mean()
-    return float((mean_returns * weights).sum())
+from src.portfolio import Portfolio, weights_series
 
 
 def portfolio_volatility(returns: pd.DataFrame, portfolio: Portfolio) -> float:
-    weights = _weights_series(portfolio)
+    weights = weights_series(portfolio)
     cov_matrix = returns.cov()
     variance = weights @ cov_matrix @ weights
     return float(variance**0.5)
-
-
-def per_ticker_cumulative_return(prices: pd.DataFrame) -> pd.Series:
-    """Rendimento cumulato per ticker: ultimo prezzo valido / primo prezzo valido - 1."""
-
-    def column_return(series: pd.Series) -> float:
-        valid = series.dropna()
-        if len(valid) < 2:
-            return float("nan")
-        return float(valid.iloc[-1] / valid.iloc[0] - 1)
-
-    return prices.apply(column_return)
-
-
-def per_ticker_annualized_stats(returns: pd.DataFrame, trading_days: int = 252) -> pd.DataFrame:
-    """Rendimento e volatilità annualizzati per ciascun ticker, dai rendimenti giornalieri."""
-    return pd.DataFrame(
-        {
-            "annual_return": returns.mean() * trading_days,
-            "annual_volatility": returns.std() * trading_days**0.5,
-        }
-    )
 
 
 def correlation_matrix(returns: pd.DataFrame, min_periods: int = 40) -> pd.DataFrame:

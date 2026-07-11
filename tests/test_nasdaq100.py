@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 import requests
 
-from src.nasdaq100 import get_nasdaq100_tickers
+from src.data.yahoo_client import get_nasdaq100_tickers
 
 FAKE_HTML = """
 <table>
@@ -23,7 +23,7 @@ class FakeResponse:
 
 def test_get_nasdaq100_tickers_parses_symbols(monkeypatch):
     monkeypatch.setattr(
-        "src.nasdaq100.requests.get", lambda url, headers, timeout: FakeResponse(FAKE_HTML)
+        "src.data.yahoo_client.requests.get", lambda url, headers, timeout: FakeResponse(FAKE_HTML)
     )
     tickers = get_nasdaq100_tickers()
     assert tickers == ["EXMP", "SMPL"]
@@ -33,7 +33,7 @@ def test_get_nasdaq100_tickers_network_error_raises(monkeypatch):
     def fake_get(url, headers, timeout):
         raise requests.exceptions.ConnectionError("boom")
 
-    monkeypatch.setattr("src.nasdaq100.requests.get", fake_get)
+    monkeypatch.setattr("src.data.yahoo_client.requests.get", fake_get)
 
     with pytest.raises(ValueError, match="rete"):
         get_nasdaq100_tickers()

@@ -1,4 +1,4 @@
-from src.portfolio import weights_sum_to_one
+from src.data.validators import weights_sum_to_one
 
 
 def test_weights_sum_to_one_valid():

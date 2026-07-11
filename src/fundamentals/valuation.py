@@ -1,7 +1,8 @@
-"""Recupero dei dati fondamentali (bilancio e multipli) da Yahoo Finance."""
+"""Fondamentali di bilancio e multipli di valutazione."""
 
 import pandas as pd
-import yfinance as yf
+
+from src.data.yahoo_client import get_ticker_info
 
 # Campo yfinance -> nome colonna del report
 _FIELDS = {
@@ -31,7 +32,7 @@ def fetch_fundamentals(tickers: list[str]) -> pd.DataFrame:
     rows = {}
     for ticker in tickers:
         try:
-            info = yf.Ticker(ticker).info
+            info = get_ticker_info(ticker)
         except Exception:
             continue
         if not info or info.get("totalRevenue") is None:

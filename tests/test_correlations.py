@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analytics import (
+from src.portfolio.risk import (
     average_pairwise_correlation,
     correlation_matrix,
     correlations_with,
