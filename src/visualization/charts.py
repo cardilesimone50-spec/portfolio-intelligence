@@ -6,8 +6,12 @@ import pandas as pd
 
 # Palette categorica validata per superficie scura (dataviz skill, dark mode)
 PALETTE = ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"]
-# Coppia divergente: blu = opposti/perdita, neutro scuro = zero, rosso = insieme/guadagno
+# Correlazione: blu = opposti, neutro scuro = zero, rosso = si muovono insieme
 DIVERGING = ["#3987e5", "#2a2d35", "#e66767"]
+# Rendimenti: convenzione finanza — rosso = perdita, verde = guadagno
+LOSS = "#ea3943"
+GAIN = "#16c784"
+RETURNS_DIVERGING = [LOSS, "#2a2d35", GAIN]
 TEXT_COLOR = "#e8e8e3"
 
 
@@ -92,7 +96,7 @@ def galaxy_chart(
             ),
             color=alt.Color(
                 "rendimento:Q",
-                scale=alt.Scale(domain=[-max_abs, 0, max_abs], range=DIVERGING),
+                scale=alt.Scale(domain=[-max_abs, 0, max_abs], range=RETURNS_DIVERGING),
                 legend=alt.Legend(title="Rendimento", format="+.0%", orient="bottom"),
             ),
             tooltip=[
@@ -192,13 +196,43 @@ def monthly_bars(monthly: pd.Series) -> alt.Chart:
     )
     bars = base.mark_bar(cornerRadiusEnd=4, width=28).encode(
         color=alt.condition(
-            "datum.rendimento >= 0", alt.value(DIVERGING[2]), alt.value(DIVERGING[0])
+            "datum.rendimento >= 0", alt.value(GAIN), alt.value(LOSS)
         )
     )
     labels = base.mark_text(dy=-10, color=TEXT_COLOR).encode(
         text=alt.Text("rendimento:Q", format="+.1%")
     )
     return (bars + labels).properties(height=240)
+
+
+def equity_area(values: pd.Series, baseline: float) -> alt.Chart:
+    """Curva del capitale: area riempita, verde sopra il capitale investito,
+    rossa sotto, con linea tratteggiata sul capitale iniziale."""
+    df = values.rename("valore").rename_axis("data").reset_index()
+    color = GAIN if float(values.iloc[-1]) >= baseline else LOSS
+    low = min(float(values.min()), baseline) * 0.97
+    high = max(float(values.max()), baseline) * 1.02
+    area = (
+        alt.Chart(df)
+        .mark_area(opacity=0.14, color=color, line={"color": color, "strokeWidth": 2},
+                   clip=True)
+        .encode(
+            x=alt.X("data:T", title=None, axis=alt.Axis(grid=False)),
+            y=alt.Y("valore:Q", title=None,
+                    scale=alt.Scale(domain=[low, high]),
+                    axis=alt.Axis(format="~s")),
+            tooltip=[
+                alt.Tooltip("data:T", title="Data"),
+                alt.Tooltip("valore:Q", title="Valore", format=",.0f"),
+            ],
+        )
+    )
+    rule = (
+        alt.Chart(pd.DataFrame({"y": [baseline]}))
+        .mark_rule(strokeDash=[5, 5], color="#5a6270")
+        .encode(y="y:Q")
+    )
+    return (area + rule).properties(height=190)
 
 
 def efficient_frontier_chart(frontier: pd.DataFrame, points: pd.DataFrame) -> alt.Chart:
