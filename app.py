@@ -18,9 +18,12 @@ from src.analytics.backtest import (
 from src.analytics.insights import (
     dna_label,
     dna_scores,
+    find_opportunities,
+    find_problems,
     generate_insights,
     generate_suggestions,
     monthly_returns,
+    portfolio_health_score,
     portfolio_risk_score,
     radar_scores,
     risk_contributions,
@@ -357,6 +360,30 @@ with tab_dash:
                     st.info("Periodo troppo corto per la vista mensile.")
 
             st.divider()
+            st.markdown("#### 🩺 Check-up del portafoglio")
+            health = portfolio_health_score(dna, radar)
+            col_score, col_problems, col_opps = st.columns([1, 1.5, 1.5], gap="large")
+            with col_score:
+                st.metric(
+                    "Portfolio Score",
+                    f"{health}/100",
+                    help="40% basso rischio, 30% qualità dei bilanci, 15% valutazioni, "
+                    "15% diversificazione. Euristica dichiarata, non un giudizio assoluto.",
+                )
+            with col_problems:
+                st.markdown("**Problemi trovati**")
+                problems = find_problems(portfolio, fund, contributions, avg_corr, radar)
+                if problems:
+                    for problem in problems:
+                        st.markdown(problem)
+                else:
+                    st.markdown("Nessun problema rilevato dalle regole monitorate ✓")
+            with col_opps:
+                st.markdown("**Opportunità**")
+                for opportunity in find_opportunities(portfolio, fund):
+                    st.markdown(opportunity)
+
+            st.divider()
             st.markdown("#### 🧪 Simulatore \"What if?\"")
             col_sim_in, col_sim_out = st.columns([1, 2], gap="large")
             with col_sim_in:
@@ -405,8 +432,9 @@ with tab_dash:
                         cum_return=cum_return,
                         risk_score=risk_score,
                         metrics=report_metrics,
-                        insights=insights,
-                        suggestions=generate_suggestions(dna, radar, contributions),
+                        insights=insights + problems,
+                        suggestions=generate_suggestions(dna, radar, contributions)
+                        + find_opportunities(portfolio, fund),
                     ),
                     file_name=f"portfolio_report_{pd.Timestamp.now():%Y%m%d}.pdf",
                     mime="application/pdf",
@@ -643,6 +671,10 @@ with tab_fundamentals:
                 data,
                 column_config={
                     "name": st.column_config.TextColumn("Nome"),
+                    "sector": st.column_config.TextColumn("Settore"),
+                    "dividend_yield": st.column_config.NumberColumn(
+                        "Div. yield", format="%.2f%%"
+                    ),
                     "revenue": st.column_config.NumberColumn("Ricavi (TTM)", format="compact"),
                     "net_income": st.column_config.NumberColumn(
                         "Utile netto (TTM)", format="compact"

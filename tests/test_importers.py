@@ -30,6 +30,21 @@ def test_parse_excel():
     assert positions == {"AAPL": 2500.0}
 
 
+def test_parse_csv_with_broker_preamble():
+    content = (
+        "Estratto conto titoli\nData: 10/07/2026\n\n"
+        "Simbolo;Quantità;Prezzo\nAAPL;10;200,50\nMSFT;5;300,00\n"
+    ).encode()
+    positions = parse_positions(content, "fineco.csv")
+    assert positions["AAPL"] == pytest.approx(2005.0)
+    assert positions["MSFT"] == pytest.approx(1500.0)
+
+
+def test_parse_quantity_times_price_fallback():
+    content = b"ticker,quantity,price\nNVDA,4,180.5\n"
+    assert parse_positions(content, "x.csv") == {"NVDA": pytest.approx(722.0)}
+
+
 def test_unrecognized_columns_raise():
     with pytest.raises(ValueError, match="Colonne non riconosciute"):
         parse_positions(b"a,b\n1,2\n", "x.csv")

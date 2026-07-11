@@ -4,11 +4,17 @@ import io
 
 import pandas as pd
 
-_TICKER_COLUMNS = {"ticker", "symbol", "titolo", "simbolo", "stock", "azione", "strumento"}
+_TICKER_COLUMNS = {
+    "ticker", "symbol", "titolo", "simbolo", "stock", "azione", "strumento",
+    "simbolo ticker", "codice",
+}
 _AMOUNT_COLUMNS = {
     "importo", "amount", "valore", "value", "controvalore", "eur", "euro",
-    "importo (€)", "controvalore (€)", "valore di mercato",
+    "importo (€)", "controvalore (€)", "valore di mercato", "valore in eur",
+    "market value", "position value", "total",
 }
+_QUANTITY_COLUMNS = {"quantità", "quantity", "shares", "no. of shares", "qta", "pezzi"}
+_PRICE_COLUMNS = {"prezzo", "price", "chiusura", "close", "prezzo medio", "price / share"}
 
 
 def _to_number(value) -> float:
@@ -31,20 +37,35 @@ def parse_positions(content: bytes, filename: str) -> dict[str, float]:
     """
     name = filename.lower()
     if name.endswith((".xlsx", ".xls")):
-        df = pd.read_excel(io.BytesIO(content))
+        reader = lambda skip: pd.read_excel(io.BytesIO(content), skiprows=skip)  # noqa: E731
     elif name.endswith(".csv"):
-        df = pd.read_csv(io.BytesIO(content), sep=None, engine="python")
+        reader = lambda skip: pd.read_csv(  # noqa: E731
+            io.BytesIO(content), sep=None, engine="python", skiprows=skip
+        )
     else:
         raise ValueError("Formato non supportato: usa un file .csv o .xlsx")
 
-    columns = {str(c).strip().lower(): c for c in df.columns}
-    ticker_col = next((columns[k] for k in columns if k in _TICKER_COLUMNS), None)
-    amount_col = next((columns[k] for k in columns if k in _AMOUNT_COLUMNS), None)
-    if ticker_col is None or amount_col is None:
+    # gli export dei broker spesso hanno righe di intestazione prima della tabella:
+    # prova a saltarne fino a 10 finché non compaiono colonne riconoscibili
+    last_columns: list = []
+    for skip in range(10):
+        try:
+            df = reader(skip)
+        except Exception:
+            continue
+        columns = {str(c).strip().lower(): c for c in df.columns}
+        ticker_col = next((columns[k] for k in columns if k in _TICKER_COLUMNS), None)
+        amount_col = next((columns[k] for k in columns if k in _AMOUNT_COLUMNS), None)
+        quantity_col = next((columns[k] for k in columns if k in _QUANTITY_COLUMNS), None)
+        price_col = next((columns[k] for k in columns if k in _PRICE_COLUMNS), None)
+        last_columns = list(df.columns)
+        if ticker_col and (amount_col or (quantity_col and price_col)):
+            break
+    else:
         raise ValueError(
-            f"Colonne non riconosciute: {list(df.columns)}. Servono una colonna "
+            f"Colonne non riconosciute: {last_columns}. Servono una colonna "
             "ticker (es. 'ticker', 'titolo') e una importo (es. 'importo', "
-            "'controvalore')."
+            "'controvalore') oppure quantità + prezzo."
         )
 
     positions: dict[str, float] = {}
@@ -53,7 +74,10 @@ def parse_positions(content: bytes, filename: str) -> dict[str, float]:
         if not ticker or ticker == "NAN":
             continue
         try:
-            amount = _to_number(row[amount_col])
+            if amount_col is not None:
+                amount = _to_number(row[amount_col])
+            else:
+                amount = _to_number(row[quantity_col]) * _to_number(row[price_col])
         except (ValueError, TypeError):
             continue
         if amount <= 0:

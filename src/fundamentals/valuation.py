@@ -7,6 +7,8 @@ from src.data.yahoo_client import get_ticker_info
 # Campo yfinance -> nome colonna del report
 _FIELDS = {
     "shortName": "name",
+    "sector": "sector",
+    "dividendYield": "dividend_yield",  # in punti percentuali (2.5 = 2.5%)
     "totalRevenue": "revenue",
     "netIncomeToCommon": "net_income",
     "grossMargins": "gross_margin",

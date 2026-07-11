@@ -169,6 +169,106 @@ def monthly_returns(daily_returns: pd.Series, months: int = 12) -> pd.Series:
     return monthly.tail(months)
 
 
+DEFENSIVE_SECTORS = ("Healthcare", "Consumer Defensive", "Utilities")
+
+
+def portfolio_health_score(dna: dict[str, float], radar: dict[str, float]) -> int:
+    """Punteggio di salute 0-100: 40% basso rischio, 30% Quality,
+    15% Value, 15% diversificazione (bassa concentrazione)."""
+    parts = [
+        (100 - portfolio_risk_score(radar), 0.40),
+        (dna.get("Quality", float("nan")), 0.30),
+        (dna.get("Value", float("nan")), 0.15),
+        (100 - radar.get("Concentrazione", float("nan")), 0.15),
+    ]
+    valid = [(score, weight) for score, weight in parts if score == score]
+    if not valid:
+        return 0
+    return round(sum(s * w for s, w in valid) / sum(w for _, w in valid))
+
+
+def find_problems(
+    portfolio: Portfolio,
+    fundamentals: pd.DataFrame,
+    contributions: pd.Series,
+    avg_correlation: float,
+    radar: dict[str, float],
+) -> list[str]:
+    """Problemi concreti del portafoglio, in ordine di importanza."""
+    problems = []
+    weights = weights_series(portfolio).sort_values(ascending=False)
+
+    if len(weights) > 1 and weights.iloc[0] > 0.25:
+        problems.append(
+            f"⚠️ **{weights.index[0]}** pesa il **{weights.iloc[0]:.0%}** del "
+            "portafoglio: rischio di concentrazione elevato."
+        )
+    if len(contributions) >= 2 and contributions.iloc[0] > max(0.40, 1.5 / len(contributions)):
+        problems.append(
+            f"⚠️ **{contributions.index[0]}** genera il "
+            f"**{contributions.iloc[0]:.0%} del rischio totale**."
+        )
+    if avg_correlation == avg_correlation and avg_correlation > 0.6:
+        problems.append(
+            f"⚠️ Correlazione media **{avg_correlation:.0%}**: i titoli si muovono "
+            "insieme, il portafoglio dipende da un solo motore."
+        )
+    if "dividend_yield" in fundamentals.columns:
+        dy = fundamentals["dividend_yield"]
+        mask = dy.notna()
+        if mask.any():
+            weighted_yield = float(
+                (dy[mask] * weights.reindex(fundamentals.index)[mask]).sum()
+                / weights.reindex(fundamentals.index)[mask].sum()
+            )
+            if weighted_yield < 1.0:  # in punti percentuali
+                problems.append(
+                    f"⚠️ Rendimento da dividendi **{weighted_yield:.1f}%**, sotto "
+                    "la media di mercato: il portafoglio non genera reddito."
+                )
+    if radar.get("Volatilità", 0) > 70:
+        problems.append("⚠️ Volatilità elevata rispetto a un portafoglio bilanciato.")
+    return problems
+
+
+def find_opportunities(
+    portfolio: Portfolio,
+    fundamentals: pd.DataFrame,
+    stock_score_fn=None,
+) -> list[str]:
+    """Opportunità: settori difensivi scoperti e titoli a valutazione interessante."""
+    opportunities = []
+
+    if "sector" in fundamentals.columns:
+        held_sectors = set(fundamentals["sector"].dropna())
+        missing = [s for s in DEFENSIVE_SECTORS if s not in held_sectors]
+        if missing:
+            opportunities.append(
+                f"✓ Settori difensivi scoperti (**{', '.join(missing)}**): "
+                "aggiungerli ridurrebbe la dipendenza dal ciclo tech."
+            )
+
+    if {"pe", "ps"}.issubset(fundamentals.columns):
+        cheap = fundamentals[
+            (fundamentals["pe"].notna())
+            & (fundamentals["pe"] < 25)
+            & (fundamentals["ps"] < 6)
+        ]
+        for ticker in cheap.index[:2]:
+            opportunities.append(
+                f"✓ Valutazione interessante su **{ticker}** "
+                f"(P/E {cheap.loc[ticker, 'pe']:.0f}): "
+                "tra i tuoi titoli è il meno caro."
+            )
+
+    if not opportunities:
+        opportunities.append(
+            "✓ Nessuna lacuna evidente rispetto alle regole monitorate "
+            "(settori difensivi, valutazioni)."
+        )
+    return opportunities
+
+
 def generate_suggestions(
     dna: dict[str, float],
     radar: dict[str, float],

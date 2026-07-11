@@ -92,6 +92,56 @@ def test_monthly_returns_compound_correctly():
     assert january == pytest.approx(1.01**n_january - 1)
 
 
+def test_portfolio_health_score_bounds_and_direction():
+    from src.analytics.insights import portfolio_health_score
+
+    healthy = portfolio_health_score(
+        {"Quality": 80, "Value": 60}, {"Volatilità": 20, "Concentrazione": 10,
+                                       "Drawdown": 15, "Correlazione": 20}
+    )
+    risky = portfolio_health_score(
+        {"Quality": 30, "Value": 20}, {"Volatilità": 90, "Concentrazione": 80,
+                                       "Drawdown": 85, "Correlazione": 90}
+    )
+    assert 0 <= risky < healthy <= 100
+
+
+def test_find_problems_flags_weight_correlation_and_dividends():
+    from src.analytics.insights import find_problems
+
+    pf = [{"ticker": "TSLA", "weight": 0.30}, {"ticker": "KO", "weight": 0.70}]
+    fund = pd.DataFrame(
+        {"dividend_yield": [0.0, 0.5], "sector": ["Consumer Cyclical", "Consumer Defensive"]},
+        index=["TSLA", "KO"],
+    )
+    contrib = pd.Series({"TSLA": 0.85, "KO": 0.15})
+    problems = " ".join(
+        find_problems(pf, fund, contrib, avg_correlation=0.7,
+                      radar={"Volatilità": 40.0})
+    )
+    assert "KO" in problems and "70%" in problems  # peso dominante
+    assert "TSLA" in problems  # rischio dominante
+    assert "Correlazione" in problems or "correlazione" in problems.lower()
+    assert "dividendi" in problems
+
+
+def test_find_opportunities_flags_missing_defensive_sectors_and_cheap_stock():
+    from src.analytics.insights import find_opportunities
+
+    pf = [{"ticker": "NVDA", "weight": 0.5}, {"ticker": "INTC", "weight": 0.5}]
+    fund = pd.DataFrame(
+        {
+            "sector": ["Technology", "Technology"],
+            "pe": [45.0, 18.0],
+            "ps": [19.0, 2.5],
+        },
+        index=["NVDA", "INTC"],
+    )
+    text = " ".join(find_opportunities(pf, fund))
+    assert "Healthcare" in text
+    assert "INTC" in text  # P/E 18 sotto soglia
+
+
 def test_generate_insights_mentions_top_risk_contributors():
     contrib = risk_contributions(RETURNS, PORTFOLIO)
     insights = generate_insights("1y", 0.12, contrib, 0.7, -0.20, 1.3, "QQQ")
