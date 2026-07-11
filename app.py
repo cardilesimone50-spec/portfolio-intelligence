@@ -10,7 +10,10 @@ import pandas as pd
 import streamlit as st
 
 from src.analytics import (
+    average_pairwise_correlation,
     compute_daily_returns,
+    correlation_matrix,
+    correlations_with,
     per_ticker_cumulative_return,
     portfolio_expected_return,
     portfolio_volatility,
@@ -23,6 +26,9 @@ PALETTE = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e
 TRADING_DAYS = 252
 NASDAQ100_PRICES = Path("data/nasdaq100_prices.csv")
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
+PERIOD_YF = {"1 mese": "1mo", "6 mesi": "6mo", "1 anno": "1y", "2 anni": "2y", "5 anni": "5y"}
+# Coppia divergente per la correlazione: blu = opposti, grigio = indipendenti, rosso = insieme
+DIVERGING = ["#2a78d6", "#f5f5f2", "#e34948"]
 
 st.set_page_config(page_title="Portfolio Intelligence", page_icon="📈", layout="wide")
 
@@ -59,8 +65,8 @@ def eur(value: float) -> str:
 
 st.title("Portfolio Intelligence")
 
-tab_portfolio, tab_fundamentals, tab_nasdaq = st.tabs(
-    ["📊  Il mio portafoglio", "🏢  Fondamentali", "🏆  Nasdaq-100"]
+tab_portfolio, tab_corr, tab_fundamentals, tab_nasdaq = st.tabs(
+    ["📊  Il mio portafoglio", "🔗  Chi si muove insieme", "🏢  Fondamentali", "🏆  Nasdaq-100"]
 )
 
 # ---------------------------------------------------------------- portafoglio
@@ -152,6 +158,145 @@ with tab_portfolio:
                 st.line_chart(normalized, color=PALETTE[: len(normalized.columns)], height=320)
             except ValueError as exc:
                 st.error(f"{exc}")
+
+# ---------------------------------------------------------------- correlazioni
+with tab_corr:
+    st.subheader("Quali titoli si muovono insieme")
+    st.caption(
+        "Correlazione dei rendimenti giornalieri: **+1** = si muovono identici, "
+        "**0** = indipendenti, **-1** = opposti. "
+        "Titoli molto correlati non diversificano il rischio."
+    )
+
+    if not NASDAQ100_PRICES.exists():
+        st.info(
+            "Serve il database Nasdaq-100: esegui `python download_nasdaq100.py` dal terminale."
+        )
+    else:
+        all_prices = pd.read_csv(NASDAQ100_PRICES, index_col=0, parse_dates=True)
+
+        col_sel, col_per = st.columns([2, 1])
+        with col_sel:
+            corr_ticker = st.selectbox(
+                "Titolo di riferimento", sorted(all_prices.columns), index=None,
+                placeholder="Scegli un titolo del Nasdaq-100...",
+            )
+        with col_per:
+            corr_period = st.selectbox("Periodo", list(PERIOD_DAYS), index=2, key="corr_period")
+
+        if corr_ticker:
+            cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[corr_period])
+            window_returns = compute_daily_returns(all_prices.loc[all_prices.index >= cutoff])
+            min_periods = max(15, min(60, len(window_returns) // 2))
+            corr = correlations_with(window_returns, corr_ticker, min_periods=min_periods)
+
+            def corr_bars(series: pd.Series, title: str) -> None:
+                df = series.rename("corr").rename_axis("ticker").reset_index()
+                base = alt.Chart(df).encode(
+                    y=alt.Y("ticker:N", sort=None, title=None),
+                    x=alt.X("corr:Q", title="Correlazione",
+                            scale=alt.Scale(domain=[-1, 1])),
+                )
+                bars = base.mark_bar(cornerRadiusEnd=4, height=18).encode(
+                    color=alt.Color(
+                        "corr:Q",
+                        scale=alt.Scale(domain=[-1, 0, 1], range=DIVERGING),
+                        legend=None,
+                    )
+                )
+                labels = base.mark_text(align="left", dx=6).encode(
+                    text=alt.Text("corr:Q", format="+.2f")
+                )
+                st.markdown(f"**{title}**")
+                st.altair_chart(
+                    (bars + labels).properties(height=26 * len(df) + 20),
+                    use_container_width=True,
+                )
+
+            col_top, col_bottom = st.columns(2, gap="large")
+            with col_top:
+                corr_bars(corr.head(10), f"Si muovono INSIEME a {corr_ticker}")
+            with col_bottom:
+                corr_bars(
+                    corr.tail(10).sort_values(),
+                    f"Si muovono in modo INDIPENDENTE o OPPOSTO a {corr_ticker}",
+                )
+
+    if len(amounts) >= 2:
+        st.divider()
+        st.subheader("Diversificazione del tuo portafoglio")
+        try:
+            pf_period_label = "1 anno"
+            pf_prices = cached_prices(tuple(sorted(amounts)), PERIOD_YF[pf_period_label])
+            pf_returns = compute_daily_returns(pf_prices)
+            pf_min_periods = max(15, min(60, len(pf_returns) // 2))
+
+            avg_corr = average_pairwise_correlation(pf_returns, min_periods=pf_min_periods)
+            pf_corr = correlation_matrix(pf_returns, min_periods=pf_min_periods)
+
+            pairs = pf_corr.where(
+                pd.DataFrame(
+                    [[i < j for j in range(len(pf_corr))] for i in range(len(pf_corr))],
+                    index=pf_corr.index, columns=pf_corr.columns,
+                )
+            ).stack()
+
+            col_metric, col_heat = st.columns([1, 2], gap="large")
+            with col_metric:
+                st.metric("Correlazione media (1 anno)", f"{avg_corr:.2f}")
+                if avg_corr > 0.6:
+                    st.warning(
+                        "I tuoi titoli si muovono molto insieme: "
+                        "se scende uno, tendono a scendere tutti."
+                    )
+                elif avg_corr > 0.3:
+                    st.info("Diversificazione nella media.")
+                else:
+                    st.success("Buona diversificazione: i titoli si muovono in modo indipendente.")
+                if len(pairs):
+                    tightest = pairs.idxmax()
+                    st.caption(
+                        f"Coppia più legata: **{tightest[0]} – {tightest[1]}** "
+                        f"({pairs.max():+.2f})"
+                    )
+
+            with col_heat:
+                heat_df = (
+                    pf_corr.rename_axis("a")
+                    .reset_index()
+                    .melt(id_vars="a", var_name="b", value_name="corr")
+                )
+                heat = (
+                    alt.Chart(heat_df)
+                    .mark_rect()
+                    .encode(
+                        x=alt.X("a:N", title=None),
+                        y=alt.Y("b:N", title=None),
+                        color=alt.Color(
+                            "corr:Q",
+                            scale=alt.Scale(domain=[-1, 0, 1], range=DIVERGING),
+                            legend=alt.Legend(title="Correlazione"),
+                        ),
+                    )
+                )
+                text = (
+                    alt.Chart(heat_df)
+                    .mark_text()
+                    .encode(
+                        x="a:N",
+                        y="b:N",
+                        text=alt.Text("corr:Q", format=".2f"),
+                        color=alt.condition(
+                            "abs(datum.corr) > 0.6", alt.value("white"), alt.value("black")
+                        ),
+                    )
+                )
+                st.altair_chart(
+                    (heat + text).properties(height=60 * len(pf_corr) + 40),
+                    use_container_width=True,
+                )
+        except ValueError as exc:
+            st.error(f"{exc}")
 
 # ---------------------------------------------------------------- fondamentali
 with tab_fundamentals:
