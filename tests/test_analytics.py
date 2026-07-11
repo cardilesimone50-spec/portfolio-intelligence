@@ -40,6 +40,14 @@ def test_portfolio_volatility_is_non_negative():
     assert volatility >= 0
 
 
+def test_portfolio_volatility_with_subset_of_tickers():
+    # il portafoglio può usare meno titoli di quelli presenti nei rendimenti
+    returns = compute_daily_returns(PRICES)
+    subset = [{"ticker": "AAPL", "weight": 1.0}]
+    volatility = portfolio_volatility(returns, subset)
+    assert volatility == pytest.approx(float(returns["AAPL"].std()))
+
+
 def test_per_ticker_cumulative_return():
     result = per_ticker_cumulative_return(PRICES)
     assert result["AAPL"] == pytest.approx(105 / 100 - 1)

@@ -1,4 +1,4 @@
-"""Dashboard Streamlit per portfolio-intelligence.
+"""Portfolio Intelligence — dashboard Streamlit.
 
 Avvio: streamlit run app.py
 """
@@ -6,6 +6,16 @@ Avvio: streamlit run app.py
 import pandas as pd
 import streamlit as st
 
+from src.analytics.insights import (
+    dna_label,
+    dna_scores,
+    generate_insights,
+    monthly_returns,
+    portfolio_risk_score,
+    radar_scores,
+    risk_contributions,
+    stock_scores,
+)
 from src.analytics.performance import (
     annualized_sharpe,
     beta_alpha,
@@ -13,6 +23,7 @@ from src.analytics.performance import (
     sortino_ratio,
     value_at_risk,
 )
+from src.analytics.simulation import simulate_shock
 from src.data.cache import load_nasdaq100_prices
 from src.data.store import load_prices as load_stored_prices
 from src.data.yahoo_client import fetch_price_history
@@ -40,27 +51,65 @@ from src.visualization.charts import (
     correlation_bars,
     correlation_heatmap,
     efficient_frontier_chart,
+    galaxy_chart,
+    monthly_bars,
+    radar_chart,
 )
 
 BENCHMARK = "QQQ"  # ETF sul Nasdaq-100
-
 TRADING_DAYS = 252
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
-PERIOD_YF = {"1 mese": "1mo", "6 mesi": "6mo", "1 anno": "1y", "2 anni": "2y", "5 anni": "5y"}
 
 st.set_page_config(page_title="Portfolio Intelligence", page_icon="📈", layout="wide")
 
 st.markdown(
     """
     <style>
+    .block-container { padding-top: 2rem; }
     [data-testid="stMetric"] {
-        background: rgba(42, 120, 214, 0.07);
-        border: 1px solid rgba(128, 128, 128, 0.18);
-        border-radius: 14px;
-        padding: 18px 20px;
+        background: linear-gradient(145deg, rgba(57,135,229,0.10), rgba(57,135,229,0.03));
+        border: 1px solid rgba(140, 160, 190, 0.15);
+        border-radius: 16px;
+        padding: 16px 18px;
     }
-    [data-testid="stMetricLabel"] { opacity: 0.75; }
-    .block-container { padding-top: 2.2rem; }
+    [data-testid="stMetricLabel"] { opacity: 0.7; }
+    .hero {
+        background: linear-gradient(160deg, #161a22 0%, #10141c 60%, #131926 100%);
+        border: 1px solid rgba(140, 160, 190, 0.18);
+        border-radius: 20px;
+        padding: 28px 32px;
+        text-align: center;
+    }
+    .hero-label { font-size: 0.8rem; letter-spacing: 0.18em; opacity: 0.6; }
+    .hero-value { font-size: 2.6rem; font-weight: 700; margin: 6px 0 2px; }
+    .hero-return { font-size: 1.1rem; font-weight: 600; }
+    .hero-return.pos { color: #e66767; }
+    .hero-return.neg { color: #3987e5; }
+    .risk-label { font-size: 0.8rem; opacity: 0.6; margin-top: 18px; text-align: left; }
+    .risk-track {
+        background: rgba(140,160,190,0.15); border-radius: 6px; height: 10px;
+        margin-top: 6px; overflow: hidden;
+    }
+    .risk-fill {
+        height: 100%; border-radius: 6px;
+        background: linear-gradient(90deg, #199e70, #c98500, #e66767);
+    }
+    .dna-card, .ai-card {
+        background: #161a22;
+        border: 1px solid rgba(140, 160, 190, 0.15);
+        border-radius: 20px;
+        padding: 22px 26px;
+        height: 100%;
+    }
+    .dna-title { font-size: 0.8rem; letter-spacing: 0.18em; opacity: 0.6; margin-bottom: 14px; }
+    .dna-row { display: flex; align-items: center; margin: 9px 0; gap: 10px; }
+    .dna-name { width: 70px; font-size: 0.9rem; opacity: 0.85; }
+    .dna-track { flex: 1; background: rgba(140,160,190,0.15); border-radius: 5px; height: 8px; }
+    .dna-fill { height: 100%; border-radius: 5px; background: #3987e5; }
+    .dna-fill.risk { background: #c98500; }
+    .dna-value { width: 40px; text-align: right; font-size: 0.9rem; }
+    .dna-status { margin-top: 16px; font-weight: 600; font-size: 1.05rem; }
+    .ai-card p { margin: 0 0 10px; line-height: 1.5; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -82,22 +131,40 @@ def eur(value: float) -> str:
 
 
 def load_market_db() -> pd.DataFrame | None:
-    """Prezzi Nasdaq-100 dal database SQLite, con fallback sul vecchio CSV."""
     prices = load_stored_prices()
     if prices is not None:
         return prices
     return load_nasdaq100_prices()
 
 
+def dna_card_html(dna: dict[str, float], label: str) -> str:
+    rows = ""
+    for name, score in dna.items():
+        css = "risk" if name == "Risk" else ""
+        rows += (
+            f'<div class="dna-row"><div class="dna-name">{name}</div>'
+            f'<div class="dna-track"><div class="dna-fill {css}" '
+            f'style="width:{score:.0f}%"></div></div>'
+            f'<div class="dna-value">{score:.0f}</div></div>'
+        )
+    return (
+        f'<div class="dna-card"><div class="dna-title">PORTFOLIO DNA</div>{rows}'
+        f'<div class="dna-status">{label}</div></div>'
+    )
+
+
 st.title("Portfolio Intelligence")
 
-tab_portfolio, tab_corr, tab_fundamentals, tab_nasdaq = st.tabs(
-    ["📊  Il mio portafoglio", "🔗  Chi si muove insieme", "🏢  Fondamentali", "🏆  Nasdaq-100"]
+tab_dash, tab_analysis, tab_corr, tab_fundamentals, tab_nasdaq = st.tabs(
+    ["🏠  Dashboard", "📊  Analisi", "🔗  Chi si muove insieme",
+     "🏢  Fondamentali", "🏆  Nasdaq-100"]
 )
 
-# ---------------------------------------------------------------- portafoglio
-with tab_portfolio:
-    col_editor, col_results = st.columns([1, 2.4], gap="large")
+computed: dict | None = None
+
+# ---------------------------------------------------------------- dashboard
+with tab_dash:
+    col_editor, col_hero, col_dna = st.columns([1, 1.1, 1.1], gap="large")
 
     with col_editor:
         st.markdown("**Composizione** — modifica liberamente")
@@ -116,7 +183,6 @@ with tab_portfolio:
         period = st.selectbox(
             "Orizzonte storico", ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
         )
-        st.caption("Aggiungi righe con il +, cancella selezionando la riga. Dati: Yahoo Finance.")
 
     amounts = {
         str(row.ticker).upper().strip(): float(row.importo)
@@ -128,167 +194,270 @@ with tab_portfolio:
         [{"ticker": t, "weight": amount / total} for t, amount in amounts.items()] if total else []
     )
 
-    with col_results:
-        if not portfolio:
-            st.info("Aggiungi almeno un titolo con un importo positivo.")
-        else:
-            try:
-                tickers = tuple(sorted(amounts))
-                prices = cached_prices(tickers, period)
-                returns = compute_daily_returns(prices)
+    if not portfolio:
+        st.info("Aggiungi almeno un titolo con un importo positivo.")
+    else:
+        try:
+            tickers = tuple(sorted(amounts))
+            prices = cached_prices(tickers, period)
+            returns = compute_daily_returns(prices)
 
-                annual_ret = portfolio_expected_return(returns, portfolio) * TRADING_DAYS
-                annual_vol = portfolio_volatility(returns, portfolio) * TRADING_DAYS**0.5
-                sharpe = annualized_sharpe(returns, portfolio)
+            pf_daily = portfolio_daily_returns(returns, portfolio)
+            pf_value = (1 + pf_daily).cumprod()
+            cum_return = float(pf_value.iloc[-1] - 1)
 
-                pf_daily = portfolio_daily_returns(returns, portfolio)
-                pf_value = (1 + pf_daily).cumprod()
-                drawdown = max_drawdown(pf_value)
-                sortino = sortino_ratio(returns, portfolio)
-                var_95 = value_at_risk(pf_daily)
+            annual_ret = portfolio_expected_return(returns, portfolio) * TRADING_DAYS
+            annual_vol = portfolio_volatility(returns, portfolio) * TRADING_DAYS**0.5
+            drawdown = max_drawdown(pf_value)
+            min_periods = max(15, min(60, len(returns) // 2))
+            avg_corr = average_pairwise_correlation(returns, min_periods=min_periods)
 
-                bench_prices = cached_prices((BENCHMARK,), period)
-                bench_daily = compute_daily_returns(bench_prices)[BENCHMARK]
-                beta, alpha = beta_alpha(pf_daily, bench_daily)
+            bench_prices = cached_prices((BENCHMARK,), period)
+            bench_daily = compute_daily_returns(bench_prices)[BENCHMARK]
+            beta, alpha = beta_alpha(pf_daily, bench_daily)
 
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Investimento", eur(total))
-                m2.metric(
-                    "Guadagno atteso in 1 anno",
-                    eur(total * annual_ret),
-                    delta=f"{annual_ret:+.1%}",
-                )
-                m3.metric(
-                    "Oscillazione tipica in 1 anno",
-                    f"± {eur(total * annual_vol)}",
-                    delta=f"{annual_vol:.1%}",
-                    delta_color="off",
-                )
-                m4.metric(
-                    "Sharpe ratio",
-                    f"{sharpe:.2f}",
-                    help="Rendimento per unità di rischio: sopra 1 è buono, sopra 2 ottimo.",
-                )
+            contributions = risk_contributions(returns, portfolio)
+            radar = radar_scores(annual_vol, portfolio, drawdown, avg_corr)
+            risk_score = portfolio_risk_score(radar)
 
-                r1, r2, r3, r4 = st.columns(4)
-                r1.metric(
-                    "Sortino ratio",
-                    f"{sortino:.2f}",
-                    help="Come lo Sharpe ma conta solo i giorni negativi: "
-                    "premia chi sale senza crollare.",
-                )
-                r2.metric(
-                    "Perdita massima storica",
-                    f"{drawdown:.1%}",
-                    help="Max drawdown: la peggior discesa dal picco nel periodo scelto.",
-                )
-                r3.metric(
-                    "VaR 95% (1 giorno)",
-                    eur(total * var_95),
-                    help="Nel 95% dei giorni non perdi più di questa cifra "
-                    "(stima storica, non una garanzia).",
-                )
-                r4.metric(
-                    f"Beta vs {BENCHMARK}",
-                    f"{beta:.2f}",
-                    delta=f"α {alpha:+.1%}/anno",
-                    delta_color="off",
-                    help="Beta 1 = ti muovi come il Nasdaq-100; >1 amplifichi. "
-                    "Alpha: extra-rendimento non spiegato dal mercato.",
+            fund = cached_fundamentals(tickers)
+            dna = dna_scores(fund, portfolio, annual_vol, avg_corr)
+
+            computed = {
+                "returns": returns, "prices": prices, "pf_daily": pf_daily,
+                "annual_ret": annual_ret, "annual_vol": annual_vol,
+                "drawdown": drawdown, "avg_corr": avg_corr,
+                "beta": beta, "alpha": alpha, "min_periods": min_periods,
+            }
+
+            with col_hero:
+                css = "pos" if cum_return >= 0 else "neg"
+                st.markdown(
+                    f"""<div class="hero">
+                    <div class="hero-label">IL TUO PORTAFOGLIO</div>
+                    <div class="hero-value">{eur(total * (1 + cum_return))}</div>
+                    <div class="hero-return {css}">{cum_return:+.1%} nel periodo ({period})</div>
+                    <div class="risk-label">RISCHIO &nbsp;{risk_score}/100</div>
+                    <div class="risk-track"><div class="risk-fill"
+                         style="width:{risk_score}%"></div></div>
+                    </div>""",
+                    unsafe_allow_html=True,
                 )
                 st.caption(
-                    "Stime basate sull'andamento storico del periodo selezionato: "
-                    "non sono una previsione."
+                    f"Valore = {eur(total)} investiti oggi, rivalutati con "
+                    "l'andamento storico del periodo."
                 )
 
-                st.markdown("**Come sono distribuiti i tuoi soldi**")
-                st.altair_chart(allocation_bars(amounts), use_container_width=True)
+            with col_dna:
+                if dna:
+                    st.markdown(dna_card_html(dna, dna_label(dna)), unsafe_allow_html=True)
 
-                st.markdown("**Se avessi investito 100 € in ciascun titolo**")
-                normalized = prices / prices.iloc[0] * 100
-                st.line_chart(normalized, color=PALETTE[: len(normalized.columns)], height=320)
+            col_ai, col_radar = st.columns([1.3, 1], gap="large")
+            with col_ai:
+                st.markdown("#### 🤖 Analisi automatica")
+                insights = generate_insights(
+                    period, cum_return, contributions, avg_corr, drawdown, beta, BENCHMARK
+                )
+                st.markdown(
+                    '<div class="ai-card">'
+                    + "".join(f"<p>{i}</p>" for i in insights)
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+                st.caption(
+                    "Generata con regole deterministiche sui tuoi dati, non da un modello."
+                )
+            with col_radar:
+                st.markdown("#### 🎯 Radar di rischio")
+                st.altair_chart(radar_chart(radar), use_container_width=True)
 
-                if len(amounts) >= 2:
-                    st.divider()
-                    st.markdown("### 💡 Puoi fare di meglio? Ottimizzazione di Markowitz")
+            col_galaxy, col_timeline = st.columns([1.15, 1], gap="large")
+            with col_galaxy:
+                st.markdown("#### 🪐 La tua galassia")
+                st.caption(
+                    "Dimensione = peso · colore = rendimento · vicinanza = correlazione"
+                )
+                if len(tickers) >= 2:
+                    corr = correlation_matrix(returns, min_periods=min_periods)
+                    weights_s = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
+                    cum_by_ticker = per_ticker_cumulative_return(prices)
+                    st.altair_chart(
+                        galaxy_chart(corr, weights_s, cum_by_ticker),
+                        use_container_width=True,
+                    )
+                else:
+                    st.info("Servono almeno 2 titoli.")
+            with col_timeline:
+                st.markdown("#### 📅 Mese per mese")
+                monthly = monthly_returns(pf_daily)
+                if len(monthly) >= 2:
+                    st.altair_chart(monthly_bars(monthly), use_container_width=True)
+                    best, worst = monthly.idxmax(), monthly.idxmin()
                     st.caption(
-                        "La linea grigia è la frontiera efficiente: per ogni livello di "
-                        "rischio, il miglior rendimento raggiungibile combinando i tuoi "
-                        "titoli. Calcolata sui rendimenti storici del periodo scelto: "
-                        "il passato non garantisce il futuro."
+                        f"Mese migliore: **{best.strftime('%b %Y')}** "
+                        f"({monthly.max():+.1%}) · peggiore: "
+                        f"**{worst.strftime('%b %Y')}** ({monthly.min():+.1%})"
                     )
+                else:
+                    st.info("Periodo troppo corto per la vista mensile.")
 
-                    w_current = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
-                    candidates = {
-                        "Attuale": w_current,
-                        "Minimo rischio": minimum_variance_weights(returns),
-                        "Massimo Sharpe": max_sharpe_weights(returns),
-                    }
+            st.divider()
+            st.markdown("#### 🧪 Simulatore \"What if?\"")
+            col_sim_in, col_sim_out = st.columns([1, 2], gap="large")
+            with col_sim_in:
+                sim_ticker = st.selectbox("Se questo titolo...", sorted(amounts))
+                shock_pct = st.slider(
+                    "...si muovesse di", -50, 50, -20, step=5, format="%d%%"
+                )
+            with col_sim_out:
+                impact = simulate_shock(returns, portfolio, sim_ticker, shock_pct / 100)
+                new_value = total * (1 + impact["total"])
+                s1, s2, s3 = st.columns(3)
+                s1.metric("Portafoglio oggi", eur(total))
+                s2.metric(
+                    "Dopo lo shock (con contagio)",
+                    eur(new_value),
+                    delta=f"{impact['total']:+.1%}",
+                )
+                s3.metric(
+                    "Solo effetto diretto",
+                    eur(total * (1 + impact["direct"])),
+                    delta=f"{impact['direct']:+.1%}",
+                    delta_color="off",
+                )
+                st.caption(
+                    "Il contagio stima come gli altri titoli reagirebbero, "
+                    "usando i loro beta storici verso il titolo colpito."
+                )
+        except ValueError as exc:
+            st.error(f"{exc}")
 
-                    def pf_stats(weights: pd.Series) -> tuple[float, float]:
-                        pf = [
-                            {"ticker": t, "weight": float(w)}
-                            for t, w in weights.items()
-                            if w > 0
-                        ]
-                        ret = portfolio_expected_return(returns, pf) * TRADING_DAYS
-                        vol = portfolio_volatility(returns, pf) * TRADING_DAYS**0.5
-                        return ret, vol
+# ---------------------------------------------------------------- analisi
+with tab_analysis:
+    if computed is None:
+        st.info("Configura il portafoglio nella tab Dashboard.")
+    else:
+        returns = computed["returns"]
+        prices = computed["prices"]
+        pf_daily = computed["pf_daily"]
 
-                    points = pd.DataFrame(
-                        [
-                            {"nome": name, "annual_return": r, "annual_volatility": v}
-                            for name, (r, v) in (
-                                (name, pf_stats(w)) for name, w in candidates.items()
-                            )
-                        ]
-                    )
+        sharpe = annualized_sharpe(returns, portfolio)
+        sortino = sortino_ratio(returns, portfolio)
+        var_95 = value_at_risk(pf_daily)
 
-                    col_frontier, col_compare = st.columns([3, 2], gap="large")
-                    with col_frontier:
-                        frontier = efficient_frontier(returns)
-                        st.altair_chart(
-                            efficient_frontier_chart(frontier, points),
-                            use_container_width=True,
-                        )
-                    with col_compare:
-                        st.markdown("**Confronto**")
-                        compare = points.set_index("nome")
-                        compare["sharpe"] = (
-                            compare["annual_return"] / compare["annual_volatility"]
-                        )
-                        st.dataframe(
-                            compare,
-                            column_config={
-                                "annual_return": st.column_config.NumberColumn(
-                                    "Rendimento", format="percent"
-                                ),
-                                "annual_volatility": st.column_config.NumberColumn(
-                                    "Volatilità", format="percent"
-                                ),
-                                "sharpe": st.column_config.NumberColumn(
-                                    "Sharpe", format="%.2f"
-                                ),
-                            },
-                        )
-                        st.markdown("**Pesi suggeriti**")
-                        st.dataframe(
-                            pd.DataFrame(candidates),
-                            column_config={
-                                c: st.column_config.NumberColumn(c, format="percent")
-                                for c in candidates
-                            },
-                        )
-            except ValueError as exc:
-                st.error(f"{exc}")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Investimento", eur(total))
+        m2.metric(
+            "Guadagno atteso in 1 anno",
+            eur(total * computed["annual_ret"]),
+            delta=f"{computed['annual_ret']:+.1%}",
+        )
+        m3.metric(
+            "Oscillazione tipica in 1 anno",
+            f"± {eur(total * computed['annual_vol'])}",
+            delta=f"{computed['annual_vol']:.1%}",
+            delta_color="off",
+        )
+        m4.metric(
+            "Sharpe ratio", f"{sharpe:.2f}",
+            help="Rendimento per unità di rischio: sopra 1 è buono, sopra 2 ottimo.",
+        )
+
+        r1, r2, r3, r4 = st.columns(4)
+        r1.metric(
+            "Sortino ratio", f"{sortino:.2f}",
+            help="Come lo Sharpe ma conta solo i giorni negativi.",
+        )
+        r2.metric(
+            "Perdita massima storica", f"{computed['drawdown']:.1%}",
+            help="Max drawdown: la peggior discesa dal picco nel periodo scelto.",
+        )
+        r3.metric(
+            "VaR 95% (1 giorno)", eur(total * var_95),
+            help="Nel 95% dei giorni non perdi più di questa cifra (stima storica).",
+        )
+        r4.metric(
+            f"Beta vs {BENCHMARK}", f"{computed['beta']:.2f}",
+            delta=f"α {computed['alpha']:+.1%}/anno", delta_color="off",
+            help="Beta 1 = ti muovi come il Nasdaq-100; >1 amplifichi.",
+        )
+        st.caption("Stime basate sull'andamento storico: non sono una previsione.")
+
+        col_alloc, col_norm = st.columns([1, 1.6], gap="large")
+        with col_alloc:
+            st.markdown("**Come sono distribuiti i tuoi soldi**")
+            st.altair_chart(allocation_bars(amounts), use_container_width=True)
+        with col_norm:
+            st.markdown("**Se avessi investito 100 € in ciascun titolo**")
+            normalized = prices / prices.iloc[0] * 100
+            st.line_chart(normalized, color=PALETTE[: len(normalized.columns)], height=300)
+
+        if len(amounts) >= 2:
+            st.divider()
+            st.markdown("### 💡 Puoi fare di meglio? Ottimizzazione di Markowitz")
+            st.caption(
+                "La linea grigia è la frontiera efficiente: per ogni livello di rischio, "
+                "il miglior rendimento raggiungibile combinando i tuoi titoli."
+            )
+
+            candidates = {
+                "Attuale": pd.Series({p["ticker"]: p["weight"] for p in portfolio}),
+                "Minimo rischio": minimum_variance_weights(returns),
+                "Massimo Sharpe": max_sharpe_weights(returns),
+            }
+
+            def pf_stats(weights: pd.Series) -> tuple[float, float]:
+                pf = [
+                    {"ticker": t, "weight": float(w)} for t, w in weights.items() if w > 0
+                ]
+                ret = portfolio_expected_return(returns, pf) * TRADING_DAYS
+                vol = portfolio_volatility(returns, pf) * TRADING_DAYS**0.5
+                return ret, vol
+
+            points = pd.DataFrame(
+                [
+                    {"nome": name, "annual_return": r, "annual_volatility": v}
+                    for name, (r, v) in ((n, pf_stats(w)) for n, w in candidates.items())
+                ]
+            )
+
+            col_frontier, col_compare = st.columns([3, 2], gap="large")
+            with col_frontier:
+                st.altair_chart(
+                    efficient_frontier_chart(efficient_frontier(returns), points),
+                    use_container_width=True,
+                )
+            with col_compare:
+                st.markdown("**Confronto**")
+                compare = points.set_index("nome")
+                compare["sharpe"] = compare["annual_return"] / compare["annual_volatility"]
+                st.dataframe(
+                    compare,
+                    column_config={
+                        "annual_return": st.column_config.NumberColumn(
+                            "Rendimento", format="percent"
+                        ),
+                        "annual_volatility": st.column_config.NumberColumn(
+                            "Volatilità", format="percent"
+                        ),
+                        "sharpe": st.column_config.NumberColumn("Sharpe", format="%.2f"),
+                    },
+                )
+                st.markdown("**Pesi suggeriti**")
+                st.dataframe(
+                    pd.DataFrame(candidates),
+                    column_config={
+                        c: st.column_config.NumberColumn(c, format="percent")
+                        for c in candidates
+                    },
+                )
 
 # ---------------------------------------------------------------- correlazioni
 with tab_corr:
     st.subheader("Quali titoli si muovono insieme")
     st.caption(
         "Correlazione dei rendimenti giornalieri: **+1** = si muovono identici, "
-        "**0** = indipendenti, **-1** = opposti. "
-        "Titoli molto correlati non diversificano il rischio."
+        "**0** = indipendenti, **-1** = opposti."
     )
 
     all_prices = load_market_db()
@@ -322,47 +491,35 @@ with tab_corr:
                     correlation_bars(corr.tail(10).sort_values()), use_container_width=True
                 )
 
-    if len(amounts) >= 2:
+    if computed is not None and len(amounts) >= 2:
         st.divider()
         st.subheader("Diversificazione del tuo portafoglio")
-        try:
-            pf_prices = cached_prices(tuple(sorted(amounts)), "1y")
-            pf_returns = compute_daily_returns(pf_prices)
-            pf_min_periods = max(15, min(60, len(pf_returns) // 2))
+        pf_corr = correlation_matrix(computed["returns"], min_periods=computed["min_periods"])
+        avg_corr = computed["avg_corr"]
 
-            avg_corr = average_pairwise_correlation(pf_returns, min_periods=pf_min_periods)
-            pf_corr = correlation_matrix(pf_returns, min_periods=pf_min_periods)
+        pairs = pf_corr.where(
+            pd.DataFrame(
+                [[i < j for j in range(len(pf_corr))] for i in range(len(pf_corr))],
+                index=pf_corr.index, columns=pf_corr.columns,
+            )
+        ).stack()
 
-            pairs = pf_corr.where(
-                pd.DataFrame(
-                    [[i < j for j in range(len(pf_corr))] for i in range(len(pf_corr))],
-                    index=pf_corr.index, columns=pf_corr.columns,
+        col_metric, col_heat = st.columns([1, 2], gap="large")
+        with col_metric:
+            st.metric("Correlazione media", f"{avg_corr:.2f}")
+            if avg_corr > 0.6:
+                st.warning("I tuoi titoli si muovono molto insieme.")
+            elif avg_corr > 0.3:
+                st.info("Diversificazione nella media.")
+            else:
+                st.success("Buona diversificazione.")
+            if len(pairs):
+                tightest = pairs.idxmax()
+                st.caption(
+                    f"Coppia più legata: **{tightest[0]} – {tightest[1]}** ({pairs.max():+.2f})"
                 )
-            ).stack()
-
-            col_metric, col_heat = st.columns([1, 2], gap="large")
-            with col_metric:
-                st.metric("Correlazione media (1 anno)", f"{avg_corr:.2f}")
-                if avg_corr > 0.6:
-                    st.warning(
-                        "I tuoi titoli si muovono molto insieme: "
-                        "se scende uno, tendono a scendere tutti."
-                    )
-                elif avg_corr > 0.3:
-                    st.info("Diversificazione nella media.")
-                else:
-                    st.success("Buona diversificazione: i titoli si muovono in modo indipendente.")
-                if len(pairs):
-                    tightest = pairs.idxmax()
-                    st.caption(
-                        f"Coppia più legata: **{tightest[0]} – {tightest[1]}** "
-                        f"({pairs.max():+.2f})"
-                    )
-
-            with col_heat:
-                st.altair_chart(correlation_heatmap(pf_corr), use_container_width=True)
-        except ValueError as exc:
-            st.error(f"{exc}")
+        with col_heat:
+            st.altair_chart(correlation_heatmap(pf_corr), use_container_width=True)
 
 # ---------------------------------------------------------------- fondamentali
 with tab_fundamentals:
@@ -404,6 +561,31 @@ with tab_fundamentals:
                     "ps": st.column_config.NumberColumn("P/S", format="%.1f"),
                 },
             )
+
+            st.divider()
+            st.markdown("#### 🧬 Scheda titolo")
+            card_ticker = st.selectbox("Titolo", list(data.index))
+            row = data.loc[card_ticker]
+            card_prices = cached_prices((card_ticker,), "1y")
+            card_vol = float(
+                compute_daily_returns(card_prices)[card_ticker].std() * TRADING_DAYS**0.5
+            )
+            scores = stock_scores(row, card_vol)
+            overall = scores.pop("Overall")
+
+            col_card, col_num = st.columns([2, 1], gap="large")
+            with col_card:
+                st.markdown(
+                    dna_card_html(scores, f"{row['name']}"), unsafe_allow_html=True
+                )
+            with col_num:
+                st.metric(
+                    "Punteggio complessivo",
+                    f"{overall:.0f}/100",
+                    help="Media pesata: Growth 35%, Quality 35%, Valuation 20%, "
+                    "basso rischio 10%. Euristica, non un consiglio d'investimento.",
+                )
+                st.caption(f"Volatilità annua: {card_vol:.0%}")
         except ValueError as exc:
             st.error(f"{exc}")
 
@@ -429,7 +611,6 @@ with tab_nasdaq:
         ).rename_axis("ticker").reset_index()
 
         col_scatter, col_table = st.columns([3, 2], gap="large")
-
         with col_scatter:
             st.markdown(f"**Rischio vs rendimento ({ndx_period})** — ogni punto è un titolo")
             st.scatter_chart(
@@ -441,7 +622,6 @@ with tab_nasdaq:
                 color=PALETTE[0],
                 height=420,
             )
-
         with col_table:
             st.markdown("**Classifica completa**")
             st.dataframe(
@@ -459,6 +639,6 @@ with tab_nasdaq:
                 height=420,
             )
         st.caption(
-            "Rendimento cumulato nel periodo selezionato (non annualizzato). "
+            "Rendimento cumulato nel periodo selezionato. "
             "Aggiorna i dati con `python download_nasdaq100.py`."
         )

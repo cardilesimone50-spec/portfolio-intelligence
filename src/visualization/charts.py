@@ -1,12 +1,14 @@
 """Grafici Altair riusabili per la dashboard."""
 
 import altair as alt
+import numpy as np
 import pandas as pd
 
-# Palette categorica validata (dataviz skill, light mode)
-PALETTE = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"]
-# Coppia divergente per la correlazione: blu = opposti, grigio = indipendenti, rosso = insieme
-DIVERGING = ["#2a78d6", "#f5f5f2", "#e34948"]
+# Palette categorica validata per superficie scura (dataviz skill, dark mode)
+PALETTE = ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"]
+# Coppia divergente: blu = opposti/perdita, neutro scuro = zero, rosso = insieme/guadagno
+DIVERGING = ["#3987e5", "#2a2d35", "#e66767"]
+TEXT_COLOR = "#e8e8e3"
 
 
 def allocation_bars(amounts: dict[str, float]) -> alt.Chart:
@@ -47,6 +49,156 @@ def correlation_bars(series: pd.Series) -> alt.Chart:
         text=alt.Text("corr:Q", format="+.2f")
     )
     return (bars + labels).properties(height=26 * len(df) + 20)
+
+
+def _mds_layout(corr: pd.DataFrame) -> pd.DataFrame:
+    """Proietta i titoli in 2D preservando le distanze di correlazione (MDS classico).
+
+    Titoli molto correlati finiscono vicini, titoli indipendenti lontani.
+    """
+    distances_sq = 2 * (1 - corr.to_numpy())
+    n = len(distances_sq)
+    centering = np.eye(n) - np.ones((n, n)) / n
+    gram = -0.5 * centering @ distances_sq @ centering
+    eigenvalues, eigenvectors = np.linalg.eigh(gram)
+    order = np.argsort(eigenvalues)[::-1][:2]
+    coords = eigenvectors[:, order] * np.sqrt(np.maximum(eigenvalues[order], 0))
+    return pd.DataFrame(coords, index=corr.index, columns=["x", "y"])
+
+
+def galaxy_chart(
+    corr: pd.DataFrame, weights: pd.Series, cumulative_returns: pd.Series
+) -> alt.Chart:
+    """La "galassia" del portafoglio: ogni titolo è un pianeta.
+
+    Dimensione = peso, colore = rendimento nel periodo, distanza = correlazione.
+    """
+    layout = _mds_layout(corr)
+    df = layout.assign(
+        ticker=layout.index,
+        peso=weights.reindex(layout.index).fillna(0.0),
+        rendimento=cumulative_returns.reindex(layout.index),
+    ).reset_index(drop=True)
+
+    max_abs = float(df["rendimento"].abs().max()) or 1.0
+    dots = (
+        alt.Chart(df)
+        .mark_circle(opacity=0.9)
+        .encode(
+            x=alt.X("x:Q", axis=None, scale=alt.Scale(padding=40)),
+            y=alt.Y("y:Q", axis=None, scale=alt.Scale(padding=40)),
+            size=alt.Size(
+                "peso:Q", scale=alt.Scale(range=[400, 4000]), legend=None
+            ),
+            color=alt.Color(
+                "rendimento:Q",
+                scale=alt.Scale(domain=[-max_abs, 0, max_abs], range=DIVERGING),
+                legend=alt.Legend(title="Rendimento", format="+.0%", orient="bottom"),
+            ),
+            tooltip=[
+                alt.Tooltip("ticker:N", title="Titolo"),
+                alt.Tooltip("peso:Q", title="Peso", format=".0%"),
+                alt.Tooltip("rendimento:Q", title="Rendimento", format="+.1%"),
+            ],
+        )
+    )
+    labels = (
+        alt.Chart(df)
+        .mark_text(fontWeight="bold", color=TEXT_COLOR, dy=1)
+        .encode(x="x:Q", y="y:Q", text="ticker:N")
+    )
+    return (dots + labels).properties(height=420).configure_view(strokeWidth=0)
+
+
+def radar_chart(scores: dict[str, float]) -> alt.Chart:
+    """Radar a 4 assi dei punteggi di rischio (0 centro, 100 bordo)."""
+    names = list(scores)
+    n = len(names)
+    angles = [np.pi / 2 - 2 * np.pi * i / n for i in range(n)]
+
+    def ring(radius: float) -> pd.DataFrame:
+        pts = [
+            {"x": radius * np.cos(a), "y": radius * np.sin(a), "ordine": i}
+            for i, a in enumerate(angles)
+        ]
+        return pd.DataFrame(pts + [pts[0] | {"ordine": n}])
+
+    values = pd.DataFrame(
+        [
+            {
+                "x": scores[name] * np.cos(a),
+                "y": scores[name] * np.sin(a),
+                "ordine": i,
+                "asse": name,
+                "valore": scores[name],
+            }
+            for i, (name, a) in enumerate(zip(names, angles))
+        ]
+    )
+    closed = pd.concat([values, values.iloc[[0]].assign(ordine=n)])
+
+    grid = alt.layer(
+        *[
+            alt.Chart(ring(r))
+            .mark_line(color="#3a3d45", strokeWidth=1)
+            .encode(x=alt.X("x:Q", axis=None), y=alt.Y("y:Q", axis=None),
+                    order="ordine:O")
+            for r in (33, 66, 100)
+        ]
+    )
+    area = (
+        alt.Chart(closed)
+        .mark_area(color=PALETTE[0], opacity=0.35, line={"color": PALETTE[0]})
+        .encode(x="x:Q", y="y:Q", order="ordine:O")
+    )
+    points = (
+        alt.Chart(values)
+        .mark_point(filled=True, size=90, color=PALETTE[0])
+        .encode(
+            x="x:Q", y="y:Q",
+            tooltip=[alt.Tooltip("asse:N"), alt.Tooltip("valore:Q", format=".0f")],
+        )
+    )
+    axis_labels = pd.DataFrame(
+        {
+            "x": [118 * np.cos(a) for a in angles],
+            "y": [118 * np.sin(a) for a in angles],
+            "nome": names,
+        }
+    )
+    labels = (
+        alt.Chart(axis_labels)
+        .mark_text(color=TEXT_COLOR, fontSize=13)
+        .encode(x="x:Q", y="y:Q", text="nome:N")
+    )
+    return (grid + area + points + labels).properties(height=340).configure_view(
+        strokeWidth=0
+    )
+
+
+def monthly_bars(monthly: pd.Series) -> alt.Chart:
+    """Timeline dei rendimenti mensili, colore per segno, etichette dirette."""
+    df = pd.DataFrame(
+        {
+            "mese": monthly.index.strftime("%b %y"),
+            "rendimento": monthly.values,
+            "ordine": range(len(monthly)),
+        }
+    )
+    base = alt.Chart(df).encode(
+        x=alt.X("mese:N", sort=alt.SortField("ordine"), title=None,
+                axis=alt.Axis(labelAngle=0)),
+        y=alt.Y("rendimento:Q", title=None, axis=alt.Axis(format="+%")),
+    )
+    bars = base.mark_bar(cornerRadiusEnd=4, width=28).encode(
+        color=alt.condition(
+            "datum.rendimento >= 0", alt.value(DIVERGING[2]), alt.value(DIVERGING[0])
+        )
+    )
+    labels = base.mark_text(dy=-10, color=TEXT_COLOR).encode(
+        text=alt.Text("rendimento:Q", format="+.1%")
+    )
+    return (bars + labels).properties(height=240)
 
 
 def efficient_frontier_chart(frontier: pd.DataFrame, points: pd.DataFrame) -> alt.Chart:
@@ -115,9 +267,7 @@ def correlation_heatmap(corr: pd.DataFrame) -> alt.Chart:
             x="a:N",
             y="b:N",
             text=alt.Text("corr:Q", format=".2f"),
-            color=alt.condition(
-                "abs(datum.corr) > 0.6", alt.value("white"), alt.value("black")
-            ),
+            color=alt.value(TEXT_COLOR),
         )
     )
     return (heat + text).properties(height=60 * len(corr) + 40)

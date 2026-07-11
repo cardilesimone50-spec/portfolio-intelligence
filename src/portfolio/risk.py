@@ -7,7 +7,8 @@ from src.portfolio import Portfolio, weights_series
 
 def portfolio_volatility(returns: pd.DataFrame, portfolio: Portfolio) -> float:
     weights = weights_series(portfolio)
-    cov_matrix = returns.cov()
+    # allinea alla composizione: il portafoglio può usare un sottoinsieme dei titoli
+    cov_matrix = returns[weights.index].cov()
     variance = weights @ cov_matrix @ weights
     return float(variance**0.5)
 
