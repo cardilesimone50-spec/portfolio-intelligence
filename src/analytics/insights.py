@@ -169,6 +169,41 @@ def monthly_returns(daily_returns: pd.Series, months: int = 12) -> pd.Series:
     return monthly.tail(months)
 
 
+def generate_suggestions(
+    dna: dict[str, float],
+    radar: dict[str, float],
+    contributions: pd.Series,
+) -> list[str]:
+    """Suggerimenti operativi, derivati dalle stesse regole dei punteggi."""
+    suggestions = []
+    if radar.get("Concentrazione", 0) > 60 and len(contributions):
+        suggestions.append(
+            f"Riduci la concentrazione: {contributions.index[0]} domina il rischio. "
+            "Una regola pratica è non superare il 25% su un singolo titolo."
+        )
+    if radar.get("Correlazione", 0) > 60:
+        suggestions.append(
+            "Aggiungi esposizione difensiva o decorrelata (settori diversi da "
+            "quelli attuali): i tuoi titoli tendono a scendere insieme."
+        )
+    if radar.get("Volatilità", 0) > 70:
+        suggestions.append(
+            "La volatilità è elevata: valuta di bilanciare con titoli a beta "
+            "più basso se l'oscillazione ti pesa."
+        )
+    if dna.get("Value", 100) < 30:
+        suggestions.append(
+            "I multipli medi del portafoglio sono cari (P/E e P/S alti): "
+            "il prezzo pagato incorpora aspettative di crescita elevate."
+        )
+    if not suggestions:
+        suggestions.append(
+            "Il portafoglio appare equilibrato rispetto alle regole monitorate: "
+            "concentrazione, correlazione, volatilità e multipli."
+        )
+    return suggestions
+
+
 def generate_insights(
     period_label: str,
     cumulative_return: float,

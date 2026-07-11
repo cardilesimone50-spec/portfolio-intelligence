@@ -6,10 +6,20 @@ Avvio: streamlit run app.py
 import pandas as pd
 import streamlit as st
 
+from src.analytics.alerts import evaluate_alerts
+from src.analytics.backtest import (
+    buy_and_hold,
+    equal_weight,
+    max_sharpe,
+    min_variance,
+    momentum_top,
+    run_backtest,
+)
 from src.analytics.insights import (
     dna_label,
     dna_scores,
     generate_insights,
+    generate_suggestions,
     monthly_returns,
     portfolio_risk_score,
     radar_scores,
@@ -25,9 +35,17 @@ from src.analytics.performance import (
 )
 from src.analytics.simulation import simulate_shock
 from src.data.cache import load_nasdaq100_prices
+from src.data.importers import parse_positions
+from src.data.store import (
+    list_portfolios,
+    load_analyses,
+    log_analysis,
+    save_portfolio,
+)
 from src.data.store import load_prices as load_stored_prices
 from src.data.yahoo_client import fetch_price_history
 from src.fundamentals.valuation import fetch_fundamentals
+from src.visualization.pdf_report import build_report
 from src.portfolio.optimization import (
     efficient_frontier,
     max_sharpe_weights,
@@ -155,9 +173,9 @@ def dna_card_html(dna: dict[str, float], label: str) -> str:
 
 st.title("Portfolio Intelligence")
 
-tab_dash, tab_analysis, tab_corr, tab_fundamentals, tab_nasdaq = st.tabs(
+tab_dash, tab_analysis, tab_corr, tab_fundamentals, tab_nasdaq, tab_backtest = st.tabs(
     ["🏠  Dashboard", "📊  Analisi", "🔗  Chi si muove insieme",
-     "🏢  Fondamentali", "🏆  Nasdaq-100"]
+     "🏢  Fondamentali", "🏆  Nasdaq-100", "⏮  Backtest"]
 )
 
 computed: dict | None = None
@@ -184,11 +202,45 @@ with tab_dash:
             "Orizzonte storico", ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
         )
 
+        with st.expander("📂 Importa da CSV/Excel"):
+            uploaded = st.file_uploader(
+                "Estratto del broker (colonne ticker + importo)",
+                type=["csv", "xlsx", "xls"],
+            )
+        saved = list_portfolios()
+        with st.expander("💾 Portafogli salvati"):
+            selected_saved = st.selectbox(
+                "Carica un portafoglio", ["— usa l'editor —"] + sorted(saved), index=0
+            )
+            portfolio_name = st.text_input("Nome", value="Il mio portafoglio")
+            want_save = st.button("Salva la composizione attiva")
+
     amounts = {
         str(row.ticker).upper().strip(): float(row.importo)
         for row in positions.itertuples()
         if str(row.ticker).strip() and float(row.importo or 0) > 0
     }
+    # precedenza: file importato > portafoglio salvato > editor
+    source = "editor"
+    if uploaded is not None:
+        try:
+            amounts = parse_positions(uploaded.getvalue(), uploaded.name)
+            source = f"file «{uploaded.name}»"
+        except ValueError as exc:
+            st.error(f"Import fallito: {exc}")
+    elif selected_saved != "— usa l'editor —":
+        amounts = dict(saved[selected_saved])
+        source = f"portafoglio «{selected_saved}»"
+        portfolio_name = selected_saved
+
+    if source != "editor":
+        with col_editor:
+            st.caption(f"⚡ Composizione attiva: {source} — rimuovi file/selezione "
+                       "per tornare all'editor.")
+    if want_save and amounts:
+        save_portfolio(portfolio_name, amounts)
+        st.toast(f"Portafoglio «{portfolio_name}» salvato ✓")
+
     total = sum(amounts.values())
     portfolio = (
         [{"ticker": t, "weight": amount / total} for t, amount in amounts.items()] if total else []
@@ -251,6 +303,9 @@ with tab_dash:
             with col_dna:
                 if dna:
                     st.markdown(dna_card_html(dna, dna_label(dna)), unsafe_allow_html=True)
+
+            for alert in evaluate_alerts(returns, portfolio, contributions, avg_corr, drawdown):
+                st.warning(alert)
 
             col_ai, col_radar = st.columns([1.3, 1], gap="large")
             with col_ai:
@@ -329,6 +384,58 @@ with tab_dash:
                     "Il contagio stima come gli altri titoli reagirebbero, "
                     "usando i loro beta storici verso il titolo colpito."
                 )
+
+            st.divider()
+            col_pdf, col_log, col_hist = st.columns([1, 1, 2], gap="large")
+            with col_pdf:
+                report_metrics = {
+                    "Sharpe ratio": f"{annualized_sharpe(returns, portfolio):.2f}",
+                    "Sortino ratio": f"{sortino_ratio(returns, portfolio):.2f}",
+                    "Perdita massima storica": f"{drawdown:.1%}",
+                    "VaR 95% (1 giorno)": eur(total * value_at_risk(pf_daily)),
+                    f"Beta vs {BENCHMARK}": f"{beta:.2f}",
+                    "Correlazione media": f"{avg_corr:.2f}",
+                }
+                st.download_button(
+                    "📄 Genera Investment Report (PDF)",
+                    data=build_report(
+                        portfolio_name=portfolio_name,
+                        positions=amounts,
+                        period=period,
+                        cum_return=cum_return,
+                        risk_score=risk_score,
+                        metrics=report_metrics,
+                        insights=insights,
+                        suggestions=generate_suggestions(dna, radar, contributions),
+                    ),
+                    file_name=f"portfolio_report_{pd.Timestamp.now():%Y%m%d}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            with col_log:
+                if st.button("📝 Salva analisi nello storico", use_container_width=True):
+                    log_analysis(portfolio_name, period, total, cum_return, risk_score)
+                    st.toast("Analisi salvata ✓")
+            with col_hist:
+                history = load_analyses()
+                if not history.empty:
+                    with st.expander(f"🕘 Storico analisi ({len(history)})"):
+                        st.dataframe(
+                            history,
+                            column_config={
+                                "timestamp": st.column_config.TextColumn("Data"),
+                                "portfolio": st.column_config.TextColumn("Portafoglio"),
+                                "period": st.column_config.TextColumn("Periodo"),
+                                "invested": st.column_config.NumberColumn(
+                                    "Investito", format="%.0f €"
+                                ),
+                                "cum_return": st.column_config.NumberColumn(
+                                    "Rendimento", format="percent"
+                                ),
+                                "risk_score": st.column_config.NumberColumn("Rischio /100"),
+                            },
+                            hide_index=True,
+                        )
         except ValueError as exc:
             st.error(f"{exc}")
 
@@ -642,3 +749,77 @@ with tab_nasdaq:
             "Rendimento cumulato nel periodo selezionato. "
             "Aggiorna i dati con `python download_nasdaq100.py`."
         )
+
+# ---------------------------------------------------------------- backtest
+with tab_backtest:
+    st.subheader("E se avessi seguito una strategia?")
+    st.caption(
+        "Ribilanciamento trimestrale, pesi calcolati solo sui dati precedenti "
+        "(nessuno sguardo al futuro). Limiti: niente costi di transazione, e "
+        "l'universo usa i componenti ATTUALI del Nasdaq-100 (survivorship bias)."
+    )
+
+    all_prices = load_market_db()
+    if all_prices is None:
+        st.info(
+            "Serve il database Nasdaq-100: esegui `python download_nasdaq100.py` dal terminale."
+        )
+    else:
+        options = ["Equipesato Nasdaq-100", "Momentum (top 10 a 6 mesi)"]
+        if len(amounts) >= 2:
+            options += [
+                "Il tuo portafoglio (buy & hold)",
+                "Massimo Sharpe sui tuoi titoli",
+                "Minima varianza sui tuoi titoli",
+            ]
+        chosen = st.multiselect(
+            "Strategie da confrontare", options, default=options[:2]
+        )
+
+        bt_years = st.select_slider("Orizzonte", ["1 anno", "2 anni", "5 anni"], "5 anni")
+        cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[bt_years])
+        window = all_prices.loc[all_prices.index >= cutoff]
+
+        if chosen:
+            with st.spinner("Eseguo i backtest..."):
+                curves = {}
+                try:
+                    if "Equipesato Nasdaq-100" in chosen:
+                        curves["Equipesato Nasdaq-100"] = run_backtest(window, equal_weight)
+                    if "Momentum (top 10 a 6 mesi)" in chosen:
+                        curves["Momentum (top 10 a 6 mesi)"] = run_backtest(
+                            window, lambda w: momentum_top(w, top_n=10)
+                        )
+                    if len(amounts) >= 2:
+                        my_tickers = [t for t in sorted(amounts) if t in window.columns]
+                        my_prices = (
+                            window[my_tickers]
+                            if len(my_tickers) == len(amounts)
+                            else cached_prices(
+                                tuple(sorted(amounts)),
+                                {"1 anno": "1y", "2 anni": "2y", "5 anni": "5y"}[bt_years],
+                            )
+                        )
+                        weights_now = pd.Series(amounts) / sum(amounts.values())
+                        if "Il tuo portafoglio (buy & hold)" in chosen:
+                            curves["Il tuo portafoglio (buy & hold)"] = buy_and_hold(
+                                my_prices, weights_now
+                            )
+                        if "Massimo Sharpe sui tuoi titoli" in chosen:
+                            curves["Massimo Sharpe sui tuoi titoli"] = run_backtest(
+                                my_prices, max_sharpe
+                            )
+                        if "Minima varianza sui tuoi titoli" in chosen:
+                            curves["Minima varianza sui tuoi titoli"] = run_backtest(
+                                my_prices, min_variance
+                            )
+                except ValueError as exc:
+                    st.error(f"{exc}")
+
+            if curves:
+                equity = pd.DataFrame(curves).dropna(how="all")
+                cols = st.columns(len(curves))
+                for col, (name, curve) in zip(cols, curves.items()):
+                    col.metric(name, f"{curve.iloc[-1] / 100 - 1:+.0%}")
+                st.line_chart(equity, color=PALETTE[: len(curves)], height=380)
+                st.caption("Curve a base 100 all'inizio dell'orizzonte scelto.")

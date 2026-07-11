@@ -2,9 +2,10 @@
 
 Dashboard Python per l'analisi di portafogli azionari su dati Yahoo Finance:
 rendimento/rischio in euro (Sharpe, Sortino, max drawdown, VaR, beta/alpha vs
-Nasdaq-100), correlazioni, fondamentali, classifiche Nasdaq-100 e ottimizzazione
-di Markowitz con frontiera efficiente. Storico prezzi in SQLite con
-aggiornamento incrementale.
+Nasdaq-100), correlazioni, fondamentali, ottimizzazione di Markowitz con
+frontiera efficiente, backtest di strategie, alert automatici, report PDF,
+import CSV/Excel dal broker e salvataggio portafogli/storico analisi in SQLite
+con aggiornamento incrementale dei prezzi.
 
 ## Avvio
 
