@@ -75,6 +75,8 @@ from src.visualization.charts import (
     LOSS,
     PALETTE,
     allocation_bars,
+    benchmark_overlay,
+    contribution_bars,
     correlation_bars,
     correlation_heatmap,
     efficient_frontier_chart,
@@ -82,6 +84,10 @@ from src.visualization.charts import (
     galaxy_chart,
     monthly_bars,
     radar_chart,
+    returns_histogram,
+    simple_line,
+    underwater_chart,
+    weight_vs_risk_bars,
 )
 from src.visualization.pdf_report import build_report
 
@@ -381,7 +387,7 @@ with st.sidebar:
             ),
         },
         key="positions",
-        use_container_width=True,
+        width="stretch",
     )
     with st.expander("📂 Importa da CSV/Excel"):
         uploaded = st.file_uploader(
@@ -393,7 +399,7 @@ with st.sidebar:
             "Carica", ["— usa l'editor —"] + sorted(saved), index=0
         )
         portfolio_name = st.text_input("Nome", value="Il mio portafoglio")
-        want_save = st.button("Salva composizione attiva", use_container_width=True)
+        want_save = st.button("Salva composizione attiva", width="stretch")
     with st.expander("⚙️ Impostazioni"):
         period = st.selectbox(
             "Orizzonte storico", ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
@@ -480,6 +486,7 @@ if portfolio:
 
         computed = {
             "returns": returns, "prices": prices, "pf_daily": pf_daily,
+            "pf_value": pf_value, "bench_daily": bench_daily,
             "annual_ret": annual_ret, "annual_vol": annual_vol,
             "drawdown": drawdown, "avg_corr": avg_corr, "var_95": var_95,
             "beta": beta, "alpha": alpha, "min_periods": min_periods,
@@ -536,7 +543,7 @@ elif view == "Check-up":
         sec(f"Andamento del capitale ({period})")
         st.altair_chart(
             equity_area(total * (1 + c["pf_daily"]).cumprod(), total),
-            use_container_width=True,
+            width="stretch",
         )
         st.caption("Linea tratteggiata = capitale investito oggi, proiettato indietro.")
 
@@ -567,7 +574,7 @@ elif view == "Check-up":
             ),
         },
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
     sec("I problemi principali")
@@ -687,11 +694,11 @@ elif view == "Check-up":
             ),
             file_name=f"portfolio_report_{pd.Timestamp.now():%Y%m%d}.pdf",
             mime="application/pdf",
-            use_container_width=True,
+            width="stretch",
             type="primary",
         )
     with col_log:
-        if st.button("📝 Salva nello storico", use_container_width=True):
+        if st.button("📝 Salva nello storico", width="stretch"):
             log_analysis(portfolio_name, period, total, c["cum_return"], c["risk_score"])
             st.toast("Analisi salvata ✓")
     with col_hist:
@@ -755,14 +762,80 @@ elif view == "Analisi":
     )
     st.caption("Stime basate sull'andamento storico: non sono una previsione.")
 
-    col_alloc, col_norm = st.columns([1, 1.6], gap="large")
+    sec(f"Portafoglio vs Nasdaq-100 ({BENCHMARK}) · base 100")
+    bench_value = (1 + c["bench_daily"]).cumprod()
+    st.altair_chart(
+        benchmark_overlay(c["pf_value"], bench_value, BENCHMARK),
+        width="stretch",
+    )
+    excess = c["cum_return"] - float(bench_value.iloc[-1] - 1)
+    st.caption(
+        f"Nel periodo hai fatto **{excess:+.1%}** rispetto al Nasdaq-100"
+        + (" (al netto del cambio EUR/USD)." if in_eur else ".")
+    )
+
+    col_dd, col_hist = st.columns(2, gap="large")
+    with col_dd:
+        sec("Quanto sotto il massimo (drawdown)")
+        st.altair_chart(underwater_chart(c["pf_value"]), width="stretch")
+        st.caption(
+            "Ogni discesa sotto lo zero è tempo passato in perdita rispetto "
+            "al picco precedente."
+        )
+    with col_hist:
+        sec("Distribuzione dei giorni")
+        st.altair_chart(
+            returns_histogram(c["pf_daily"], c["var_95"]), width="stretch"
+        )
+        st.caption(
+            "Ogni barra conta i giorni con quel rendimento. La linea rossa è il "
+            "VaR 95%: solo il 5% dei giorni è andato peggio."
+        )
+
+    if len(c["pf_daily"]) >= 80:
+        col_rvol, col_rbeta = st.columns(2, gap="large")
+        with col_rvol:
+            sec("Volatilità annualizzata · rolling 60 giorni")
+            rolling_vol = (c["pf_daily"].rolling(60).std() * TRADING_DAYS**0.5).dropna()
+            st.altair_chart(simple_line(rolling_vol), width="stretch")
+            st.caption("Come è cambiata la rischiosità del portafoglio nel tempo.")
+        with col_rbeta:
+            sec(f"Beta vs {BENCHMARK} · rolling 60 giorni")
+            aligned = pd.concat(
+                {"pf": c["pf_daily"], "bench": c["bench_daily"]}, axis=1
+            ).dropna()
+            rolling_beta = (
+                aligned["pf"].rolling(60).cov(aligned["bench"])
+                / aligned["bench"].rolling(60).var()
+            ).dropna()
+            st.altair_chart(
+                simple_line(rolling_beta, color=PALETTE[0], y_format=".1f"),
+                width="stretch",
+            )
+            st.caption("Sopra 1 amplifichi il mercato, sotto 1 lo attenui.")
+
+    col_contrib, col_alloc = st.columns([1.3, 1], gap="large")
+    with col_contrib:
+        sec("Chi ha fatto il risultato (in euro)")
+        cum_by_ticker = per_ticker_cumulative_return(c["prices"])
+        contributions_eur = pd.Series(
+            {
+                t: amounts[t] * float(cum_by_ticker.get(t, 0.0))
+                for t in amounts
+            }
+        )
+        st.altair_chart(contribution_bars(contributions_eur), width="stretch")
+        st.caption(
+            "Importo investito × rendimento del titolo (pesi costanti): "
+            "la somma ricostruisce circa il risultato totale."
+        )
     with col_alloc:
         sec("Distribuzione")
-        st.altair_chart(allocation_bars(amounts), use_container_width=True)
-    with col_norm:
-        sec("100 € su ciascun titolo")
-        normalized = c["prices"] / c["prices"].iloc[0] * 100
-        st.line_chart(normalized, color=PALETTE[: len(normalized.columns)], height=300)
+        st.altair_chart(allocation_bars(amounts), width="stretch")
+
+    sec("100 € su ciascun titolo")
+    normalized = c["prices"] / c["prices"].iloc[0] * 100
+    st.line_chart(normalized, color=PALETTE[: len(normalized.columns)], height=300)
 
 # ================================================================ VISUAL
 elif view == "Visual":
@@ -779,7 +852,7 @@ elif view == "Visual":
         st.caption("Generata con regole deterministiche sui tuoi dati, non da un modello.")
     with col_radar:
         sec("Radar di rischio")
-        st.altair_chart(radar_chart(c["radar"]), use_container_width=True)
+        st.altair_chart(radar_chart(c["radar"]), width="stretch")
 
     col_galaxy, col_timeline = st.columns([1.15, 1], gap="large")
     with col_galaxy:
@@ -790,7 +863,7 @@ elif view == "Visual":
             weights_s = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
             st.altair_chart(
                 galaxy_chart(corr, weights_s, per_ticker_cumulative_return(c["prices"])),
-                use_container_width=True,
+                width="stretch",
             )
         else:
             st.info("Servono almeno 2 titoli.")
@@ -798,7 +871,7 @@ elif view == "Visual":
         sec("Mese per mese")
         monthly = monthly_returns(c["pf_daily"])
         if len(monthly) >= 2:
-            st.altair_chart(monthly_bars(monthly), use_container_width=True)
+            st.altair_chart(monthly_bars(monthly), width="stretch")
             best, worst = monthly.idxmax(), monthly.idxmin()
             st.caption(
                 f"Mese migliore: **{best.strftime('%b %Y')}** ({monthly.max():+.1%}) "
@@ -806,6 +879,31 @@ elif view == "Visual":
             )
         else:
             st.info("Periodo troppo corto per la vista mensile.")
+
+    if len(amounts) >= 2:
+        col_wr, col_wr_txt = st.columns([1.5, 1], gap="large")
+        with col_wr:
+            sec("Peso investito vs contributo al rischio")
+            weights_series_ui = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
+            st.altair_chart(
+                weight_vs_risk_bars(weights_series_ui, c["contributions"]),
+                width="stretch",
+            )
+        with col_wr_txt:
+            sec("Come leggerlo")
+            top_c = c["contributions"].index[0]
+            gap = float(c["contributions"].iloc[0] - weights_series_ui.get(top_c, 0))
+            st.markdown(
+                f"Quando la barra ambra supera quella blu, il titolo pesa sul "
+                f"rischio **più di quanto pesi sul capitale**. "
+                f"Oggi **{top_c}** genera il "
+                f"**{c['contributions'].iloc[0]:.0%}** del rischio "
+                f"({gap:+.0%} rispetto al suo peso)."
+            )
+            st.caption(
+                "Contributo marginale alla varianza di portafoglio: tiene conto "
+                "di volatilità e correlazioni, non solo dell'importo investito."
+            )
 
     sec('Simulatore "What if?"')
     col_sim_in, col_sim_out = st.columns([1, 2], gap="large")
@@ -867,7 +965,7 @@ elif view == "Ottimizza":
         with col_frontier:
             st.altair_chart(
                 efficient_frontier_chart(efficient_frontier(returns), points),
-                use_container_width=True,
+                width="stretch",
             )
         with col_compare:
             st.markdown("**Confronto**")
@@ -925,11 +1023,11 @@ elif view == "Correlazioni":
             col_top, col_bottom = st.columns(2, gap="large")
             with col_top:
                 st.markdown(f"**Si muovono INSIEME a {corr_ticker}**")
-                st.altair_chart(correlation_bars(corr.head(10)), use_container_width=True)
+                st.altair_chart(correlation_bars(corr.head(10)), width="stretch")
             with col_bottom:
                 st.markdown(f"**INDIPENDENTI o OPPOSTI a {corr_ticker}**")
                 st.altair_chart(
-                    correlation_bars(corr.tail(10).sort_values()), use_container_width=True
+                    correlation_bars(corr.tail(10).sort_values()), width="stretch"
                 )
 
     if computed is not None and len(amounts) >= 2:
@@ -960,7 +1058,7 @@ elif view == "Correlazioni":
                     f"({pairs.max():+.2f})"
                 )
         with col_heat:
-            st.altair_chart(correlation_heatmap(pf_corr), use_container_width=True)
+            st.altair_chart(correlation_heatmap(pf_corr), width="stretch")
 
 # ================================================================ FONDAMENTALI
 elif view == "Fondamentali":
@@ -1115,7 +1213,7 @@ elif view == "Mercato":
                 "pi_score": st.column_config.NumberColumn("PI Score", format="%.0f"),
             },
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
 # ================================================================ BACKTEST
@@ -1228,7 +1326,7 @@ elif view == "Backtest":
                         "Max drawdown": st.column_config.NumberColumn(format="percent"),
                     },
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                 )
                 st.caption(
                     f"Curve a base 100, costi {cost_bps} bps per ribilanciamento. "
