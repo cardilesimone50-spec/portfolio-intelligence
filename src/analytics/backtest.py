@@ -47,14 +47,21 @@ def run_backtest(
     weight_func: WeightFunc,
     rebalance: str = "QE",
     lookback: int = 126,
+    cost_bps: float = 0.0,
 ) -> pd.Series:
     """Equity curve (base 100) di una strategia ribilanciata periodicamente.
 
     A ogni data di ribilanciamento i pesi sono calcolati SOLO sui dati
     precedenti (finestra `lookback` giorni), mai su quelli futuri.
+
+    cost_bps: costo di transazione in basis point (20 = 0.20%) applicato al
+    controvalore scambiato a ogni ribilanciamento (acquisto iniziale incluso).
+    Approssimazione: il turnover è calcolato tra pesi target consecutivi,
+    ignorando la deriva dei pesi dentro il trimestre.
     """
     returns = compute_daily_returns(prices)
     parts = []
+    previous_weights: pd.Series | None = None
     for _, segment in returns.groupby(returns.index.to_period(rebalance[0])):
         history = returns.loc[: segment.index[0] - pd.Timedelta(days=1)].tail(lookback)
         if len(history) < _MIN_HISTORY:
@@ -63,6 +70,19 @@ def run_backtest(
         if weights.empty:
             continue
         segment_returns = segment[weights.index].mul(weights).sum(axis=1, min_count=1)
+
+        if cost_bps:
+            if previous_weights is None:
+                traded = float(weights.abs().sum())  # acquisto iniziale
+            else:
+                union = weights.index.union(previous_weights.index)
+                traded = float(
+                    (weights.reindex(union, fill_value=0.0)
+                     - previous_weights.reindex(union, fill_value=0.0)).abs().sum()
+                )
+            segment_returns.iloc[0] -= traded * cost_bps / 10_000
+
+        previous_weights = weights
         parts.append(segment_returns)
 
     if not parts:

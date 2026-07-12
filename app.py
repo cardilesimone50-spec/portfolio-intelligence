@@ -15,6 +15,7 @@ from src.analytics.backtest import (
     momentum_top,
     run_backtest,
 )
+from src.analytics.factors import composite_scores, multifactor_weights
 from src.analytics.insights import (
     dna_label,
     dna_scores,
@@ -1088,6 +1089,35 @@ elif view == "Mercato":
             "Aggiorna i dati con `python download_nasdaq100.py`."
         )
 
+        sec("PI Score — ranking multifattore")
+        st.caption(
+            "Punteggio composito 0-100: **50% momentum 12-1 mesi** (Jegadeesh & "
+            "Titman 1993), **30% bassa volatilità** (Baker et al. 2011), "
+            "**20% trend** (distanza dalla media a 200 giorni). Regolarità "
+            "storiche documentate in letteratura, non garanzie — e non un "
+            "consiglio di investimento."
+        )
+        pi_window = compute_daily_returns(all_prices).tail(TRADING_DAYS)
+        pi_ranking = composite_scores(pi_window).dropna().head(15)
+        st.dataframe(
+            pi_ranking.rename_axis("ticker").reset_index(),
+            column_config={
+                "ticker": st.column_config.TextColumn("Ticker"),
+                "momentum": st.column_config.ProgressColumn(
+                    "Momentum", min_value=0, max_value=100, format="%.0f"
+                ),
+                "low_vol": st.column_config.ProgressColumn(
+                    "Bassa volatilità", min_value=0, max_value=100, format="%.0f"
+                ),
+                "trend": st.column_config.ProgressColumn(
+                    "Trend", min_value=0, max_value=100, format="%.0f"
+                ),
+                "pi_score": st.column_config.NumberColumn("PI Score", format="%.0f"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
 # ================================================================ BACKTEST
 elif view == "Backtest":
     sec("E se avessi seguito una strategia?")
@@ -1100,15 +1130,29 @@ elif view == "Backtest":
     if all_prices is None:
         st.info("Serve il database Nasdaq-100: esegui `python download_nasdaq100.py`.")
     else:
-        options = ["Equipesato Nasdaq-100", "Momentum (top 10 a 6 mesi)"]
+        options = [
+            "Equipesato Nasdaq-100",
+            "Momentum (top 10 a 6 mesi)",
+            "PI Multifactor (top 10)",
+        ]
         if len(amounts) >= 2:
             options += [
                 "Il tuo portafoglio (buy & hold)",
                 "Massimo Sharpe sui tuoi titoli",
                 "Minima varianza sui tuoi titoli",
             ]
-        chosen = st.multiselect("Strategie da confrontare", options, default=options[:2])
-        bt_years = st.select_slider("Orizzonte", ["1 anno", "2 anni", "5 anni"], "5 anni")
+        chosen = st.multiselect("Strategie da confrontare", options, default=options[:3])
+        col_bt1, col_bt2 = st.columns(2)
+        with col_bt1:
+            bt_years = st.select_slider(
+                "Orizzonte", ["1 anno", "2 anni", "5 anni"], "5 anni"
+            )
+        with col_bt2:
+            cost_bps = st.slider(
+                "Costi di transazione (bps per ribilanciamento)", 0, 50, 20, step=5,
+                help="20 bps = 0.20% sul controvalore scambiato: realistico per un "
+                "retail su titoli liquidi. Il buy & hold paga solo l'acquisto iniziale.",
+            )
         cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[bt_years])
         window = all_prices.loc[all_prices.index >= cutoff]
 
@@ -1117,10 +1161,20 @@ elif view == "Backtest":
                 curves = {}
                 try:
                     if "Equipesato Nasdaq-100" in chosen:
-                        curves["Equipesato Nasdaq-100"] = run_backtest(window, equal_weight)
+                        curves["Equipesato Nasdaq-100"] = run_backtest(
+                            window, equal_weight, cost_bps=cost_bps
+                        )
                     if "Momentum (top 10 a 6 mesi)" in chosen:
                         curves["Momentum (top 10 a 6 mesi)"] = run_backtest(
-                            window, lambda w: momentum_top(w, top_n=10)
+                            window, lambda w: momentum_top(w, top_n=10),
+                            cost_bps=cost_bps,
+                        )
+                    if "PI Multifactor (top 10)" in chosen:
+                        curves["PI Multifactor (top 10)"] = run_backtest(
+                            window,
+                            lambda w: multifactor_weights(w, top_n=10),
+                            lookback=273,  # serve ~1 anno per il momentum 12-1
+                            cost_bps=cost_bps,
                         )
                     if len(amounts) >= 2:
                         my_tickers = [t for t in sorted(amounts) if t in window.columns]
@@ -1139,11 +1193,11 @@ elif view == "Backtest":
                             )
                         if "Massimo Sharpe sui tuoi titoli" in chosen:
                             curves["Massimo Sharpe sui tuoi titoli"] = run_backtest(
-                                my_prices, max_sharpe
+                                my_prices, max_sharpe, cost_bps=cost_bps
                             )
                         if "Minima varianza sui tuoi titoli" in chosen:
                             curves["Minima varianza sui tuoi titoli"] = run_backtest(
-                                my_prices, min_variance
+                                my_prices, min_variance, cost_bps=cost_bps
                             )
                 except ValueError as exc:
                     st.error(f"{exc}")
@@ -1154,4 +1208,29 @@ elif view == "Backtest":
                 for col, (name, curve) in zip(cols, curves.items()):
                     col.metric(name, f"{curve.iloc[-1] / 100 - 1:+.0%}")
                 st.line_chart(equity, color=PALETTE[: len(curves)], height=380)
-                st.caption("Curve a base 100 all'inizio dell'orizzonte scelto.")
+
+                strategy_stats = pd.DataFrame(
+                    [
+                        {
+                            "Strategia": name,
+                            "Rendimento": curve.iloc[-1] / 100 - 1,
+                            "Volatilità annua": curve.pct_change().std() * TRADING_DAYS**0.5,
+                            "Max drawdown": float((curve / curve.cummax() - 1).min()),
+                        }
+                        for name, curve in curves.items()
+                    ]
+                )
+                st.dataframe(
+                    strategy_stats,
+                    column_config={
+                        "Rendimento": st.column_config.NumberColumn(format="percent"),
+                        "Volatilità annua": st.column_config.NumberColumn(format="percent"),
+                        "Max drawdown": st.column_config.NumberColumn(format="percent"),
+                    },
+                    hide_index=True,
+                    use_container_width=True,
+                )
+                st.caption(
+                    f"Curve a base 100, costi {cost_bps} bps per ribilanciamento. "
+                    "Il rendimento non è tutto: guarda volatilità e drawdown."
+                )
