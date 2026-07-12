@@ -259,6 +259,34 @@ st.markdown(
 
     .ai-card p {{ margin: 0 0 10px; line-height: 1.55; font-size: 0.95rem; }}
 
+    /* ---- card posizioni (sidebar) ---- */
+    .pos-row {{
+        display: flex; align-items: center; gap: 11px;
+        padding: 9px 2px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }}
+    .avatar {{
+        width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.7rem; font-weight: 800; color: #0b0e13;
+        letter-spacing: 0.02em;
+    }}
+    .pos-main {{ flex: 1; min-width: 0; }}
+    .pos-ticker {{ font-weight: 700; font-size: 0.9rem; line-height: 1.2; }}
+    .pos-amt {{
+        font-size: 0.78rem; color: var(--muted);
+        font-variant-numeric: tabular-nums;
+    }}
+    .pos-weight-track {{
+        margin-top: 4px; height: 3px; border-radius: 2px;
+        background: rgba(255,255,255,0.08);
+    }}
+    .pos-weight-fill {{ height: 100%; border-radius: 2px; }}
+    .pos-pct {{
+        font-size: 0.82rem; font-weight: 700; color: #c5cad6;
+        font-variant-numeric: tabular-nums;
+    }}
+
     /* ---- sidebar ---- */
     [data-testid="stSidebar"] {{
         background: #0d1117; border-right: 1px solid var(--line);
@@ -370,36 +398,116 @@ def hero_html(health: int, value: str, change: float, period: str) -> str:
 
 
 # ================================================================ SIDEBAR
+if "holdings" not in st.session_state:
+    st.session_state.holdings = {"AAPL": 4000.0, "MSFT": 3000.0, "NVDA": 3000.0}
+
+_db_for_search = load_market_db()
+KNOWN_TICKERS = sorted(_db_for_search.columns) if _db_for_search is not None else [
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "COST", "NFLX",
+]
+
 with st.sidebar:
     st.markdown(
         '<div class="brand" style="font-size:.9rem">◆ PORTFOLIO <b>INTELLIGENCE</b></div>',
         unsafe_allow_html=True,
     )
     sec("Il tuo portafoglio")
-    positions = st.data_editor(
-        pd.DataFrame({"ticker": ["AAPL", "MSFT", "NVDA"], "importo": [4000, 3000, 3000]}),
-        num_rows="dynamic",
-        hide_index=True,
-        column_config={
-            "ticker": st.column_config.TextColumn("Titolo", required=True),
-            "importo": st.column_config.NumberColumn(
-                "Importo", min_value=0.0, step=500.0, format="%d €", required=True
-            ),
-        },
-        key="positions",
-        width="stretch",
-    )
+
+    with st.form("add_position", clear_on_submit=True, border=False):
+        new_ticker = st.selectbox(
+            "Titolo",
+            KNOWN_TICKERS,
+            index=None,
+            placeholder="Cerca un titolo (es. AAPL)...",
+            accept_new_options=True,
+            label_visibility="collapsed",
+        )
+        new_amount = st.number_input(
+            "Importo (€)", min_value=100.0, value=1000.0, step=500.0,
+            label_visibility="collapsed",
+        )
+        if st.form_submit_button("＋ Aggiungi", width="stretch", type="primary"):
+            if new_ticker:
+                key = str(new_ticker).upper().strip()
+                st.session_state.holdings[key] = (
+                    st.session_state.holdings.get(key, 0.0) + float(new_amount)
+                )
+                st.rerun()
+
+    holdings = st.session_state.holdings
+    total = sum(holdings.values())
+    if holdings:
+        max_amount = max(holdings.values())
+        sorted_tickers = sorted(holdings, key=holdings.get, reverse=True)
+        for i, ticker in enumerate(sorted_tickers):
+            amount = holdings[ticker]
+            color = PALETTE[sorted(holdings).index(ticker) % len(PALETTE)]
+            weight = amount / total if total else 0
+            col_card, col_menu = st.columns([5, 1], gap="small")
+            with col_card:
+                st.markdown(
+                    f"""<div class="pos-row">
+                      <div class="avatar" style="background:{color}">{ticker[:4]}</div>
+                      <div class="pos-main">
+                        <div class="pos-ticker">{ticker}
+                          <span class="pos-amt">· {eur(amount)}</span></div>
+                        <div class="pos-weight-track"><div class="pos-weight-fill"
+                          style="width:{weight:.0%};background:{color}"></div></div>
+                      </div>
+                      <div class="pos-pct">{weight:.0%}</div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+            with col_menu:
+                with st.popover("✏️"):
+                    updated = st.number_input(
+                        "Importo (€)", min_value=0.0, value=float(amount),
+                        step=500.0, key=f"edit_{ticker}",
+                    )
+                    col_ok, col_del = st.columns(2)
+                    if col_ok.button("Salva", key=f"save_{ticker}", width="stretch"):
+                        if updated > 0:
+                            st.session_state.holdings[ticker] = float(updated)
+                        else:
+                            st.session_state.holdings.pop(ticker, None)
+                        st.rerun()
+                    if col_del.button("🗑️", key=f"del_{ticker}", width="stretch"):
+                        st.session_state.holdings.pop(ticker, None)
+                        st.rerun()
+        st.caption(f"Totale: **{eur(total)}** · {len(holdings)} titoli")
+    else:
+        st.info("Aggiungi il primo titolo qui sopra.")
+
     with st.expander("📂 Importa da CSV/Excel"):
         uploaded = st.file_uploader(
             "Estratto del broker (ticker + importo)", type=["csv", "xlsx", "xls"]
         )
+        if uploaded is not None:
+            file_id = f"{uploaded.name}-{uploaded.size}"
+            if st.session_state.get("last_upload") != file_id:
+                try:
+                    st.session_state.holdings = parse_positions(
+                        uploaded.getvalue(), uploaded.name
+                    )
+                    st.session_state.last_upload = file_id
+                    st.toast(f"Importate {len(st.session_state.holdings)} posizioni ✓")
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(f"Import fallito: {exc}")
+
     saved = list_portfolios()
     with st.expander("💾 Portafogli salvati"):
-        selected_saved = st.selectbox(
-            "Carica", ["— usa l'editor —"] + sorted(saved), index=0
-        )
         portfolio_name = st.text_input("Nome", value="Il mio portafoglio")
-        want_save = st.button("Salva composizione attiva", width="stretch")
+        if st.button("Salva composizione attuale", width="stretch") and holdings:
+            save_portfolio(portfolio_name, holdings)
+            st.toast(f"Portafoglio «{portfolio_name}» salvato ✓")
+        if saved:
+            selected_saved = st.selectbox("Carica", sorted(saved), index=None,
+                                          placeholder="Scegli un portafoglio...")
+            if selected_saved and st.button("Carica nel portafoglio", width="stretch"):
+                st.session_state.holdings = dict(saved[selected_saved])
+                st.rerun()
+
     with st.expander("⚙️ Impostazioni"):
         period = st.selectbox(
             "Orizzonte storico", ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
@@ -417,32 +525,8 @@ with st.sidebar:
             help="Rendimento senza rischio usato in Sharpe, Sortino e ottimizzazione.",
         ) / 100
 
-    amounts = {
-        str(row.ticker).upper().strip(): float(row.importo)
-        for row in positions.itertuples()
-        if str(row.ticker).strip() and float(row.importo or 0) > 0
-    }
-    # precedenza: file importato > portafoglio salvato > editor
-    source = "editor"
-    if uploaded is not None:
-        try:
-            amounts = parse_positions(uploaded.getvalue(), uploaded.name)
-            source = f"file «{uploaded.name}»"
-        except ValueError as exc:
-            st.error(f"Import fallito: {exc}")
-    elif selected_saved != "— usa l'editor —":
-        amounts = dict(saved[selected_saved])
-        source = f"portafoglio «{selected_saved}»"
-        portfolio_name = selected_saved
-    if source != "editor":
-        st.caption(f"⚡ Attivo: {source}")
-    if want_save and amounts:
-        save_portfolio(portfolio_name, amounts)
-        st.toast(f"Portafoglio «{portfolio_name}» salvato ✓")
-
-    total = sum(amounts.values())
-    if total:
-        st.caption(f"Totale investito: **{eur(total)}** · {len(amounts)} titoli")
+amounts = dict(st.session_state.holdings)
+total = sum(amounts.values())
 
 portfolio = (
     [{"ticker": t, "weight": amount / total} for t, amount in amounts.items()] if total else []
