@@ -296,11 +296,37 @@ def sec(title: str) -> None:
     st.markdown(f'<div class="sec">{title}</div>', unsafe_allow_html=True)
 
 
-def load_market_db() -> pd.DataFrame | None:
+@st.cache_data(ttl=600, show_spinner=False)
+def _cached_market_db(_mtime: float | None) -> pd.DataFrame | None:
+    # _mtime nel cache key: il DB aggiornato invalida la cache
     prices = load_stored_prices()
     if prices is not None:
         return prices
     return load_nasdaq100_prices()
+
+
+def load_market_db() -> pd.DataFrame | None:
+    from src.data.store import DB_PATH
+
+    mtime = DB_PATH.stat().st_mtime if DB_PATH.exists() else None
+    return _cached_market_db(mtime)
+
+
+def market_db_required(view_key: str) -> pd.DataFrame | None:
+    """Il database prezzi, con download integrato se assente (per il cloud)."""
+    prices = load_market_db()
+    if prices is None:
+        st.info(
+            "Il database Nasdaq-100 (5 anni di prezzi giornalieri per 103 titoli) "
+            "non è ancora presente."
+        )
+        if st.button("⬇️ Scarica ora (~1 minuto)", key=f"dl_{view_key}", type="primary"):
+            from download_nasdaq100 import update_nasdaq100
+
+            with st.spinner("Scarico 5 anni di prezzi da Yahoo Finance..."):
+                update_nasdaq100()
+            st.rerun()
+    return prices
 
 
 def dna_card_html(dna: dict[str, float], label: str, title: str = "PORTFOLIO DNA") -> str:
@@ -876,7 +902,7 @@ elif view == "Correlazioni":
         "Correlazione dei rendimenti giornalieri: **+1** = identici, "
         "**0** = indipendenti, **-1** = opposti."
     )
-    all_prices = load_market_db()
+    all_prices = market_db_required("corr")
     if all_prices is None:
         st.info("Serve il database Nasdaq-100: esegui `python download_nasdaq100.py`.")
     else:
@@ -1013,7 +1039,7 @@ elif view == "Fondamentali":
 # ================================================================ MERCATO
 elif view == "Mercato":
     sec("I 103 componenti del Nasdaq-100 a confronto")
-    all_prices = load_market_db()
+    all_prices = market_db_required("mercato")
     if all_prices is None:
         st.info("Database non ancora scaricato: esegui `python download_nasdaq100.py`.")
     else:
@@ -1070,7 +1096,7 @@ elif view == "Backtest":
         "(nessuno sguardo al futuro). Limiti: niente costi di transazione, prezzi "
         "in USD, universo = componenti ATTUALI del Nasdaq-100 (survivorship bias)."
     )
-    all_prices = load_market_db()
+    all_prices = market_db_required("backtest")
     if all_prices is None:
         st.info("Serve il database Nasdaq-100: esegui `python download_nasdaq100.py`.")
     else:

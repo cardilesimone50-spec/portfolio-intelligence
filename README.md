@@ -18,6 +18,18 @@ python download_nasdaq100.py                      # scarica/aggiorna il database
 python -m pytest                                  # test
 ```
 
+## Deploy
+
+**Streamlit Community Cloud (gratuito):** vai su [share.streamlit.io](https://share.streamlit.io),
+accedi con GitHub, "Create app" → repo `portfolio-intelligence`, branch `main`,
+file `app.py`. Il database prezzi si scarica dal bottone in-app alla prima visita.
+
+**Docker:**
+```bash
+docker build -t portfolio-intelligence .
+docker run -p 8501:8501 portfolio-intelligence
+```
+
 ## Struttura
 
 ```

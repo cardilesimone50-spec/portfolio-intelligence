@@ -1,0 +1,11 @@
+venv/
+data/
+.git/
+.github/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+tests/
+ROADMAP.md
