@@ -98,6 +98,8 @@ st.set_page_config(
 st.markdown(
     f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+
     :root {{
         --panel: #12161e;
         --line: rgba(255, 255, 255, 0.07);
@@ -105,9 +107,20 @@ st.markdown(
         --accent: {AMBER};
         --gain: {GAIN};
         --loss: {LOSS};
+        --font-ui: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+        --font-display: 'Space Grotesk', 'Inter', sans-serif;
+    }}
+    html, body, p, div, span, label, input, button, textarea, select, li {{
+        font-family: var(--font-ui) !important;
+    }}
+    code, pre {{ font-family: ui-monospace, 'SF Mono', Menlo, monospace !important; }}
+    [data-testid="stIconMaterial"], [class*="material-symbols"] {{
+        font-family: 'Material Symbols Rounded' !important;
     }}
     .block-container {{ padding-top: 1.1rem; max-width: 1320px; }}
-    h1, h2, h3 {{ letter-spacing: -0.01em; }}
+    h1, h2, h3 {{
+        font-family: var(--font-display) !important; letter-spacing: -0.01em;
+    }}
 
     /* ---- barra superiore ---- */
     .topbar {{
@@ -115,11 +128,12 @@ st.markdown(
         padding: 2px 2px 10px;
     }}
     .brand {{
-        font-size: 1.05rem; letter-spacing: 0.22em; color: #e6e8ee;
-        text-transform: uppercase;
+        font-family: var(--font-display) !important;
+        font-size: 1.02rem; letter-spacing: 0.14em; color: #e6e8ee;
+        text-transform: uppercase; font-weight: 500;
     }}
-    .brand b {{ color: var(--accent); font-weight: 800; }}
-    .brand-tag {{ font-size: 0.72rem; color: var(--muted); letter-spacing: 0.08em; }}
+    .brand b {{ color: var(--accent); font-weight: 700; }}
+    .brand-tag {{ font-size: 0.72rem; color: var(--muted); letter-spacing: 0.04em; }}
 
     /* ---- menu di navigazione (segmented control) ---- */
     .st-key-nav [data-testid="stSegmentedControl"] button,
@@ -131,8 +145,8 @@ st.markdown(
         padding: 6px 14px 10px !important;
     }}
     .st-key-nav button p {{
-        font-size: 0.74rem !important; font-weight: 600;
-        letter-spacing: 0.13em; text-transform: uppercase;
+        font-size: 0.78rem !important; font-weight: 600;
+        letter-spacing: 0.07em; text-transform: uppercase;
         color: var(--muted) !important;
     }}
     .st-key-nav button[aria-checked="true"],
@@ -157,20 +171,21 @@ st.markdown(
     }}
     [data-testid="stMetricLabel"] p {{
         font-size: 0.68rem !important; text-transform: uppercase;
-        letter-spacing: 0.12em; color: var(--muted) !important; font-weight: 600;
+        letter-spacing: 0.1em; color: var(--muted) !important; font-weight: 600;
     }}
     [data-testid="stMetricValue"] {{
-        font-family: ui-monospace, "SF Mono", Menlo, monospace;
-        font-variant-numeric: tabular-nums; font-size: 1.5rem;
+        font-family: var(--font-ui) !important; font-weight: 700;
+        font-variant-numeric: tabular-nums; font-size: 1.65rem;
+        letter-spacing: -0.02em;
     }}
     [data-testid="stMetricDelta"] {{
-        font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85rem;
+        font-variant-numeric: tabular-nums; font-size: 0.85rem; font-weight: 600;
     }}
 
     /* ---- etichette di sezione ---- */
     .sec {{
         display: flex; align-items: center; gap: 10px;
-        font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em;
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em;
         text-transform: uppercase; color: var(--muted);
         margin: 26px 0 10px;
     }}
@@ -197,19 +212,23 @@ st.markdown(
         justify-content: center;
     }}
     .gauge-num {{
-        font: 800 2.1rem ui-monospace, "SF Mono", Menlo, monospace;
+        font-family: var(--font-display) !important;
+        font-size: 2.2rem; font-weight: 700;
         line-height: 1; color: var(--gcol);
     }}
-    .gauge-sub {{ font-size: 0.66rem; color: var(--muted); letter-spacing: 0.14em; }}
+    .gauge-sub {{ font-size: 0.64rem; color: var(--muted); letter-spacing: 0.12em; }}
     .hero-meta .label {{
-        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em;
+        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em;
         color: var(--muted); font-weight: 600;
     }}
     .hero-meta .big {{
-        font: 700 2rem ui-monospace, "SF Mono", Menlo, monospace;
+        font-family: var(--font-display) !important;
+        font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em;
         font-variant-numeric: tabular-nums; margin: 2px 0;
     }}
-    .chg {{ font: 600 0.95rem ui-monospace, Menlo, monospace; }}
+    .chg {{
+        font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    }}
     .up {{ color: var(--gain); }}
     .down {{ color: var(--loss); }}
 
@@ -226,7 +245,8 @@ st.markdown(
     .dna-fill {{ height: 100%; border-radius: 4px; background: #3987e5; }}
     .dna-fill.risk {{ background: var(--accent); }}
     .dna-value {{
-        width: 36px; text-align: right; font: 600 0.86rem ui-monospace, monospace;
+        width: 36px; text-align: right; font-size: 0.88rem; font-weight: 700;
+        font-variant-numeric: tabular-nums;
     }}
     .dna-status {{ margin-top: 14px; font-weight: 600; font-size: 0.98rem; }}
 
