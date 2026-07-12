@@ -115,14 +115,14 @@ def dna_label(dna: dict[str, float]) -> str:
         return ""
     growth, value, risk = dna.get("Growth", 0), dna.get("Value", 0), dna.get("Risk", 0)
     if growth >= 70 and risk >= 60:
-        return "⚡ Profilo growth aggressivo"
+        return "Profilo growth aggressivo"
     if growth >= 70:
-        return "🚀 Profilo growth"
+        return "Profilo growth"
     if value >= 60:
-        return "🏦 Profilo value"
+        return "Profilo value"
     if risk <= 35:
-        return "🛡️ Profilo difensivo"
-    return "⚖️ Profilo bilanciato"
+        return "Profilo difensivo"
+    return "Profilo bilanciato"
 
 
 def stock_scores(row: pd.Series, annual_volatility: float) -> dict[str, float]:
@@ -217,17 +217,17 @@ def find_problems(
 
     if len(weights) > 1 and weights.iloc[0] > 0.25:
         problems.append(
-            f"⚠️ **{weights.index[0]}** pesa il **{weights.iloc[0]:.0%}** del "
+            f"**{weights.index[0]}** pesa il **{weights.iloc[0]:.0%}** del "
             "portafoglio: rischio di concentrazione elevato."
         )
     if len(contributions) >= 2 and contributions.iloc[0] > max(0.40, 1.5 / len(contributions)):
         problems.append(
-            f"⚠️ **{contributions.index[0]}** genera il "
+            f"**{contributions.index[0]}** genera il "
             f"**{contributions.iloc[0]:.0%} del rischio totale**."
         )
     if avg_correlation == avg_correlation and avg_correlation > 0.6:
         problems.append(
-            f"⚠️ Correlazione media **{avg_correlation:.0%}**: i titoli si muovono "
+            f"Correlazione media **{avg_correlation:.0%}**: i titoli si muovono "
             "insieme, il portafoglio dipende da un solo motore."
         )
     if "dividend_yield" in fundamentals.columns:
@@ -240,11 +240,11 @@ def find_problems(
             )
             if weighted_yield < 1.0:  # in punti percentuali
                 problems.append(
-                    f"⚠️ Rendimento da dividendi **{weighted_yield:.1f}%**, sotto "
+                    f"Rendimento da dividendi **{weighted_yield:.1f}%**, sotto "
                     "la media di mercato: il portafoglio non genera reddito."
                 )
     if radar.get("Volatilità", 0) > 70:
-        problems.append("⚠️ Volatilità elevata rispetto a un portafoglio bilanciato.")
+        problems.append("Volatilità elevata rispetto a un portafoglio bilanciato.")
     return problems
 
 
@@ -261,7 +261,7 @@ def find_opportunities(
         missing = [s for s in DEFENSIVE_SECTORS if s not in held_sectors]
         if missing:
             opportunities.append(
-                f"✓ Settori difensivi scoperti (**{', '.join(missing)}**): "
+                f"Settori difensivi scoperti (**{', '.join(missing)}**): "
                 "aggiungerli ridurrebbe la dipendenza dal ciclo tech."
             )
 
@@ -273,14 +273,14 @@ def find_opportunities(
         ]
         for ticker in cheap.index[:2]:
             opportunities.append(
-                f"✓ Valutazione interessante su **{ticker}** "
+                f"Valutazione interessante su **{ticker}** "
                 f"(P/E {cheap.loc[ticker, 'pe']:.0f}): "
                 "tra i tuoi titoli è il meno caro."
             )
 
     if not opportunities:
         opportunities.append(
-            "✓ Nessuna lacuna evidente rispetto alle regole monitorate "
+            "Nessuna lacuna evidente rispetto alle regole monitorate "
             "(settori difensivi, valutazioni)."
         )
     return opportunities
@@ -337,7 +337,7 @@ def generate_insights(
     if len(contributions) >= 2:
         top2 = contributions.head(2)
         insights.append(
-            f"⚠️ **{top2.index[0]}** e **{top2.index[1]}** rappresentano il "
+            f"**{top2.index[0]}** e **{top2.index[1]}** rappresentano il "
             f"**{top2.sum():.0%} del rischio totale** del portafoglio."
         )
     if avg_correlation == avg_correlation:

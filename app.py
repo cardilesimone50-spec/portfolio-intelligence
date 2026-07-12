@@ -97,7 +97,7 @@ PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 ann
 AMBER = "#f7a600"
 
 st.set_page_config(
-    page_title="Portfolio Intelligence", page_icon="📈", layout="wide",
+    page_title="Portfolio Intelligence", page_icon="◆", layout="wide",
     initial_sidebar_state="expanded",
 )
 
@@ -355,7 +355,7 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
             "Il database Nasdaq-100 (5 anni di prezzi giornalieri per 103 titoli) "
             "non è ancora presente."
         )
-        if st.button("⬇️ Scarica ora (~1 minuto)", key=f"dl_{view_key}", type="primary"):
+        if st.button("Scarica i dati (~1 minuto)", key=f"dl_{view_key}", type="primary"):
             from download_nasdaq100 import update_nasdaq100
 
             with st.spinner("Scarico 5 anni di prezzi da Yahoo Finance..."):
@@ -426,7 +426,7 @@ with st.sidebar:
             "Importo (€)", min_value=100.0, value=1000.0, step=500.0,
             label_visibility="collapsed",
         )
-        if st.form_submit_button("＋ Aggiungi", width="stretch", type="primary"):
+        if st.form_submit_button("Aggiungi", width="stretch", type="primary"):
             if new_ticker:
                 key = str(new_ticker).upper().strip()
                 st.session_state.holdings[key] = (
@@ -459,7 +459,7 @@ with st.sidebar:
                     unsafe_allow_html=True,
                 )
             with col_menu:
-                with st.popover("✏️"):
+                with st.popover("···"):
                     updated = st.number_input(
                         "Importo (€)", min_value=0.0, value=float(amount),
                         step=500.0, key=f"edit_{ticker}",
@@ -471,16 +471,21 @@ with st.sidebar:
                         else:
                             st.session_state.holdings.pop(ticker, None)
                         st.rerun()
-                    if col_del.button("🗑️", key=f"del_{ticker}", width="stretch"):
+                    if col_del.button("Rimuovi", key=f"del_{ticker}", width="stretch"):
                         st.session_state.holdings.pop(ticker, None)
                         st.rerun()
         st.caption(f"Totale: **{eur(total)}** · {len(holdings)} titoli")
     else:
         st.info("Aggiungi il primo titolo qui sopra.")
 
-    with st.expander("📂 Importa da CSV/Excel"):
+    with st.expander("Importa da CSV / Excel"):
         uploaded = st.file_uploader(
-            "Estratto del broker (ticker + importo)", type=["csv", "xlsx", "xls"]
+            "Posizione titoli in CSV o Excel", type=["csv", "xlsx", "xls"],
+            help="Esporta dal tuo broker la POSIZIONE TITOLI (detta anche "
+            "dossier o patrimonio), non l'estratto dei movimenti di conto. "
+            "Formati supportati: CSV ed Excel — i PDF non sono leggibili. "
+            "Colonne attese: titolo/ticker e importo/controvalore, oppure "
+            "quantità e prezzo.",
         )
         if uploaded is not None:
             file_id = f"{uploaded.name}-{uploaded.size}"
@@ -490,17 +495,17 @@ with st.sidebar:
                         uploaded.getvalue(), uploaded.name
                     )
                     st.session_state.last_upload = file_id
-                    st.toast(f"Importate {len(st.session_state.holdings)} posizioni ✓")
+                    st.toast(f"Importate {len(st.session_state.holdings)} posizioni")
                     st.rerun()
                 except ValueError as exc:
                     st.error(f"Import fallito: {exc}")
 
     saved = list_portfolios()
-    with st.expander("💾 Portafogli salvati"):
+    with st.expander("Portafogli salvati"):
         portfolio_name = st.text_input("Nome", value="Il mio portafoglio")
         if st.button("Salva composizione attuale", width="stretch") and holdings:
             save_portfolio(portfolio_name, holdings)
-            st.toast(f"Portafoglio «{portfolio_name}» salvato ✓")
+            st.toast(f"Portafoglio «{portfolio_name}» salvato")
         if saved:
             selected_saved = st.selectbox("Carica", sorted(saved), index=None,
                                           placeholder="Scegli un portafoglio...")
@@ -508,12 +513,12 @@ with st.sidebar:
                 st.session_state.holdings = dict(saved[selected_saved])
                 st.rerun()
 
-    with st.expander("⚙️ Impostazioni"):
+    with st.expander("Impostazioni"):
         period = st.selectbox(
             "Orizzonte storico", ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
         )
         in_eur = st.toggle(
-            "💱 Misura tutto in euro",
+            "Misura tutto in euro",
             value=True,
             help="I titoli USA quotano in dollari: convertendo in EUR le metriche "
             "includono anche le oscillazioni EUR/USD, il rischio reale di un "
@@ -605,7 +610,7 @@ if compute_error:
 NEEDS_PORTFOLIO = {"Check-up", "Analisi", "Visual", "Ottimizza"}
 if view in NEEDS_PORTFOLIO and computed is None:
     if not compute_error:
-        st.info("⬅ Inserisci almeno un titolo con un importo nella barra laterale.")
+        st.info("Inserisci almeno un titolo con un importo nella barra laterale.")
 
 # ================================================================ CHECK-UP
 elif view == "Check-up":
@@ -674,7 +679,7 @@ elif view == "Check-up":
         for problem in top_problems:
             st.markdown(problem)
     else:
-        st.success("Nessun problema rilevato dalle regole monitorate ✓")
+        st.success("Nessun problema rilevato dalle regole monitorate.")
 
     sec("Il tuo rischio, in euro")
     r1, r2, r3 = st.columns(3)
@@ -732,14 +737,14 @@ elif view == "Check-up":
         (simulations if improves else discarded).append(text)
 
     for simulation in simulations:
-        st.markdown("✅ " + simulation)
+        st.markdown(simulation)
     if not simulations and candidates_sim:
         st.markdown(
             "Abbiamo simulato le mosse più ovvie sui tuoi dati, ma **nessuna "
             "migliora il profilo attuale** — un buon segno per come sei pesato:"
         )
         for text in discarded:
-            st.caption("✗ " + text)
+            st.caption("Scartata: " + text)
     for opportunity in find_opportunities(portfolio, c["fund"])[:2]:
         st.markdown(opportunity)
     if not candidates_sim:
@@ -763,7 +768,7 @@ elif view == "Check-up":
             "Tasso risk-free usato": f"{risk_free:.2%}",
         }
         st.download_button(
-            "📄 Scarica il report PDF",
+            "Scarica il report PDF",
             data=build_report(
                 portfolio_name=portfolio_name,
                 positions=amounts,
@@ -782,13 +787,13 @@ elif view == "Check-up":
             type="primary",
         )
     with col_log:
-        if st.button("📝 Salva nello storico", width="stretch"):
+        if st.button("Salva nello storico", width="stretch"):
             log_analysis(portfolio_name, period, total, c["cum_return"], c["risk_score"])
-            st.toast("Analisi salvata ✓")
+            st.toast("Analisi salvata")
     with col_hist:
         history = load_analyses()
         if not history.empty:
-            with st.expander(f"🕘 Storico analisi ({len(history)})"):
+            with st.expander(f"Storico analisi ({len(history)})"):
                 st.dataframe(
                     history,
                     column_config={

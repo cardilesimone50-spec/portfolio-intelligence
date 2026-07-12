@@ -22,19 +22,19 @@ def evaluate_alerts(
         threshold = max(0.40, 1.5 * fair_share)
         if contributions.iloc[0] > threshold:
             alerts.append(
-                f"⚠️ **{contributions.index[0]}** pesa ora il "
+                f"**{contributions.index[0]}** pesa ora il "
                 f"**{contributions.iloc[0]:.0%} del rischio totale** del portafoglio."
             )
 
     if avg_correlation == avg_correlation and avg_correlation > 0.75:
         alerts.append(
-            f"⚠️ Correlazione media salita a **{avg_correlation:.2f}**: "
+            f"Correlazione media salita a **{avg_correlation:.2f}**: "
             "il portafoglio si muove come un titolo solo."
         )
 
     if drawdown == drawdown and drawdown < -0.30:
         alerts.append(
-            f"📉 Drawdown profondo: **{drawdown:.0%}** dal picco nel periodo analizzato."
+            f"Drawdown profondo: **{drawdown:.0%}** dal picco nel periodo analizzato."
         )
 
     # movimento dell'ultimo giorno disponibile
@@ -45,7 +45,7 @@ def evaluate_alerts(
         contribution_today = last_day * weights
         worst = contribution_today.idxmin()
         alerts.append(
-            f"📉 Ultima seduta: portafoglio **{day_move:+.1%}**. "
+            f"Ultima seduta: portafoglio **{day_move:+.1%}**. "
             f"Principale responsabile: **{worst}** "
             f"({float(contribution_today[worst]):+.1%} sul totale)."
         )
