@@ -25,9 +25,7 @@ class _StubProvider:
 
 def test_chain_returns_first_successful():
     good = pd.DataFrame({"AAPL": [1.0, 2.0]})
-    chain = ProviderChain(
-        [_StubProvider("Primary", result=good)]
-    )
+    chain = ProviderChain([_StubProvider("Primary", result=good)])
     data, source = chain.fetch(["AAPL"], "1y")
     assert source == "Primary"
     assert data.equals(good)
@@ -47,17 +45,13 @@ def test_chain_falls_back_when_provider_fails():
 def test_chain_skips_empty_results():
     empty = pd.DataFrame({"AAPL": [float("nan")]})
     good = pd.DataFrame({"AAPL": [1.0]})
-    chain = ProviderChain(
-        [_StubProvider("A", result=empty), _StubProvider("B", result=good)]
-    )
+    chain = ProviderChain([_StubProvider("A", result=empty), _StubProvider("B", result=good)])
     _, source = chain.fetch(["AAPL"], "1y")
     assert source == "B"
 
 
 def test_chain_raises_when_all_fail():
-    chain = ProviderChain(
-        [_StubProvider("A", fail=True), _StubProvider("B", fail=True)]
-    )
+    chain = ProviderChain([_StubProvider("A", fail=True), _StubProvider("B", fail=True)])
     with pytest.raises(ValueError, match="Nessun provider"):
         chain.fetch(["AAPL"], "1y")
 
@@ -87,8 +81,6 @@ def test_eodhd_parses_adjusted_close(monkeypatch):
                 {"date": "2026-01-03", "close": 101.0, "adjusted_close": 100.5},
             ]
 
-    monkeypatch.setattr(
-        "src.data.providers.requests.get", lambda *a, **k: FakeResp()
-    )
+    monkeypatch.setattr("src.data.providers.requests.get", lambda *a, **k: FakeResp())
     df = provider.fetch(["AAPL"], "1y")
     assert df["AAPL"].tolist() == [99.0, 100.5]  # usa adjusted_close

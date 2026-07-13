@@ -31,9 +31,7 @@ def interpret_volatility(annual_vol: float, universe_vols: pd.Series | None = No
     if universe_vols is not None:
         pct = universe_percentile(annual_vol, universe_vols)
         if pct == pct:
-            text += (
-                f" Oscilla meno del {1 - pct:.0%} dei singoli titoli del Nasdaq-100."
-            )
+            text += f" Oscilla meno del {1 - pct:.0%} dei singoli titoli del Nasdaq-100."
     return text
 
 

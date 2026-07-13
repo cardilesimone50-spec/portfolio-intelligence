@@ -27,9 +27,7 @@ def fetch_price_history(tickers: list[str], period: str = "1y") -> pd.DataFrame:
     last_price_source = source
 
     missing = [
-        ticker
-        for ticker in tickers
-        if ticker not in data.columns or data[ticker].isna().all()
+        ticker for ticker in tickers if ticker not in data.columns or data[ticker].isna().all()
     ]
     if missing:
         raise ValueError(f"Nessun dato trovato per i ticker: {', '.join(missing)}")

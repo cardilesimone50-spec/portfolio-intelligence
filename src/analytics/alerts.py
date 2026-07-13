@@ -33,9 +33,7 @@ def evaluate_alerts(
         )
 
     if drawdown == drawdown and drawdown < -0.30:
-        alerts.append(
-            f"Drawdown profondo: **{drawdown:.0%}** dal picco nel periodo analizzato."
-        )
+        alerts.append(f"Drawdown profondo: **{drawdown:.0%}** dal picco nel periodo analizzato.")
 
     # movimento dell'ultimo giorno disponibile
     weights = weights_series(portfolio)

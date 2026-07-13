@@ -81,9 +81,7 @@ def test_sortino_greater_than_sharpe_for_asymmetric_upside():
 
 def test_value_at_risk_is_the_5th_percentile():
     daily = pd.Series(np.linspace(-0.10, 0.09, 100))
-    assert value_at_risk(daily, confidence=0.95) == pytest.approx(
-        daily.quantile(0.05)
-    )
+    assert value_at_risk(daily, confidence=0.95) == pytest.approx(daily.quantile(0.05))
 
 
 def test_value_at_risk_too_short_is_nan():

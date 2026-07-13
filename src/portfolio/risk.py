@@ -22,9 +22,7 @@ def correlation_matrix(returns: pd.DataFrame, min_periods: int = 40) -> pd.DataF
     return returns.corr(min_periods=min_periods)
 
 
-def correlations_with(
-    returns: pd.DataFrame, ticker: str, min_periods: int = 40
-) -> pd.Series:
+def correlations_with(returns: pd.DataFrame, ticker: str, min_periods: int = 40) -> pd.Series:
     """Correlazione di ogni altro titolo con `ticker`, ordinata dalla più alta.
 
     Esclude il titolo stesso e le coppie senza abbastanza storico in comune.
@@ -42,9 +40,12 @@ def average_pairwise_correlation(returns: pd.DataFrame, min_periods: int = 40) -
     if n < 2:
         return float("nan")
     # somma del triangolo superiore, escl. diagonale
-    upper = corr.where(pd.DataFrame(
-        [[i < j for j in range(n)] for i in range(n)],
-        index=corr.index, columns=corr.columns,
-    ))
+    upper = corr.where(
+        pd.DataFrame(
+            [[i < j for j in range(n)] for i in range(n)],
+            index=corr.index,
+            columns=corr.columns,
+        )
+    )
     pairs = upper.stack()
     return float(pairs.mean()) if len(pairs) else float("nan")

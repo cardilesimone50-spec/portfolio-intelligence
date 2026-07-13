@@ -17,6 +17,13 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt ruff
 
-      - run: python -m pytest -v
+      - name: Lint
+        run: ruff check src/ app.py tests/
+
+      - name: Format check
+        run: ruff format --check src/ app.py tests/
+
+      - name: Tests
+        run: python -m pytest -v

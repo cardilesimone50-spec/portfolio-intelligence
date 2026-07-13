@@ -36,9 +36,7 @@ def test_momentum_excludes_last_month():
     returns = RETURNS.copy()
     crashed = returns.copy()
     crashed.loc[crashed.index[-21:], "STEADY"] = -0.05
-    assert momentum_12_1(crashed)["STEADY"] == pytest.approx(
-        momentum_12_1(returns)["STEADY"]
-    )
+    assert momentum_12_1(crashed)["STEADY"] == pytest.approx(momentum_12_1(returns)["STEADY"])
 
 
 def test_low_volatility_prefers_calm():

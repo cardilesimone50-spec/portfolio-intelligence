@@ -4,7 +4,7 @@ Limiti dichiarati: nessun costo di transazione, e l'universo Nasdaq-100 usa i
 componenti ATTUALI dell'indice (survivorship bias: i titoli usciti non ci sono).
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 import pandas as pd
 
@@ -77,8 +77,12 @@ def run_backtest(
             else:
                 union = weights.index.union(previous_weights.index)
                 traded = float(
-                    (weights.reindex(union, fill_value=0.0)
-                     - previous_weights.reindex(union, fill_value=0.0)).abs().sum()
+                    (
+                        weights.reindex(union, fill_value=0.0)
+                        - previous_weights.reindex(union, fill_value=0.0)
+                    )
+                    .abs()
+                    .sum()
                 )
             segment_returns.iloc[0] -= traded * cost_bps / 10_000
 

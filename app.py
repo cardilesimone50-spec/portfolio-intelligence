@@ -16,36 +16,16 @@ from src.analytics.backtest import (
     run_backtest,
 )
 from src.analytics.factors import composite_scores, multifactor_weights
-from src.analytics.interpret import (
-    interpret_beta,
-    interpret_correlation,
-    interpret_drawdown,
-    interpret_sharpe,
-    interpret_sortino,
-    interpret_volatility,
-)
-from src.ui.components import (
-    breakdown_html,
-    compliance_footer,
-    empty_state,
-    kpi_row_html,
-    dna_card_html,
-    eur,
-    hero_html,
-    render_landing,
-    sec,
-)
 from src.analytics.insights import (
     dna_label,
-    executive_summary,
-    health_breakdown,
-    usd_exposure,
     dna_scores,
     equal_weight_portfolio,
+    executive_summary,
     find_opportunities,
     find_problems,
     generate_insights,
     generate_suggestions,
+    health_breakdown,
     monthly_returns,
     portfolio_health_score,
     portfolio_risk_score,
@@ -53,6 +33,15 @@ from src.analytics.insights import (
     reduce_position,
     risk_contributions,
     stock_scores,
+    usd_exposure,
+)
+from src.analytics.interpret import (
+    interpret_beta,
+    interpret_correlation,
+    interpret_drawdown,
+    interpret_sharpe,
+    interpret_sortino,
+    interpret_volatility,
 )
 from src.analytics.performance import (
     annualized_geometric_return,
@@ -63,6 +52,7 @@ from src.analytics.performance import (
     value_at_risk,
 )
 from src.analytics.simulation import simulate_shock
+from src.data import yahoo_client
 from src.data.cache import load_nasdaq100_prices
 from src.data.fx import convert_to_eur, fetch_eurusd
 from src.data.importers import parse_positions
@@ -91,6 +81,17 @@ from src.portfolio.risk import (
     correlation_matrix,
     correlations_with,
     portfolio_volatility,
+)
+from src.ui.components import (
+    breakdown_html,
+    compliance_footer,
+    dna_card_html,
+    empty_state,
+    eur,
+    hero_html,
+    kpi_row_html,
+    render_landing,
+    sec,
 )
 from src.visualization.charts import (
     GAIN,
@@ -121,7 +122,9 @@ AMBER = "#f7a600"
 PROFILE_VOL = {"Prudente": 0.10, "Moderato": 0.18, "Aggressivo": 0.30}
 
 st.set_page_config(
-    page_title="Portfolio Intelligence", page_icon="◆", layout="wide",
+    page_title="Portfolio Intelligence",
+    page_icon="◆",
+    layout="wide",
     initial_sidebar_state="expanded",
 )
 
@@ -490,9 +493,22 @@ if "holdings" not in st.session_state:
     st.session_state.holdings = {"AAPL": 4000.0, "MSFT": 3000.0, "NVDA": 3000.0}
 
 _db_for_search = load_market_db()
-KNOWN_TICKERS = sorted(_db_for_search.columns) if _db_for_search is not None else [
-    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "COST", "NFLX",
-]
+KNOWN_TICKERS = (
+    sorted(_db_for_search.columns)
+    if _db_for_search is not None
+    else [
+        "AAPL",
+        "MSFT",
+        "NVDA",
+        "GOOGL",
+        "AMZN",
+        "META",
+        "TSLA",
+        "AVGO",
+        "COST",
+        "NFLX",
+    ]
+)
 
 with st.sidebar:
     st.markdown(
@@ -511,16 +527,18 @@ with st.sidebar:
             label_visibility="collapsed",
         )
         new_amount = st.number_input(
-            "Importo (€)", min_value=100.0, value=1000.0, step=500.0,
+            "Importo (€)",
+            min_value=100.0,
+            value=1000.0,
+            step=500.0,
             label_visibility="collapsed",
         )
-        if st.form_submit_button("Aggiungi", width="stretch", type="primary"):
-            if new_ticker:
-                key = str(new_ticker).upper().strip()
-                st.session_state.holdings[key] = (
-                    st.session_state.holdings.get(key, 0.0) + float(new_amount)
-                )
-                st.rerun()
+        if st.form_submit_button("Aggiungi", width="stretch", type="primary") and new_ticker:
+            key = str(new_ticker).upper().strip()
+            st.session_state.holdings[key] = st.session_state.holdings.get(key, 0.0) + float(
+                new_amount
+            )
+            st.rerun()
 
     holdings = st.session_state.holdings
     total = sum(holdings.values())
@@ -528,7 +546,7 @@ with st.sidebar:
         max_amount = max(holdings.values())
         sorted_tickers = sorted(holdings, key=holdings.get, reverse=True)
         known_names = st.session_state.get("names", {})
-        for i, ticker in enumerate(sorted_tickers):
+        for _i, ticker in enumerate(sorted_tickers):
             amount = holdings[ticker]
             color = PALETTE[sorted(holdings).index(ticker) % len(PALETTE)]
             weight = amount / total if total else 0
@@ -550,22 +568,24 @@ with st.sidebar:
                     </div>""",
                     unsafe_allow_html=True,
                 )
-            with col_menu:
-                with st.popover("···"):
-                    updated = st.number_input(
-                        "Importo (€)", min_value=0.0, value=float(amount),
-                        step=500.0, key=f"edit_{ticker}",
-                    )
-                    col_ok, col_del = st.columns(2)
-                    if col_ok.button("Salva", key=f"save_{ticker}", width="stretch"):
-                        if updated > 0:
-                            st.session_state.holdings[ticker] = float(updated)
-                        else:
-                            st.session_state.holdings.pop(ticker, None)
-                        st.rerun()
-                    if col_del.button("Rimuovi", key=f"del_{ticker}", width="stretch"):
+            with col_menu, st.popover("···"):
+                updated = st.number_input(
+                    "Importo (€)",
+                    min_value=0.0,
+                    value=float(amount),
+                    step=500.0,
+                    key=f"edit_{ticker}",
+                )
+                col_ok, col_del = st.columns(2)
+                if col_ok.button("Salva", key=f"save_{ticker}", width="stretch"):
+                    if updated > 0:
+                        st.session_state.holdings[ticker] = float(updated)
+                    else:
                         st.session_state.holdings.pop(ticker, None)
-                        st.rerun()
+                    st.rerun()
+                if col_del.button("Rimuovi", key=f"del_{ticker}", width="stretch"):
+                    st.session_state.holdings.pop(ticker, None)
+                    st.rerun()
         st.caption(f"Totale: **{eur(total)}** · {len(holdings)} titoli")
     else:
         empty_state(
@@ -576,7 +596,8 @@ with st.sidebar:
 
     with st.expander("Importa da CSV / Excel"):
         uploaded = st.file_uploader(
-            "Posizione titoli in CSV o Excel", type=["csv", "xlsx", "xls"],
+            "Posizione titoli in CSV o Excel",
+            type=["csv", "xlsx", "xls"],
             help="Esporta dal tuo broker la POSIZIONE TITOLI (detta anche "
             "dossier o patrimonio), non l'estratto dei movimenti di conto. "
             "Formati supportati: CSV ed Excel — i PDF non sono leggibili. "
@@ -587,9 +608,7 @@ with st.sidebar:
             file_id = f"{uploaded.name}-{uploaded.size}"
             if st.session_state.get("last_upload") != file_id:
                 try:
-                    st.session_state.holdings = parse_positions(
-                        uploaded.getvalue(), uploaded.name
-                    )
+                    st.session_state.holdings = parse_positions(uploaded.getvalue(), uploaded.name)
                     st.session_state.last_upload = file_id
                     st.toast(f"Importate {len(st.session_state.holdings)} posizioni")
                     st.rerun()
@@ -603,8 +622,9 @@ with st.sidebar:
             save_portfolio(portfolio_name, holdings)
             st.toast(f"Portafoglio «{portfolio_name}» salvato")
         if saved:
-            selected_saved = st.selectbox("Carica", sorted(saved), index=None,
-                                          placeholder="Scegli un portafoglio...")
+            selected_saved = st.selectbox(
+                "Carica", sorted(saved), index=None, placeholder="Scegli un portafoglio..."
+            )
             if selected_saved and st.button("Carica nel portafoglio", width="stretch"):
                 st.session_state.holdings = dict(saved[selected_saved])
                 st.rerun()
@@ -620,11 +640,17 @@ with st.sidebar:
             "includono anche le oscillazioni EUR/USD, il rischio reale di un "
             "investitore europeo.",
         )
-        risk_free = st.number_input(
-            "Tasso risk-free annuo (%)",
-            min_value=0.0, max_value=10.0, value=3.0, step=0.25,
-            help="Rendimento senza rischio usato in Sharpe, Sortino e ottimizzazione.",
-        ) / 100
+        risk_free = (
+            st.number_input(
+                "Tasso risk-free annuo (%)",
+                min_value=0.0,
+                max_value=10.0,
+                value=3.0,
+                step=0.25,
+                help="Rendimento senza rischio usato in Sharpe, Sortino e ottimizzazione.",
+            )
+            / 100
+        )
         risk_profile = st.selectbox(
             "Profilo di rischio",
             ["Non impostato", "Prudente", "Moderato", "Aggressivo"],
@@ -680,14 +706,27 @@ if portfolio:
         health = portfolio_health_score(breakdown)
 
         computed = {
-            "returns": returns, "prices": prices, "pf_daily": pf_daily,
-            "pf_value": pf_value, "bench_daily": bench_daily,
-            "annual_ret": annual_ret, "annual_vol": annual_vol,
-            "drawdown": drawdown, "avg_corr": avg_corr, "var_95": var_95,
-            "beta": beta, "alpha": alpha, "min_periods": min_periods,
-            "cum_return": cum_return, "risk_score": risk_score,
-            "contributions": contributions, "radar": radar, "fund": fund,
-            "dna": dna, "health": health, "breakdown": breakdown,
+            "returns": returns,
+            "prices": prices,
+            "pf_daily": pf_daily,
+            "pf_value": pf_value,
+            "bench_daily": bench_daily,
+            "annual_ret": annual_ret,
+            "annual_vol": annual_vol,
+            "drawdown": drawdown,
+            "avg_corr": avg_corr,
+            "var_95": var_95,
+            "beta": beta,
+            "alpha": alpha,
+            "min_periods": min_periods,
+            "cum_return": cum_return,
+            "risk_score": risk_score,
+            "contributions": contributions,
+            "radar": radar,
+            "fund": fund,
+            "dna": dna,
+            "health": health,
+            "breakdown": breakdown,
             "usd_weight": usd_weight,
         }
         if "name" in fund.columns:
@@ -699,15 +738,15 @@ if portfolio:
         compute_error = str(exc)
 
 # ================================================================ HEADER + NAV
-from src.data.yahoo_client import last_price_source
-
 st.markdown(
     f"""<div class="topbar">
     <span class="brand">◆ PORTFOLIO <b>INTELLIGENCE</b></span>
     <span class="brand-tag">{"EUR · cambio incluso" if in_eur else "valute originali"}
-    · fonte prezzi: {last_price_source}</span></div>""",
+    · fonte prezzi: {yahoo_client.last_price_source}</span></div>""",
     unsafe_allow_html=True,
 )
+
+
 def _start_checkup() -> None:
     st.session_state.nav = "Check-up"
 
@@ -715,8 +754,18 @@ def _start_checkup() -> None:
 with st.container(key="navbar"):
     view = st.segmented_control(
         "Sezione",
-        ["Home", "Check-up", "Analisi", "Visual", "Ottimizza", "Correlazioni",
-         "Fondamentali", "Mercato", "Backtest", "Clienti"],
+        [
+            "Home",
+            "Check-up",
+            "Analisi",
+            "Visual",
+            "Ottimizza",
+            "Correlazioni",
+            "Fondamentali",
+            "Mercato",
+            "Backtest",
+            "Clienti",
+        ],
         default="Home",
         label_visibility="collapsed",
         key="nav",
@@ -746,9 +795,13 @@ elif view == "Check-up":
     col_hero, col_equity = st.columns([1, 1.4], gap="large")
     with col_hero:
         st.markdown(
-            hero_html(c["health"], eur(total * (1 + c["cum_return"])),
-                      c["cum_return"], period,
-                      today_move=float(c["pf_daily"].iloc[-1])),
+            hero_html(
+                c["health"],
+                eur(total * (1 + c["cum_return"])),
+                c["cum_return"],
+                period,
+                today_move=float(c["pf_daily"].iloc[-1]),
+            ),
             unsafe_allow_html=True,
         )
         st.caption(
@@ -773,8 +826,15 @@ elif view == "Check-up":
         sec("Executive summary")
         st.markdown(
             executive_summary(
-                period, c["cum_return"], c["breakdown"], c["contributions"],
-                c["avg_corr"], c["usd_weight"], c["drawdown"], c["beta"], BENCHMARK,
+                period,
+                c["cum_return"],
+                c["breakdown"],
+                c["contributions"],
+                c["avg_corr"],
+                c["usd_weight"],
+                c["drawdown"],
+                c["beta"],
+                BENCHMARK,
             )
         )
         st.caption(
@@ -810,20 +870,19 @@ elif view == "Check-up":
             "Rendimento": st.column_config.NumberColumn(
                 f"Rendimento ({period})", format="percent"
             ),
-            "Andamento": st.column_config.AreaChartColumn(
-                f"Andamento ({period})", width="medium"
-            ),
+            "Andamento": st.column_config.AreaChartColumn(f"Andamento ({period})", width="medium"),
         },
         hide_index=True,
         width="stretch",
     )
 
     sec("I problemi principali")
-    problems = find_problems(portfolio, c["fund"], c["contributions"],
-                             c["avg_corr"], c["radar"])
+    problems = find_problems(portfolio, c["fund"], c["contributions"], c["avg_corr"], c["radar"])
     session_alerts = [
-        a for a in evaluate_alerts(c["returns"], portfolio, c["contributions"],
-                                   c["avg_corr"], c["drawdown"])
+        a
+        for a in evaluate_alerts(
+            c["returns"], portfolio, c["contributions"], c["avg_corr"], c["drawdown"]
+        )
         if "Ultima seduta" in a
     ]
     if risk_profile in PROFILE_VOL and c["annual_vol"] > PROFILE_VOL[risk_profile]:
@@ -853,8 +912,7 @@ elif view == "Check-up":
                     + interpret_volatility(
                         c["annual_vol"],
                         (
-                            compute_daily_returns(_db_for_search).std()
-                            * TRADING_DAYS**0.5
+                            compute_daily_returns(_db_for_search).std() * TRADING_DAYS**0.5
                             if _db_for_search is not None
                             else None
                         ),
@@ -864,16 +922,14 @@ elif view == "Check-up":
                     "icon": "bolt",
                     "label": "In una giornata nera (VaR 95%)",
                     "value": eur(total * c["var_95"]),
-                    "sub": "nel 95% dei giorni non perdi più di questa cifra "
-                    "(stima storica)",
+                    "sub": "nel 95% dei giorni non perdi più di questa cifra (stima storica)",
                     "color": LOSS,
                 },
                 {
                     "icon": "down",
                     "label": "Nella peggior discesa del periodo",
                     "value": eur(total * c["drawdown"]),
-                    "sub": f"{c['drawdown']:.1%} dal picco (max drawdown) "
-                    "investendo questa cifra",
+                    "sub": f"{c['drawdown']:.1%} dal picco (max drawdown) investendo questa cifra",
                     "color": LOSS,
                 },
             ]
@@ -897,8 +953,8 @@ elif view == "Check-up":
     candidates_sim = {}
     if len(portfolio) >= 2 and weights_sorted[0]["weight"] > 0.25:
         top_t = weights_sorted[0]["ticker"]
-        candidates_sim[f"Se dimezzi {top_t} (redistribuendo sugli altri)"] = (
-            reduce_position(portfolio, top_t, 0.5)
+        candidates_sim[f"Se dimezzi {top_t} (redistribuendo sugli altri)"] = reduce_position(
+            portfolio, top_t, 0.5
         )
     if len(portfolio) >= 3 and c["radar"].get("Concentrazione", 0) > 25:
         candidates_sim["Se equipesassi tutti i titoli"] = equal_weight_portfolio(portfolio)
@@ -934,8 +990,13 @@ elif view == "Check-up":
     col_pdf, col_log, col_hist = st.columns([1.2, 1, 1.8], gap="large")
     with col_pdf:
         insights = generate_insights(
-            period, c["cum_return"], c["contributions"], c["avg_corr"],
-            c["drawdown"], c["beta"], BENCHMARK,
+            period,
+            c["cum_return"],
+            c["contributions"],
+            c["avg_corr"],
+            c["drawdown"],
+            c["beta"],
+            BENCHMARK,
         )
         report_metrics = {
             "Sharpe ratio": f"{annualized_sharpe(c['returns'], portfolio, risk_free_rate=risk_free):.2f}",
@@ -970,8 +1031,12 @@ elif view == "Check-up":
     with col_log:
         if st.button("Salva nello storico", width="stretch"):
             log_analysis(
-                portfolio_name, period, total, c["cum_return"],
-                c["risk_score"], health=c["health"],
+                portfolio_name,
+                period,
+                total,
+                c["cum_return"],
+                c["risk_score"],
+                health=c["health"],
             )
             st.toast("Analisi salvata")
     with col_hist:
@@ -985,9 +1050,7 @@ elif view == "Check-up":
                         trend["health"].to_numpy(dtype=float),
                         index=pd.to_datetime(trend["timestamp"]),
                     ).sort_index()
-                    st.altair_chart(
-                        simple_line(series, y_format=".0f"), width="stretch"
-                    )
+                    st.altair_chart(simple_line(series, y_format=".0f"), width="stretch")
                     delta_h = int(series.iloc[-1] - series.iloc[0])
                     st.caption(
                         f"Health Score di «{portfolio_name}» nel tempo: "
@@ -999,9 +1062,7 @@ elif view == "Check-up":
                         "timestamp": st.column_config.TextColumn("Data"),
                         "portfolio": st.column_config.TextColumn("Portafoglio"),
                         "period": st.column_config.TextColumn("Periodo"),
-                        "invested": st.column_config.NumberColumn(
-                            "Investito", format="%.0f €"
-                        ),
+                        "invested": st.column_config.NumberColumn("Investito", format="%.0f €"),
                         "cum_return": st.column_config.NumberColumn(
                             "Rendimento", format="percent"
                         ),
@@ -1032,8 +1093,7 @@ elif view == "Analisi":
         delta=f"{c['annual_ret']:+.1%}",
         help="CAGR del periodo osservato: non sovrastima in presenza di volatilità.",
     )
-    m3.metric("Sharpe ratio", f"{sharpe:.2f}",
-              help=f"Calcolato con risk-free {risk_free:.1%}.")
+    m3.metric("Sharpe ratio", f"{sharpe:.2f}", help=f"Calcolato con risk-free {risk_free:.1%}.")
     m3.caption(interpret_sharpe(sharpe))
     m4.metric("Sortino ratio", f"{sortino:.2f}")
     m4.caption(interpret_sortino(sortino, sharpe))
@@ -1043,18 +1103,19 @@ elif view == "Analisi":
     r1.metric(
         "Oscillazione tipica in 1 anno",
         f"± {eur(total * c['annual_vol'])}",
-        delta=f"{c['annual_vol']:.1%}", delta_color="off",
+        delta=f"{c['annual_vol']:.1%}",
+        delta_color="off",
     )
     r1.caption(interpret_volatility(c["annual_vol"], universe_vols))
     r2.metric("Perdita massima storica", f"{c['drawdown']:.1%}")
     r2.caption(interpret_drawdown(c["drawdown"]))
     r3.metric("VaR 95% (1 giorno)", eur(total * c["var_95"]))
-    r3.caption(
-        "Nel 95% delle giornate storiche non hai perso più di questa cifra."
-    )
+    r3.caption("Nel 95% delle giornate storiche non hai perso più di questa cifra.")
     r4.metric(
-        f"Beta vs {BENCHMARK}", f"{c['beta']:.2f}",
-        delta=f"α {c['alpha']:+.1%}/anno", delta_color="off",
+        f"Beta vs {BENCHMARK}",
+        f"{c['beta']:.2f}",
+        delta=f"α {c['alpha']:+.1%}/anno",
+        delta_color="off",
     )
     r4.caption(interpret_beta(c["beta"], BENCHMARK))
     st.caption("Stime basate sull'andamento storico: non sono una previsione.")
@@ -1076,14 +1137,11 @@ elif view == "Analisi":
         sec("Quanto sotto il massimo (drawdown)")
         st.altair_chart(underwater_chart(c["pf_value"]), width="stretch")
         st.caption(
-            "Ogni discesa sotto lo zero è tempo passato in perdita rispetto "
-            "al picco precedente."
+            "Ogni discesa sotto lo zero è tempo passato in perdita rispetto al picco precedente."
         )
     with col_hist:
         sec("Distribuzione dei giorni")
-        st.altair_chart(
-            returns_histogram(c["pf_daily"], c["var_95"]), width="stretch"
-        )
+        st.altair_chart(returns_histogram(c["pf_daily"], c["var_95"]), width="stretch")
         st.caption(
             "Ogni barra conta i giorni con quel rendimento. La linea rossa è il "
             "VaR 95%: solo il 5% dei giorni è andato peggio."
@@ -1098,9 +1156,7 @@ elif view == "Analisi":
             st.caption("Come è cambiata la rischiosità del portafoglio nel tempo.")
         with col_rbeta:
             sec(f"Beta vs {BENCHMARK} · rolling 60 giorni")
-            aligned = pd.concat(
-                {"pf": c["pf_daily"], "bench": c["bench_daily"]}, axis=1
-            ).dropna()
+            aligned = pd.concat({"pf": c["pf_daily"], "bench": c["bench_daily"]}, axis=1).dropna()
             rolling_beta = (
                 aligned["pf"].rolling(60).cov(aligned["bench"])
                 / aligned["bench"].rolling(60).var()
@@ -1116,10 +1172,7 @@ elif view == "Analisi":
         sec("Chi ha fatto il risultato (in euro)")
         cum_by_ticker = per_ticker_cumulative_return(c["prices"])
         contributions_eur = pd.Series(
-            {
-                t: amounts[t] * float(cum_by_ticker.get(t, 0.0))
-                for t in amounts
-            }
+            {t: amounts[t] * float(cum_by_ticker.get(t, 0.0)) for t in amounts}
         )
         st.altair_chart(contribution_bars(contributions_eur), width="stretch")
         st.caption(
@@ -1141,8 +1194,13 @@ elif view == "Visual":
     with col_ai:
         sec("Analisi automatica")
         insights = generate_insights(
-            period, c["cum_return"], c["contributions"], c["avg_corr"],
-            c["drawdown"], c["beta"], BENCHMARK,
+            period,
+            c["cum_return"],
+            c["contributions"],
+            c["avg_corr"],
+            c["drawdown"],
+            c["beta"],
+            BENCHMARK,
         )
         for insight in insights:
             st.markdown(insight)
@@ -1219,7 +1277,8 @@ elif view == "Visual":
         s3.metric(
             "Solo effetto diretto",
             eur(total * (1 + impact["direct"])),
-            delta=f"{impact['direct']:+.1%}", delta_color="off",
+            delta=f"{impact['direct']:+.1%}",
+            delta_color="off",
         )
         st.caption(
             "Il contagio stima come gli altri titoli reagirebbero, "
@@ -1267,15 +1326,13 @@ elif view == "Ottimizza":
         with col_compare:
             st.markdown("**Confronto**")
             compare = points.set_index("nome")
-            compare["sharpe"] = (
-                (compare["annual_return"] - risk_free) / compare["annual_volatility"]
-            )
+            compare["sharpe"] = (compare["annual_return"] - risk_free) / compare[
+                "annual_volatility"
+            ]
             st.dataframe(
                 compare,
                 column_config={
-                    "annual_return": st.column_config.NumberColumn(
-                        "Rendimento", format="percent"
-                    ),
+                    "annual_return": st.column_config.NumberColumn("Rendimento", format="percent"),
                     "annual_volatility": st.column_config.NumberColumn(
                         "Volatilità", format="percent"
                     ),
@@ -1286,8 +1343,7 @@ elif view == "Ottimizza":
             st.dataframe(
                 pd.DataFrame(candidates),
                 column_config={
-                    col: st.column_config.NumberColumn(col, format="percent")
-                    for col in candidates
+                    col: st.column_config.NumberColumn(col, format="percent") for col in candidates
                 },
             )
 
@@ -1305,12 +1361,13 @@ elif view == "Correlazioni":
         col_sel, col_per = st.columns([2, 1])
         with col_sel:
             corr_ticker = st.selectbox(
-                "Titolo di riferimento", sorted(all_prices.columns), index=None,
+                "Titolo di riferimento",
+                sorted(all_prices.columns),
+                index=None,
                 placeholder="Scegli un titolo del Nasdaq-100...",
             )
         with col_per:
-            corr_period = st.selectbox("Periodo", list(PERIOD_DAYS), index=2,
-                                       key="corr_period")
+            corr_period = st.selectbox("Periodo", list(PERIOD_DAYS), index=2, key="corr_period")
         if corr_ticker:
             cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[corr_period])
             window_returns = compute_daily_returns(all_prices.loc[all_prices.index >= cutoff])
@@ -1323,19 +1380,17 @@ elif view == "Correlazioni":
                 st.altair_chart(correlation_bars(corr.head(10)), width="stretch")
             with col_bottom:
                 st.markdown(f"**INDIPENDENTI o OPPOSTI a {corr_ticker}**")
-                st.altair_chart(
-                    correlation_bars(corr.tail(10).sort_values()), width="stretch"
-                )
+                st.altair_chart(correlation_bars(corr.tail(10).sort_values()), width="stretch")
 
     if computed is not None and len(amounts) >= 2:
         sec("Diversificazione del tuo portafoglio")
-        pf_corr = correlation_matrix(computed["returns"],
-                                     min_periods=computed["min_periods"])
+        pf_corr = correlation_matrix(computed["returns"], min_periods=computed["min_periods"])
         avg_corr = computed["avg_corr"]
         pairs = pf_corr.where(
             pd.DataFrame(
                 [[i < j for j in range(len(pf_corr))] for i in range(len(pf_corr))],
-                index=pf_corr.index, columns=pf_corr.columns,
+                index=pf_corr.index,
+                columns=pf_corr.columns,
             )
         ).stack()
 
@@ -1351,8 +1406,7 @@ elif view == "Correlazioni":
             if len(pairs):
                 tightest = pairs.idxmax()
                 st.caption(
-                    f"Coppia più legata: **{tightest[0]} – {tightest[1]}** "
-                    f"({pairs.max():+.2f})"
+                    f"Coppia più legata: **{tightest[0]} – {tightest[1]}** ({pairs.max():+.2f})"
                 )
         with col_heat:
             st.altair_chart(correlation_heatmap(pf_corr), width="stretch")
@@ -1372,9 +1426,7 @@ elif view == "Fondamentali":
                 column_config={
                     "name": st.column_config.TextColumn("Nome"),
                     "sector": st.column_config.TextColumn("Settore"),
-                    "dividend_yield": st.column_config.NumberColumn(
-                        "Div. yield", format="%.2f%%"
-                    ),
+                    "dividend_yield": st.column_config.NumberColumn("Div. yield", format="%.2f%%"),
                     "revenue": st.column_config.NumberColumn("Ricavi (TTM)", format="compact"),
                     "net_income": st.column_config.NumberColumn(
                         "Utile netto (TTM)", format="compact"
@@ -1385,9 +1437,7 @@ elif view == "Fondamentali":
                     "operating_margin": st.column_config.NumberColumn(
                         "Margine operativo", format="percent"
                     ),
-                    "net_margin": st.column_config.NumberColumn(
-                        "Margine netto", format="percent"
-                    ),
+                    "net_margin": st.column_config.NumberColumn("Margine netto", format="percent"),
                     "total_debt": st.column_config.NumberColumn("Debito", format="compact"),
                     "debt_to_equity": st.column_config.NumberColumn(
                         "Debito/Equity", format="%.1f"
@@ -1443,13 +1493,16 @@ elif view == "Mercato":
         cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[ndx_period])
         window = all_prices.loc[all_prices.index >= cutoff]
 
-        stats = pd.DataFrame(
-            {
-                "period_return": per_ticker_cumulative_return(window),
-                "annual_volatility": compute_daily_returns(window).std()
-                * TRADING_DAYS**0.5,
-            }
-        ).rename_axis("ticker").reset_index()
+        stats = (
+            pd.DataFrame(
+                {
+                    "period_return": per_ticker_cumulative_return(window),
+                    "annual_volatility": compute_daily_returns(window).std() * TRADING_DAYS**0.5,
+                }
+            )
+            .rename_axis("ticker")
+            .reset_index()
+        )
 
         col_scatter, col_table = st.columns([3, 2], gap="large")
         with col_scatter:
@@ -1539,12 +1592,14 @@ elif view == "Backtest":
         chosen = st.multiselect("Strategie da confrontare", options, default=options[:3])
         col_bt1, col_bt2 = st.columns(2)
         with col_bt1:
-            bt_years = st.select_slider(
-                "Orizzonte", ["1 anno", "2 anni", "5 anni"], "5 anni"
-            )
+            bt_years = st.select_slider("Orizzonte", ["1 anno", "2 anni", "5 anni"], "5 anni")
         with col_bt2:
             cost_bps = st.slider(
-                "Costi di transazione (bps per ribilanciamento)", 0, 50, 20, step=5,
+                "Costi di transazione (bps per ribilanciamento)",
+                0,
+                50,
+                20,
+                step=5,
                 help="20 bps = 0.20% sul controvalore scambiato: realistico per un "
                 "retail su titoli liquidi. Il buy & hold paga solo l'acquisto iniziale.",
             )
@@ -1561,7 +1616,8 @@ elif view == "Backtest":
                         )
                     if "Momentum (top 10 a 6 mesi)" in chosen:
                         curves["Momentum (top 10 a 6 mesi)"] = run_backtest(
-                            window, lambda w: momentum_top(w, top_n=10),
+                            window,
+                            lambda w: momentum_top(w, top_n=10),
                             cost_bps=cost_bps,
                         )
                     if "PI Multifactor (top 10)" in chosen:
@@ -1600,7 +1656,7 @@ elif view == "Backtest":
             if curves:
                 equity = pd.DataFrame(curves).dropna(how="all")
                 cols = st.columns(len(curves))
-                for col, (name, curve) in zip(cols, curves.items()):
+                for col, (name, curve) in zip(cols, curves.items(), strict=False):
                     col.metric(name, f"{curve.iloc[-1] / 100 - 1:+.0%}")
                 st.line_chart(equity, color=PALETTE[: len(curves)], height=380)
 
@@ -1640,14 +1696,10 @@ elif view == "Clienti":
     )
 
     @st.cache_data(ttl=900, show_spinner=False)
-    def quick_client_analysis(
-        items: tuple, period_key: str, eur_flag: bool
-    ) -> dict:
+    def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict:
         amounts_c = dict(items)
         total_c = sum(amounts_c.values())
-        pf_c = [
-            {"ticker": t, "weight": a / total_c} for t, a in amounts_c.items()
-        ]
+        pf_c = [{"ticker": t, "weight": a / total_c} for t, a in amounts_c.items()]
         prices_c = cached_prices(tuple(sorted(amounts_c)), period_key)
         if eur_flag:
             prices_c = convert_to_eur(prices_c, cached_eurusd(period_key))
@@ -1670,8 +1722,9 @@ elif view == "Clienti":
             "invested": total_c,
             "cum": float(value_c.iloc[-1] - 1),
             "vol": vol_c,
-            "problem": problems_c[0].replace("**", "") if problems_c else
-            "Nessun problema rilevato dalle regole monitorate.",
+            "problem": problems_c[0].replace("**", "")
+            if problems_c
+            else "Nessun problema rilevato dalle regole monitorate.",
         }
 
     book = list_portfolios()
@@ -1694,10 +1747,7 @@ elif view == "Clienti":
                 except ValueError as exc:
                     failures.append(f"{client_name}: {exc}")
                     continue
-                color = (
-                    GAIN if a["health"] >= 67
-                    else AMBER if a["health"] >= 34 else LOSS
-                )
+                color = GAIN if a["health"] >= 67 else AMBER if a["health"] >= 34 else LOSS
                 chg_css = "up" if a["cum"] >= 0 else "down"
                 rows_html += f"""
                 <div class="kpi" style="display:flex;align-items:center;

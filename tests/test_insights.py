@@ -71,9 +71,14 @@ def test_dna_scores_growth_portfolio():
 def test_stock_scores_bounds_and_overall():
     row = pd.Series(
         {
-            "revenue_growth": 0.85, "earnings_growth": 2.0, "net_margin": 0.63,
-            "operating_margin": 0.65, "debt_to_equity": 6.6, "pe": 31.0,
-            "ps": 19.0, "ev_ebitda": 30.0,
+            "revenue_growth": 0.85,
+            "earnings_growth": 2.0,
+            "net_margin": 0.63,
+            "operating_margin": 0.65,
+            "debt_to_equity": 6.6,
+            "pe": 31.0,
+            "ps": 19.0,
+            "ev_ebitda": 30.0,
         }
     )
     scores = stock_scores(row, annual_volatility=0.5)
@@ -96,18 +101,22 @@ def test_health_breakdown_and_score_direction():
     from src.analytics.insights import health_breakdown, portfolio_health_score
 
     healthy = health_breakdown(
-        {"Quality": 80}, {"Volatilità": 20, "Concentrazione": 10,
-                          "Drawdown": 15, "Correlazione": 20},
+        {"Quality": 80},
+        {"Volatilità": 20, "Concentrazione": 10, "Drawdown": 15, "Correlazione": 20},
         usd_weight=0.3,
     )
     risky = health_breakdown(
-        {"Quality": 30}, {"Volatilità": 90, "Concentrazione": 80,
-                          "Drawdown": 85, "Correlazione": 90},
+        {"Quality": 30},
+        {"Volatilità": 90, "Concentrazione": 80, "Drawdown": 85, "Correlazione": 90},
         usd_weight=1.0,
     )
     assert set(healthy) == {
-        "Diversificazione", "Concentrazione", "Volatilità",
-        "Valuta", "Drawdown", "Qualità",
+        "Diversificazione",
+        "Concentrazione",
+        "Volatilità",
+        "Valuta",
+        "Drawdown",
+        "Qualità",
     }
     assert healthy["Valuta"] == 100.0  # sotto il 50% USD: punteggio pieno
     assert risky["Valuta"] == 0.0  # tutto in USD: rischio cambio puro
@@ -129,13 +138,20 @@ def test_executive_summary_is_deterministic_and_grounded():
 
     contrib = pd.Series({"NVDA": 0.55, "AAPL": 0.30, "KO": 0.15})
     breakdown = health_breakdown(
-        {"Quality": 70}, {"Volatilità": 50, "Concentrazione": 60,
-                          "Drawdown": 55, "Correlazione": 70},
+        {"Quality": 70},
+        {"Volatilità": 50, "Concentrazione": 60, "Drawdown": 55, "Correlazione": 70},
         usd_weight=0.9,
     )
     summary = executive_summary(
-        "1y", 0.184, breakdown, contrib, avg_correlation=0.70,
-        usd_weight=0.9, drawdown=-0.28, beta=1.3, benchmark="QQQ",
+        "1y",
+        0.184,
+        breakdown,
+        contrib,
+        avg_correlation=0.70,
+        usd_weight=0.9,
+        drawdown=-0.28,
+        beta=1.3,
+        benchmark="QQQ",
     )
     assert "+18.4%" in summary
     assert "NVDA" in summary and "55%" in summary  # concentrazione del rischio
@@ -143,8 +159,15 @@ def test_executive_summary_is_deterministic_and_grounded():
     assert "beta" in summary.lower()
     # stesso input, stesso output: nessuna generazione stocastica
     assert summary == executive_summary(
-        "1y", 0.184, breakdown, contrib, avg_correlation=0.70,
-        usd_weight=0.9, drawdown=-0.28, beta=1.3, benchmark="QQQ",
+        "1y",
+        0.184,
+        breakdown,
+        contrib,
+        avg_correlation=0.70,
+        usd_weight=0.9,
+        drawdown=-0.28,
+        beta=1.3,
+        benchmark="QQQ",
     )
 
 
@@ -158,8 +181,7 @@ def test_find_problems_flags_weight_correlation_and_dividends():
     )
     contrib = pd.Series({"TSLA": 0.85, "KO": 0.15})
     problems = " ".join(
-        find_problems(pf, fund, contrib, avg_correlation=0.7,
-                      radar={"Volatilità": 40.0})
+        find_problems(pf, fund, contrib, avg_correlation=0.7, radar={"Volatilità": 40.0})
     )
     assert "KO" in problems and "70%" in problems  # peso dominante
     assert "TSLA" in problems  # rischio dominante

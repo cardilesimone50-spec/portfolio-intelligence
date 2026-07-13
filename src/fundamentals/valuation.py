@@ -33,6 +33,7 @@ def fetch_fundamentals(tickers: list[str]) -> pd.DataFrame:
     I ticker senza dati vengono esclusi; se nessun ticker ha dati solleva ValueError.
     I campi assenti per un singolo ticker restano NaN.
     """
+
     def fetch_one(ticker: str) -> tuple[str, dict | None]:
         try:
             return ticker, get_ticker_info(ticker)

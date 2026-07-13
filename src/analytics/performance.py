@@ -9,7 +9,9 @@ from src.portfolio.risk import portfolio_volatility
 TRADING_DAYS = 252
 
 
-def per_ticker_annualized_stats(returns: pd.DataFrame, trading_days: int = TRADING_DAYS) -> pd.DataFrame:
+def per_ticker_annualized_stats(
+    returns: pd.DataFrame, trading_days: int = TRADING_DAYS
+) -> pd.DataFrame:
     """Rendimento e volatilità annualizzati per ciascun ticker, dai rendimenti giornalieri."""
     return pd.DataFrame(
         {
@@ -85,17 +87,13 @@ def value_at_risk(daily_returns: pd.Series, confidence: float = 0.95) -> float:
     return float(valid.quantile(1 - confidence))
 
 
-def beta_alpha(
-    portfolio_returns: pd.Series, benchmark_returns: pd.Series
-) -> tuple[float, float]:
+def beta_alpha(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -> tuple[float, float]:
     """Beta e alpha (annualizzato) del portafoglio rispetto a un benchmark.
 
     Beta ~1: si muove come il benchmark; >1 amplifica; <1 attenua.
     Alpha: extra-rendimento annuo non spiegato dal benchmark.
     """
-    aligned = pd.concat(
-        {"pf": portfolio_returns, "bench": benchmark_returns}, axis=1
-    ).dropna()
+    aligned = pd.concat({"pf": portfolio_returns, "bench": benchmark_returns}, axis=1).dropna()
     if len(aligned) < 20:
         return float("nan"), float("nan")
     bench_var = float(aligned["bench"].var())

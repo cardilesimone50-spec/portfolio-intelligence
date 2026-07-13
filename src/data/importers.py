@@ -5,13 +5,31 @@ import io
 import pandas as pd
 
 _TICKER_COLUMNS = {
-    "ticker", "symbol", "titolo", "simbolo", "stock", "azione", "strumento",
-    "simbolo ticker", "codice",
+    "ticker",
+    "symbol",
+    "titolo",
+    "simbolo",
+    "stock",
+    "azione",
+    "strumento",
+    "simbolo ticker",
+    "codice",
 }
 _AMOUNT_COLUMNS = {
-    "importo", "amount", "valore", "value", "controvalore", "eur", "euro",
-    "importo (€)", "controvalore (€)", "valore di mercato", "valore in eur",
-    "market value", "position value", "total",
+    "importo",
+    "amount",
+    "valore",
+    "value",
+    "controvalore",
+    "eur",
+    "euro",
+    "importo (€)",
+    "controvalore (€)",
+    "valore di mercato",
+    "valore in eur",
+    "market value",
+    "position value",
+    "total",
 }
 _QUANTITY_COLUMNS = {"quantità", "quantity", "shares", "no. of shares", "qta", "pezzi"}
 _PRICE_COLUMNS = {"prezzo", "price", "chiusura", "close", "prezzo medio", "price / share"}

@@ -15,8 +15,9 @@ def test_is_usd_listing():
 
 
 def test_convert_usd_columns_only():
-    prices = pd.DataFrame({"AAPL": [110.0, 121.0, 132.0], "ENI.MI": [10.0, 10.0, 10.0]},
-                          index=INDEX)
+    prices = pd.DataFrame(
+        {"AAPL": [110.0, 121.0, 132.0], "ENI.MI": [10.0, 10.0, 10.0]}, index=INDEX
+    )
     eurusd = pd.Series([1.10, 1.10, 1.20], index=INDEX)
 
     converted = convert_to_eur(prices, eurusd)

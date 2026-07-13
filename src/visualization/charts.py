@@ -31,9 +31,7 @@ def allocation_bars(amounts: dict[str, float]) -> alt.Chart:
             legend=None,
         )
     )
-    labels = base.mark_text(align="left", dx=6).encode(
-        text=alt.Text("importo:Q", format=",.0f")
-    )
+    labels = base.mark_text(align="left", dx=6).encode(text=alt.Text("importo:Q", format=",.0f"))
     return (bars + labels).properties(height=42 * len(alloc) + 20)
 
 
@@ -51,9 +49,7 @@ def correlation_bars(series: pd.Series) -> alt.Chart:
             legend=None,
         )
     )
-    labels = base.mark_text(align="left", dx=6).encode(
-        text=alt.Text("corr:Q", format="+.2f")
-    )
+    labels = base.mark_text(align="left", dx=6).encode(text=alt.Text("corr:Q", format="+.2f"))
     return (bars + labels).properties(height=26 * len(df) + 20)
 
 
@@ -93,9 +89,7 @@ def galaxy_chart(
         .encode(
             x=alt.X("x:Q", axis=None, scale=alt.Scale(padding=40)),
             y=alt.Y("y:Q", axis=None, scale=alt.Scale(padding=40)),
-            size=alt.Size(
-                "peso:Q", scale=alt.Scale(range=[400, 4000]), legend=None
-            ),
+            size=alt.Size("peso:Q", scale=alt.Scale(range=[400, 4000]), legend=None),
             color=alt.Color(
                 "rendimento:Q",
                 scale=alt.Scale(domain=[-max_abs, 0, max_abs], range=RETURNS_DIVERGING),
@@ -138,7 +132,7 @@ def radar_chart(scores: dict[str, float]) -> alt.Chart:
                 "asse": name,
                 "valore": scores[name],
             }
-            for i, (name, a) in enumerate(zip(names, angles))
+            for i, (name, a) in enumerate(zip(names, angles, strict=False))
         ]
     )
     closed = pd.concat([values, values.iloc[[0]].assign(ordine=n)])
@@ -147,8 +141,7 @@ def radar_chart(scores: dict[str, float]) -> alt.Chart:
         *[
             alt.Chart(ring(r))
             .mark_line(color="#3a3d45", strokeWidth=1)
-            .encode(x=alt.X("x:Q", axis=None), y=alt.Y("y:Q", axis=None),
-                    order="ordine:O")
+            .encode(x=alt.X("x:Q", axis=None), y=alt.Y("y:Q", axis=None), order="ordine:O")
             for r in (33, 66, 100)
         ]
     )
@@ -161,7 +154,8 @@ def radar_chart(scores: dict[str, float]) -> alt.Chart:
         alt.Chart(values)
         .mark_point(filled=True, size=90, color=PALETTE[0])
         .encode(
-            x="x:Q", y="y:Q",
+            x="x:Q",
+            y="y:Q",
             tooltip=[alt.Tooltip("asse:N"), alt.Tooltip("valore:Q", format=".0f")],
         )
     )
@@ -177,9 +171,7 @@ def radar_chart(scores: dict[str, float]) -> alt.Chart:
         .mark_text(color=TEXT_COLOR, fontSize=13)
         .encode(x="x:Q", y="y:Q", text="nome:N")
     )
-    return (grid + area + points + labels).properties(height=340).configure_view(
-        strokeWidth=0
-    )
+    return (grid + area + points + labels).properties(height=340).configure_view(strokeWidth=0)
 
 
 def monthly_bars(monthly: pd.Series) -> alt.Chart:
@@ -192,14 +184,11 @@ def monthly_bars(monthly: pd.Series) -> alt.Chart:
         }
     )
     base = alt.Chart(df).encode(
-        x=alt.X("mese:N", sort=alt.SortField("ordine"), title=None,
-                axis=alt.Axis(labelAngle=0)),
+        x=alt.X("mese:N", sort=alt.SortField("ordine"), title=None, axis=alt.Axis(labelAngle=0)),
         y=alt.Y("rendimento:Q", title=None, axis=alt.Axis(format="+%")),
     )
     bars = base.mark_bar(cornerRadiusEnd=4, width=28).encode(
-        color=alt.condition(
-            "datum.rendimento >= 0", alt.value(GAIN), alt.value(LOSS)
-        )
+        color=alt.condition("datum.rendimento >= 0", alt.value(GAIN), alt.value(LOSS))
     )
     labels = base.mark_text(dy=-10, color=TEXT_COLOR).encode(
         text=alt.Text("rendimento:Q", format="+.1%")
@@ -216,13 +205,15 @@ def equity_area(values: pd.Series, baseline: float) -> alt.Chart:
     high = max(float(values.max()), baseline) * 1.02
     area = (
         alt.Chart(df)
-        .mark_area(opacity=0.14, color=color, line={"color": color, "strokeWidth": 2},
-                   clip=True)
+        .mark_area(opacity=0.14, color=color, line={"color": color, "strokeWidth": 2}, clip=True)
         .encode(
             x=alt.X("data:T", title=None, axis=alt.Axis(grid=False)),
-            y=alt.Y("valore:Q", title=None,
-                    scale=alt.Scale(domain=[low, high]),
-                    axis=alt.Axis(format="~s")),
+            y=alt.Y(
+                "valore:Q",
+                title=None,
+                scale=alt.Scale(domain=[low, high]),
+                axis=alt.Axis(format="~s"),
+            ),
             tooltip=[
                 alt.Tooltip("data:T", title="Data"),
                 alt.Tooltip("valore:Q", title="Valore", format=",.0f"),
@@ -260,8 +251,7 @@ def benchmark_overlay(
             y=alt.Y("valore:Q", title=None, scale=alt.Scale(zero=False)),
             color=alt.Color(
                 "serie:N",
-                scale=alt.Scale(domain=["Portafoglio", bench_name],
-                                range=[ACCENT, MUTED]),
+                scale=alt.Scale(domain=["Portafoglio", bench_name], range=[ACCENT, MUTED]),
                 legend=alt.Legend(title=None, orient="top-left"),
             ),
             tooltip=[
@@ -284,8 +274,9 @@ def underwater_chart(pf_value: pd.Series) -> alt.Chart:
         .mark_area(color=LOSS, opacity=0.35, line={"color": LOSS, "strokeWidth": 1.5})
         .encode(
             x=alt.X("data:T", title=None, axis=alt.Axis(grid=False)),
-            y=alt.Y("dd:Q", title=None, axis=alt.Axis(format="%"),
-                    scale=alt.Scale(domain=[floor, 0])),
+            y=alt.Y(
+                "dd:Q", title=None, axis=alt.Axis(format="%"), scale=alt.Scale(domain=[floor, 0])
+            ),
             tooltip=[
                 alt.Tooltip("data:T", title="Data"),
                 alt.Tooltip("dd:Q", title="Dal picco", format=".1%"),
@@ -303,12 +294,14 @@ def simple_line(series: pd.Series, color: str = ACCENT, y_format: str = "%") -> 
         .mark_line(strokeWidth=2, color=color)
         .encode(
             x=alt.X("data:T", title=None, axis=alt.Axis(grid=False)),
-            y=alt.Y("valore:Q", title=None, axis=alt.Axis(format=y_format),
-                    scale=alt.Scale(zero=False)),
+            y=alt.Y(
+                "valore:Q", title=None, axis=alt.Axis(format=y_format), scale=alt.Scale(zero=False)
+            ),
             tooltip=[
                 alt.Tooltip("data:T", title="Data"),
-                alt.Tooltip("valore:Q", title="Valore",
-                            format=".2f" if y_format != "%" else ".1%"),
+                alt.Tooltip(
+                    "valore:Q", title="Valore", format=".2f" if y_format != "%" else ".1%"
+                ),
             ],
         )
         .properties(height=200)
@@ -322,14 +315,14 @@ def returns_histogram(daily_returns: pd.Series, var_95: float) -> alt.Chart:
         alt.Chart(df)
         .mark_bar(color=PALETTE[0], opacity=0.85)
         .encode(
-            x=alt.X("ret:Q", bin=alt.Bin(maxbins=45), title=None,
-                    axis=alt.Axis(format="%")),
+            x=alt.X("ret:Q", bin=alt.Bin(maxbins=45), title=None, axis=alt.Axis(format="%")),
             y=alt.Y("count()", title=None),
         )
     )
     var_df = pd.DataFrame({"x": [var_95], "label": ["VaR 95%"]})
-    rule = alt.Chart(var_df).mark_rule(color=LOSS, strokeWidth=2,
-                                       strokeDash=[5, 4]).encode(x="x:Q")
+    rule = (
+        alt.Chart(var_df).mark_rule(color=LOSS, strokeWidth=2, strokeDash=[5, 4]).encode(x="x:Q")
+    )
     label = (
         alt.Chart(var_df)
         .mark_text(align="right", dx=-6, dy=-88, color=LOSS, fontWeight="bold")
@@ -343,10 +336,16 @@ def weight_vs_risk_bars(weights: pd.Series, contributions: pd.Series) -> alt.Cha
     order = contributions.sort_values(ascending=False).index
     df = pd.concat(
         [
-            weights.reindex(order).rename("valore").rename_axis("ticker")
-            .reset_index().assign(tipo="Peso investito"),
-            contributions.reindex(order).rename("valore").rename_axis("ticker")
-            .reset_index().assign(tipo="Contributo al rischio"),
+            weights.reindex(order)
+            .rename("valore")
+            .rename_axis("ticker")
+            .reset_index()
+            .assign(tipo="Peso investito"),
+            contributions.reindex(order)
+            .rename("valore")
+            .rename_axis("ticker")
+            .reset_index()
+            .assign(tipo="Contributo al rischio"),
         ]
     )
     base = alt.Chart(df).encode(
@@ -357,8 +356,9 @@ def weight_vs_risk_bars(weights: pd.Series, contributions: pd.Series) -> alt.Cha
     bars = base.mark_bar(height=10, cornerRadiusEnd=3).encode(
         color=alt.Color(
             "tipo:N",
-            scale=alt.Scale(domain=["Peso investito", "Contributo al rischio"],
-                            range=[PALETTE[0], ACCENT]),
+            scale=alt.Scale(
+                domain=["Peso investito", "Contributo al rischio"], range=[PALETTE[0], ACCENT]
+            ),
             legend=alt.Legend(title=None, orient="top"),
         )
     )
@@ -379,9 +379,9 @@ def contribution_bars(contributions_eur: pd.Series) -> alt.Chart:
     bars = base.mark_bar(cornerRadiusEnd=4, height=18).encode(
         color=alt.condition("datum.valore >= 0", alt.value(GAIN), alt.value(LOSS))
     )
-    labels = base.mark_text(
-        align="left", dx=6, color=TEXT_COLOR
-    ).encode(text=alt.Text("valore:Q", format="+,.0f"))
+    labels = base.mark_text(align="left", dx=6, color=TEXT_COLOR).encode(
+        text=alt.Text("valore:Q", format="+,.0f")
+    )
     return (bars + labels).properties(height=30 * len(df) + 20)
 
 
@@ -394,10 +394,10 @@ def efficient_frontier_chart(frontier: pd.DataFrame, points: pd.DataFrame) -> al
         alt.Chart(frontier)
         .mark_line(strokeWidth=2, color="#9b9a91")
         .encode(
-            x=alt.X("annual_volatility:Q", title="Volatilità annualizzata",
-                    axis=alt.Axis(format="%")),
-            y=alt.Y("annual_return:Q", title="Rendimento annualizzato",
-                    axis=alt.Axis(format="%")),
+            x=alt.X(
+                "annual_volatility:Q", title="Volatilità annualizzata", axis=alt.Axis(format="%")
+            ),
+            y=alt.Y("annual_return:Q", title="Rendimento annualizzato", axis=alt.Axis(format="%")),
         )
     )
     dots = (

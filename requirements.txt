@@ -6,4 +6,5 @@ scipy==1.18.0
 streamlit==1.59.1
 reportlab==5.0.0
 openpyxl==3.1.5
+requests==2.34.2
 pytest==9.1.1

@@ -20,7 +20,12 @@ import pandas as pd
 import requests
 
 _PERIOD_DAYS = {
-    "1mo": 31, "6mo": 186, "1y": 372, "2y": 745, "5y": 1830, "max": 7300,
+    "1mo": 31,
+    "6mo": 186,
+    "1y": 372,
+    "2y": 745,
+    "5y": 1830,
+    "max": 7300,
 }
 _HEADERS = {"User-Agent": "Mozilla/5.0 (portfolio-intelligence)"}
 
@@ -48,9 +53,7 @@ class YahooProvider:
         import yfinance as yf
 
         try:
-            data = yf.download(
-                tickers, period=period, auto_adjust=True, progress=False
-            )["Close"]
+            data = yf.download(tickers, period=period, auto_adjust=True, progress=False)["Close"]
         except Exception as exc:  # rete o schema
             raise ProviderError(f"Yahoo: {exc}") from exc
         if isinstance(data, pd.Series):
@@ -168,9 +171,7 @@ class ProviderChain:
             if not data.empty and not data.isna().all().all():
                 return data, provider.name
             errors.append(f"{provider.name}: risultato vuoto")
-        raise ValueError(
-            "Nessun provider dati ha risposto: " + " · ".join(errors)
-        )
+        raise ValueError("Nessun provider dati ha risposto: " + " · ".join(errors))
 
 
 def build_default_chain() -> ProviderChain:

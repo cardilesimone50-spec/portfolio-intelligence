@@ -26,9 +26,7 @@ def is_usd_listing(ticker: str) -> bool:
 def fetch_eurusd(period: str = "1y") -> pd.Series:
     """Serie storica EURUSD (dollari per 1 euro) da Yahoo Finance."""
     try:
-        data = yf.download(EURUSD_TICKER, period=period, auto_adjust=True, progress=False)[
-            "Close"
-        ]
+        data = yf.download(EURUSD_TICKER, period=period, auto_adjust=True, progress=False)["Close"]
     except requests.exceptions.RequestException as exc:
         raise ValueError(f"Errore di rete durante il download del cambio EUR/USD: {exc}") from exc
     if isinstance(data, pd.DataFrame):

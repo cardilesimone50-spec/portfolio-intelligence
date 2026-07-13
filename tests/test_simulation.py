@@ -8,9 +8,7 @@ rng = np.random.default_rng(21)
 
 
 def test_shock_on_independent_assets_is_mostly_direct():
-    returns = pd.DataFrame(
-        {"A": rng.normal(0, 0.01, 1000), "B": rng.normal(0, 0.01, 1000)}
-    )
+    returns = pd.DataFrame({"A": rng.normal(0, 0.01, 1000), "B": rng.normal(0, 0.01, 1000)})
     pf = [{"ticker": "A", "weight": 0.5}, {"ticker": "B", "weight": 0.5}]
     impact = simulate_shock(returns, pf, "A", -0.20)
     assert impact["direct"] == pytest.approx(-0.10)

@@ -1,0 +1,46 @@
+[project]
+name = "portfolio-intelligence"
+version = "0.4.0"
+description = "Il check-up onesto del portafoglio in 60 secondi, in euro con rischio cambio incluso."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Elastic-2.0" }
+authors = [{ name = "Simone Cardile" }]
+dependencies = [
+    "pandas>=3.0",
+    "numpy>=2.5",
+    "yfinance>=1.5",
+    "lxml>=6.1",
+    "scipy>=1.18",
+    "streamlit>=1.59",
+    "reportlab>=5.0",
+    "openpyxl>=3.1",
+    "requests>=2.34",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.1", "ruff>=0.15", "pdfplumber>=0.11"]
+
+[project.urls]
+Repository = "https://github.com/cardilesimone50-spec/portfolio-intelligence"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I import-sort, UP pyupgrade, B bugbear, SIM simplify
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",   # lunghezza riga gestita dal formatter, non bloccante
+    "B008",   # chiamate nei default: uso intenzionale in Streamlit/CLI
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

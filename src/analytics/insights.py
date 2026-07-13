@@ -96,17 +96,13 @@ def dna_scores(
         100 - _scale(weighted("pe"), 10.0, 60.0),
         100 - _scale(weighted("ps"), 2.0, 20.0),
     ]
-    value = sum(p for p in value_parts if p == p) / max(
-        1, sum(1 for p in value_parts if p == p)
-    )
+    value = sum(p for p in value_parts if p == p) / max(1, sum(1 for p in value_parts if p == p))
     risk_parts = [
         _scale(annual_volatility, 0.10, 0.60),
         concentration_score(portfolio),
         _scale(avg_correlation, 0.0, 1.0),
     ]
-    risk = sum(p for p in risk_parts if p == p) / max(
-        1, sum(1 for p in risk_parts if p == p)
-    )
+    risk = sum(p for p in risk_parts if p == p) / max(1, sum(1 for p in risk_parts if p == p))
     return {"Growth": growth, "Quality": quality, "Value": value, "Risk": risk}
 
 
@@ -133,18 +129,24 @@ def stock_scores(row: pd.Series, annual_volatility: float) -> dict[str, float]:
         return sum(valid) / len(valid) if valid else float("nan")
 
     growth = mean_valid(
-        [_scale(row.get("revenue_growth"), 0.0, 0.40),
-         _scale(row.get("earnings_growth"), 0.0, 0.60)]
+        [
+            _scale(row.get("revenue_growth"), 0.0, 0.40),
+            _scale(row.get("earnings_growth"), 0.0, 0.60),
+        ]
     )
     quality = mean_valid(
-        [_scale(row.get("net_margin"), 0.0, 0.35),
-         _scale(row.get("operating_margin"), 0.0, 0.45),
-         100 - _scale(row.get("debt_to_equity"), 0.0, 200.0)]
+        [
+            _scale(row.get("net_margin"), 0.0, 0.35),
+            _scale(row.get("operating_margin"), 0.0, 0.45),
+            100 - _scale(row.get("debt_to_equity"), 0.0, 200.0),
+        ]
     )
     valuation = mean_valid(
-        [100 - _scale(row.get("pe"), 10.0, 60.0),
-         100 - _scale(row.get("ps"), 2.0, 20.0),
-         100 - _scale(row.get("ev_ebitda"), 8.0, 40.0)]
+        [
+            100 - _scale(row.get("pe"), 10.0, 60.0),
+            100 - _scale(row.get("ps"), 2.0, 20.0),
+            100 - _scale(row.get("ev_ebitda"), 8.0, 40.0),
+        ]
     )
     risk = _scale(annual_volatility, 0.15, 0.80)
 
@@ -193,9 +195,7 @@ def usd_exposure(portfolio: Portfolio) -> float:
     """Quota del portafoglio quotata in USD (0-1), dedotta dal suffisso ticker."""
     from src.data.fx import is_usd_listing
 
-    return float(
-        sum(p["weight"] for p in portfolio if is_usd_listing(p["ticker"]))
-    )
+    return float(sum(p["weight"] for p in portfolio if is_usd_listing(p["ticker"])))
 
 
 def health_breakdown(
@@ -248,17 +248,14 @@ def executive_summary(
             )
         elif avg_correlation < 0.3:
             parts.append(
-                f"Il portafoglio è ben diversificato (correlazione media "
-                f"{avg_correlation:.2f})."
+                f"Il portafoglio è ben diversificato (correlazione media {avg_correlation:.2f})."
             )
         else:
             parts.append(
                 f"La diversificazione è nella media (correlazione {avg_correlation:.2f})."
             )
 
-    if len(contributions) >= 2 and contributions.iloc[0] > max(
-        0.40, 1.5 / len(contributions)
-    ):
+    if len(contributions) >= 2 and contributions.iloc[0] > max(0.40, 1.5 / len(contributions)):
         parts.append(
             f"Il rischio è concentrato: {contributions.index[0]} da solo genera "
             f"il {contributions.iloc[0]:.0%} della variabilità complessiva."
@@ -277,9 +274,7 @@ def executive_summary(
                 f"portafoglio è arrivato a perdere il {-drawdown:.0%} dal picco."
             )
         elif drawdown > -0.10:
-            parts.append(
-                f"Le discese dal picco sono state contenute (max {-drawdown:.0%})."
-            )
+            parts.append(f"Le discese dal picco sono state contenute (max {-drawdown:.0%}).")
 
     if beta == beta:
         if beta > 1.15:
@@ -359,9 +354,7 @@ def find_opportunities(
 
     if {"pe", "ps"}.issubset(fundamentals.columns):
         cheap = fundamentals[
-            (fundamentals["pe"].notna())
-            & (fundamentals["pe"] < 25)
-            & (fundamentals["ps"] < 6)
+            (fundamentals["pe"].notna()) & (fundamentals["pe"] < 25) & (fundamentals["ps"] < 6)
         ]
         for ticker in cheap.index[:2]:
             opportunities.append(
@@ -459,7 +452,5 @@ def generate_insights(
                 f"Beta **{beta:.2f}** vs {benchmark}: amplifichi i movimenti del mercato."
             )
         elif beta < 0.85:
-            insights.append(
-                f"Beta **{beta:.2f}** vs {benchmark}: sei più difensivo del mercato."
-            )
+            insights.append(f"Beta **{beta:.2f}** vs {benchmark}: sei più difensivo del mercato.")
     return insights

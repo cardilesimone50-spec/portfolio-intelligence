@@ -47,7 +47,8 @@ def _footer(canvas, doc) -> None:
     canvas.setFont("Helvetica", 7)
     canvas.setFillColor(_MUTED)
     canvas.drawString(
-        18 * mm, 10 * mm,
+        18 * mm,
+        10 * mm,
         "Portfolio Intelligence · dati Yahoo Finance · stime storiche, "
         "non una previsione né consulenza finanziaria",
     )
@@ -93,25 +94,36 @@ def build_report(
     """Costruisce il PDF e lo restituisce come bytes (per il download)."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(
-        buffer, pagesize=A4,
-        leftMargin=18 * mm, rightMargin=18 * mm, topMargin=14 * mm, bottomMargin=20 * mm,
+        buffer,
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=14 * mm,
+        bottomMargin=20 * mm,
         title="Portfolio Intelligence — Health Report",
     )
     styles = getSampleStyleSheet()
     wordmark = ParagraphStyle(
-        "wordmark", parent=styles["Normal"], fontSize=9, textColor=_MUTED,
+        "wordmark",
+        parent=styles["Normal"],
+        fontSize=9,
+        textColor=_MUTED,
         fontName="Helvetica-Bold",
     )
     h1 = ParagraphStyle(
-        "h1", parent=styles["Title"], fontSize=24, alignment=0,
-        textColor=_INK, spaceBefore=6, spaceAfter=0, leading=28,
+        "h1",
+        parent=styles["Title"],
+        fontSize=24,
+        alignment=0,
+        textColor=_INK,
+        spaceBefore=6,
+        spaceAfter=0,
+        leading=28,
     )
     subtitle = ParagraphStyle(
         "sub", parent=styles["Normal"], fontSize=10, textColor=_MUTED, spaceAfter=12
     )
-    body = ParagraphStyle(
-        "body", parent=styles["Normal"], fontSize=10, leading=15, textColor=_INK
-    )
+    body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, leading=15, textColor=_INK)
 
     total = sum(positions.values())
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -128,8 +140,7 @@ def build_report(
 
     kpi = Table(
         [
-            ["HEALTH SCORE", "VALORE STIMATO", f"RENDIMENTO ({period.upper()})",
-             "INVESTIMENTO"],
+            ["HEALTH SCORE", "VALORE STIMATO", f"RENDIMENTO ({period.upper()})", "INVESTIMENTO"],
             [
                 f"{health_score}/100",
                 _eur(total * (1 + cum_return)),
