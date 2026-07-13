@@ -116,6 +116,8 @@ BENCHMARK = "QQQ"  # ETF sul Nasdaq-100
 TRADING_DAYS = 252
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
 AMBER = "#f7a600"
+# soglie di volatilità annua per profilo di rischio (dichiarate nella UI)
+PROFILE_VOL = {"Prudente": 0.10, "Moderato": 0.18, "Aggressivo": 0.30}
 
 st.set_page_config(
     page_title="Portfolio Intelligence", page_icon="◆", layout="wide",
@@ -617,6 +619,14 @@ with st.sidebar:
             min_value=0.0, max_value=10.0, value=3.0, step=0.25,
             help="Rendimento senza rischio usato in Sharpe, Sortino e ottimizzazione.",
         ) / 100
+        risk_profile = st.selectbox(
+            "Profilo di rischio",
+            ["Non impostato", "Prudente", "Moderato", "Aggressivo"],
+            index=0,
+            help="Soglie di volatilità annua attesa dichiarate: prudente fino al "
+            "10%, moderato fino al 18%, aggressivo fino al 30%. Il check-up "
+            "confronta il portafoglio con la soglia del profilo.",
+        )
 
 amounts = dict(st.session_state.holdings)
 total = sum(amounts.values())
@@ -698,7 +708,7 @@ with st.container(key="navbar"):
     view = st.segmented_control(
         "Sezione",
         ["Home", "Check-up", "Analisi", "Visual", "Ottimizza", "Correlazioni",
-         "Fondamentali", "Mercato", "Backtest"],
+         "Fondamentali", "Mercato", "Backtest", "Clienti"],
         default="Home",
         label_visibility="collapsed",
         key="nav",
@@ -808,6 +818,14 @@ elif view == "Check-up":
                                    c["avg_corr"], c["drawdown"])
         if "Ultima seduta" in a
     ]
+    if risk_profile in PROFILE_VOL and c["annual_vol"] > PROFILE_VOL[risk_profile]:
+        band = PROFILE_VOL[risk_profile]
+        problems.insert(
+            0,
+            f"Per un profilo **{risk_profile.lower()}** (volatilità attesa fino al "
+            f"{band:.0%}), il portafoglio oscilla il "
+            f"**{c['annual_vol'] / band - 1:.0%} in più** della soglia.",
+        )
     top_problems = (session_alerts + problems)[:5]
     if top_problems:
         for problem in top_problems:
@@ -943,12 +961,30 @@ elif view == "Check-up":
         )
     with col_log:
         if st.button("Salva nello storico", width="stretch"):
-            log_analysis(portfolio_name, period, total, c["cum_return"], c["risk_score"])
+            log_analysis(
+                portfolio_name, period, total, c["cum_return"],
+                c["risk_score"], health=c["health"],
+            )
             st.toast("Analisi salvata")
     with col_hist:
         history = load_analyses()
         if not history.empty:
             with st.expander(f"Storico analisi ({len(history)})"):
+                trend = history.dropna(subset=["health"])
+                trend = trend[trend["portfolio"] == portfolio_name]
+                if len(trend) >= 2:
+                    series = pd.Series(
+                        trend["health"].to_numpy(dtype=float),
+                        index=pd.to_datetime(trend["timestamp"]),
+                    ).sort_index()
+                    st.altair_chart(
+                        simple_line(series, y_format=".0f"), width="stretch"
+                    )
+                    delta_h = int(series.iloc[-1] - series.iloc[0])
+                    st.caption(
+                        f"Health Score di «{portfolio_name}» nel tempo: "
+                        f"{delta_h:+d} punti dalla prima analisi salvata."
+                    )
                 st.dataframe(
                     history,
                     column_config={
@@ -962,6 +998,7 @@ elif view == "Check-up":
                             "Rendimento", format="percent"
                         ),
                         "risk_score": st.column_config.NumberColumn("Rischio /100"),
+                        "health": st.column_config.NumberColumn("Health /100"),
                     },
                     hide_index=True,
                 )
@@ -1584,3 +1621,104 @@ elif view == "Backtest":
                     f"Curve a base 100, costi {cost_bps} bps per ribilanciamento. "
                     "Il rendimento non è tutto: guarda volatilità e drawdown."
                 )
+
+# ================================================================ CLIENTI
+elif view == "Clienti":
+    sec("Vista consulente — tutti i portafogli salvati")
+    st.caption(
+        "Ogni portafoglio salvato è un cliente: semaforo, valore, Health Score "
+        "e il problema più urgente, in un colpo d'occhio. Per aprirne uno: "
+        "barra laterale → Portafogli salvati → Carica."
+    )
+
+    @st.cache_data(ttl=900, show_spinner=False)
+    def quick_client_analysis(
+        items: tuple, period_key: str, eur_flag: bool
+    ) -> dict:
+        amounts_c = dict(items)
+        total_c = sum(amounts_c.values())
+        pf_c = [
+            {"ticker": t, "weight": a / total_c} for t, a in amounts_c.items()
+        ]
+        prices_c = cached_prices(tuple(sorted(amounts_c)), period_key)
+        if eur_flag:
+            prices_c = convert_to_eur(prices_c, cached_eurusd(period_key))
+        returns_c = compute_daily_returns(prices_c)
+        daily_c = portfolio_daily_returns(returns_c, pf_c)
+        value_c = (1 + daily_c).cumprod()
+        vol_c = portfolio_volatility(returns_c, pf_c) * TRADING_DAYS**0.5
+        dd_c = max_drawdown(value_c)
+        mp_c = max(15, min(60, len(returns_c) // 2))
+        corr_c = average_pairwise_correlation(returns_c, min_periods=mp_c)
+        radar_c = radar_scores(vol_c, pf_c, dd_c, corr_c)
+        fund_c = cached_fundamentals(tuple(sorted(amounts_c)))
+        dna_c = dna_scores(fund_c, pf_c, vol_c, corr_c)
+        breakdown_c = health_breakdown(dna_c, radar_c, usd_exposure(pf_c))
+        contributions_c = risk_contributions(returns_c, pf_c)
+        problems_c = find_problems(pf_c, fund_c, contributions_c, corr_c, radar_c)
+        return {
+            "health": portfolio_health_score(breakdown_c),
+            "value": total_c * float(value_c.iloc[-1]),
+            "invested": total_c,
+            "cum": float(value_c.iloc[-1] - 1),
+            "vol": vol_c,
+            "problem": problems_c[0].replace("**", "") if problems_c else
+            "Nessun problema rilevato dalle regole monitorate.",
+        }
+
+    book = list_portfolios()
+    if not book:
+        empty_state(
+            "Nessun cliente nel libro",
+            "Salva almeno un portafoglio (barra laterale → Portafogli salvati) "
+            "per vederlo comparire qui con semaforo e problema principale.",
+            icon="folder",
+        )
+    else:
+        rows_html = ""
+        failures = []
+        with st.spinner("Analizzo il libro clienti..."):
+            for client_name in sorted(book):
+                try:
+                    a = quick_client_analysis(
+                        tuple(sorted(book[client_name].items())), period, in_eur
+                    )
+                except ValueError as exc:
+                    failures.append(f"{client_name}: {exc}")
+                    continue
+                color = (
+                    GAIN if a["health"] >= 67
+                    else AMBER if a["health"] >= 34 else LOSS
+                )
+                chg_css = "up" if a["cum"] >= 0 else "down"
+                rows_html += f"""
+                <div class="kpi" style="display:flex;align-items:center;
+                     gap:16px;margin-bottom:10px;min-width:100%">
+                  <div style="width:10px;height:10px;border-radius:50%;
+                       background:{color};flex-shrink:0"></div>
+                  <div style="min-width:150px">
+                    <div style="font-weight:700">{client_name}</div>
+                    <div class="kpi-sub">{eur(a["invested"])} investiti ·
+                         vol. {a["vol"]:.0%}</div>
+                  </div>
+                  <div style="min-width:120px">
+                    <div class="kpi-sub">VALORE</div>
+                    <div style="font-weight:700;font-variant-numeric:tabular-nums">
+                         {eur(a["value"])}
+                         <span class="chg {chg_css}" style="font-size:.8rem">
+                         {a["cum"]:+.1%}</span></div>
+                  </div>
+                  <div style="flex:1" class="kpi-sub">{a["problem"]}</div>
+                  <div style="font-family:var(--font-display);font-size:1.5rem;
+                       font-weight:700;color:{color}">{a["health"]}
+                       <span style="font-size:.7rem;color:var(--muted)">/100</span>
+                  </div>
+                </div>"""
+        st.markdown(rows_html, unsafe_allow_html=True)
+        for failure in failures:
+            st.warning(f"Analisi non riuscita — {failure}")
+        st.caption(
+            f"{len(book)} clienti · orizzonte {period} · "
+            + ("valori in EUR, cambio incluso" if in_eur else "valute originali")
+            + " · analisi aggiornate ogni 15 minuti."
+        )

@@ -40,9 +40,14 @@ def _connect(db_path: Path) -> sqlite3.Connection:
             period TEXT NOT NULL,
             invested REAL NOT NULL,
             cum_return REAL NOT NULL,
-            risk_score INTEGER NOT NULL
+            risk_score INTEGER NOT NULL,
+            health INTEGER
         )"""
     )
+    # migrazione: i database creati prima non hanno la colonna health
+    columns = [row[1] for row in conn.execute("PRAGMA table_info(analyses)")]
+    if "health" not in columns:
+        conn.execute("ALTER TABLE analyses ADD COLUMN health INTEGER")
     return conn
 
 
@@ -130,12 +135,13 @@ def log_analysis(
     invested: float,
     cum_return: float,
     risk_score: int,
+    health: int,
     db_path: Path = DB_PATH,
 ) -> None:
     with _connect(db_path) as conn:
         conn.execute(
             "INSERT INTO analyses (timestamp, portfolio, period, invested, cum_return, "
-            "risk_score) VALUES (?, ?, ?, ?, ?, ?)",
+            "risk_score, health) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 datetime.now().isoformat(timespec="seconds"),
                 portfolio_name,
@@ -143,6 +149,7 @@ def log_analysis(
                 invested,
                 cum_return,
                 risk_score,
+                health,
             ),
         )
 
@@ -153,8 +160,8 @@ def load_analyses(limit: int = 30, db_path: Path = DB_PATH) -> pd.DataFrame:
         return pd.DataFrame()
     with _connect(db_path) as conn:
         return pd.read_sql_query(
-            "SELECT timestamp, portfolio, period, invested, cum_return, risk_score "
-            "FROM analyses ORDER BY id DESC LIMIT ?",
+            "SELECT timestamp, portfolio, period, invested, cum_return, risk_score, "
+            "health FROM analyses ORDER BY id DESC LIMIT ?",
             conn,
             params=(limit,),
         )
