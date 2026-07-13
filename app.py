@@ -18,6 +18,8 @@ from src.analytics.backtest import (
 from src.analytics.factors import composite_scores, multifactor_weights
 from src.ui.components import (
     breakdown_html,
+    empty_state,
+    kpi_row_html,
     dna_card_html,
     eur,
     hero_html,
@@ -175,7 +177,94 @@ st.markdown(
     .st-key-navbar button[kind="segmented_controlActive"] p {{
         color: #ffffff !important;
     }}
-    .st-key-navbar {{ border-bottom: 1px solid var(--line); }}
+    .st-key-navbar {{
+        border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; z-index: 99;
+        background: rgba(11, 14, 19, 0.82);
+        backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    }}
+
+    /* ---- profondità e hover ---- */
+    .panel, .hero-panel {{
+        box-shadow: 0 8px 26px rgba(0, 0, 0, 0.28);
+        transition: transform 0.18s ease, border-color 0.18s ease;
+    }}
+    .panel:hover, .hero-panel:hover {{
+        transform: translateY(-2px);
+        border-color: rgba(247, 166, 0, 0.28);
+    }}
+    .pos-row {{ transition: background 0.15s ease; border-radius: 8px; }}
+    .pos-row:hover {{ background: rgba(255, 255, 255, 0.03); }}
+    .stButton button, .stDownloadButton button {{
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }}
+    .stButton button:hover, .stDownloadButton button:hover {{
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    }}
+
+    /* ---- KPI card con icona ---- */
+    .kpi-row {{ display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 6px; }}
+    .kpi {{
+        flex: 1; min-width: 210px;
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: 14px; padding: 18px 20px;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+        transition: transform 0.18s ease, border-color 0.18s ease;
+        animation: fadeUpSubtle 0.3s ease-out both;
+    }}
+    .kpi:hover {{ transform: translateY(-2px); border-color: rgba(247,166,0,0.3); }}
+    .kpi-top {{ display: flex; justify-content: space-between; align-items: center; }}
+    .kpi-icon {{
+        width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+    }}
+    .kpi-label {{
+        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em;
+        color: var(--muted); font-weight: 600; padding-right: 8px;
+    }}
+    .kpi-value {{
+        font-size: 1.7rem; font-weight: 700; margin-top: 8px;
+        font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    }}
+    .kpi-sub {{ font-size: 0.75rem; color: var(--muted); margin-top: 4px;
+                line-height: 1.45; }}
+    @keyframes fadeUpSubtle {{
+        from {{ opacity: 0; transform: translateY(6px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* ---- empty state ---- */
+    .empty {{
+        text-align: center; padding: 54px 30px;
+        border: 1.5px dashed rgba(255, 255, 255, 0.14);
+        border-radius: 16px; margin: 20px 0;
+    }}
+    .empty-icon {{
+        width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(247, 166, 0, 0.1); color: var(--accent);
+    }}
+    .empty-title {{ font-weight: 700; font-size: 1.05rem; }}
+    .empty-hint {{
+        color: var(--muted); font-size: 0.9rem; margin-top: 6px;
+        max-width: 430px; margin-left: auto; margin-right: auto; line-height: 1.5;
+    }}
+
+    /* ---- spinner brandizzato ---- */
+    [data-testid="stSpinner"] i {{
+        border-top-color: var(--accent) !important;
+        border-right-color: rgba(247, 166, 0, 0.25) !important;
+    }}
+
+    /* ---- responsive ---- */
+    @media (max-width: 920px) {{
+        .hero-panel {{ flex-direction: column; text-align: center; gap: 16px; }}
+        .kpi {{ min-width: 100%; }}
+        .landing-hero {{ padding: 44px 26px 40px !important; }}
+        .landing-title {{ font-size: 2.1rem !important; }}
+        .glass-row {{ flex-direction: column; }}
+    }}
 
     /* ---- metriche flat: niente scatole, solo numeri e separatori ---- */
     .panel {{
@@ -364,9 +453,12 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
     """Il database prezzi, con download integrato se assente (per il cloud)."""
     prices = load_market_db()
     if prices is None:
-        st.info(
-            "Il database Nasdaq-100 (5 anni di prezzi giornalieri per 103 titoli) "
-            "non è ancora presente."
+        empty_state(
+            "Database prezzi non ancora presente",
+            "Servono 5 anni di prezzi giornalieri per i 103 titoli del "
+            "Nasdaq-100: si scaricano una sola volta, poi si aggiornano "
+            "in modo incrementale.",
+            icon="folder",
         )
         if st.button("Scarica i dati (~1 minuto)", key=f"dl_{view_key}", type="primary"):
             from download_nasdaq100 import update_nasdaq100
@@ -460,7 +552,11 @@ with st.sidebar:
                         st.rerun()
         st.caption(f"Totale: **{eur(total)}** · {len(holdings)} titoli")
     else:
-        st.info("Aggiungi il primo titolo qui sopra.")
+        empty_state(
+            "Portafoglio vuoto",
+            "Cerca un titolo qui sopra e aggiungilo con il suo importo.",
+            icon="folder",
+        )
 
     with st.expander("Importa da CSV / Excel"):
         uploaded = st.file_uploader(
@@ -612,7 +708,11 @@ if view == "Home":
 
 elif view in NEEDS_PORTFOLIO and computed is None:
     if not compute_error:
-        st.info("Inserisci almeno un titolo con un importo nella barra laterale.")
+        empty_state(
+            "Nessun portafoglio da analizzare",
+            "Aggiungi un titolo con il suo importo nella barra laterale, "
+            "carica un CSV del broker o un portafoglio salvato.",
+        )
 
 # ================================================================ CHECK-UP
 elif view == "Check-up":
@@ -708,24 +808,35 @@ elif view == "Check-up":
         st.success("Nessun problema rilevato dalle regole monitorate.")
 
     sec("Il tuo rischio, in euro")
-    r1, r2, r3 = st.columns(3)
-    r1.metric(
-        "Oscillazione tipica in 1 anno",
-        f"± {eur(total * c['annual_vol'])}",
-        delta=f"{c['annual_vol']:.1%}", delta_color="off",
-        help="Un anno normale può chiudersi con uno scarto di questa entità "
-        "in più o in meno (1 deviazione standard).",
-    )
-    r2.metric(
-        "In una giornata nera (VaR 95%)",
-        eur(total * c["var_95"]),
-        help="Nel 95% dei giorni non perdi più di questa cifra. Stima storica.",
-    )
-    r3.metric(
-        "Nella peggior discesa del periodo",
-        eur(total * c["drawdown"]),
-        delta=f"{c['drawdown']:.1%}", delta_color="off",
-        help="Quanto avresti visto scendere il portafoglio dal picco (max drawdown).",
+    st.markdown(
+        kpi_row_html(
+            [
+                {
+                    "icon": "wave",
+                    "label": "Oscillazione tipica in 1 anno",
+                    "value": f"± {eur(total * c['annual_vol'])}",
+                    "sub": f"{c['annual_vol']:.1%} annuo — un anno normale può "
+                    "chiudersi con uno scarto di questa entità",
+                },
+                {
+                    "icon": "bolt",
+                    "label": "In una giornata nera (VaR 95%)",
+                    "value": eur(total * c["var_95"]),
+                    "sub": "nel 95% dei giorni non perdi più di questa cifra "
+                    "(stima storica)",
+                    "color": LOSS,
+                },
+                {
+                    "icon": "down",
+                    "label": "Nella peggior discesa del periodo",
+                    "value": eur(total * c["drawdown"]),
+                    "sub": f"{c['drawdown']:.1%} dal picco (max drawdown) "
+                    "investendo questa cifra",
+                    "color": LOSS,
+                },
+            ]
+        ),
+        unsafe_allow_html=True,
     )
     st.caption("Stime dall'andamento storico del periodo: non sono una previsione.")
 

@@ -83,6 +83,60 @@ def breakdown_html(breakdown: dict[str, float]) -> str:
     )
 
 
+_ICONS = {
+    "wave": '<path d="M2 12h4l3-8 4 16 3-8h4" fill="none" stroke="currentColor" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    "bolt": '<path d="M13 2 5 14h6l-1 8 8-12h-6l1-8z" fill="none" stroke="currentColor" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    "down": '<path d="M3 7l7 7 4-4 7 7M21 17v-6h-6" fill="none" stroke="currentColor" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    "search": '<circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" '
+              'stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" '
+              'stroke-width="2" stroke-linecap="round"/>',
+    "folder": '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5'
+              'a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" '
+              'stroke-linejoin="round"/>',
+}
+
+
+def _icon_svg(name: str) -> str:
+    return (
+        f'<svg viewBox="0 0 24 24" width="19" height="19" '
+        f'xmlns="http://www.w3.org/2000/svg">{_ICONS[name]}</svg>'
+    )
+
+
+def kpi_row_html(cards: list[dict]) -> str:
+    """Riga di KPI card con icona: [{icon, label, value, sub, color?}]."""
+    html = '<div class="kpi-row">'
+    for card in cards:
+        color = card.get("color", AMBER)
+        html += f"""
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-label">{card["label"]}</div>
+            <div class="kpi-icon" style="color:{color};
+                 background:{color}1f">{_icon_svg(card["icon"])}</div>
+          </div>
+          <div class="kpi-value">{card["value"]}</div>
+          <div class="kpi-sub">{card["sub"]}</div>
+        </div>"""
+    return html + "</div>"
+
+
+def empty_state(title: str, hint: str, icon: str = "search") -> None:
+    """Stato vuoto elegante al posto del box info di default."""
+    st.markdown(
+        f"""
+        <div class="empty">
+          <div class="empty-icon">{_icon_svg(icon)}</div>
+          <div class="empty-title">{title}</div>
+          <div class="empty-hint">{hint}</div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+
 LANDING_CSS = """
 <style>
 .landing-hero {
