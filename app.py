@@ -273,6 +273,10 @@ st.markdown(
     }}
     .pos-main {{ flex: 1; min-width: 0; }}
     .pos-ticker {{ font-weight: 700; font-size: 0.9rem; line-height: 1.2; }}
+    .pos-name {{
+        font-size: 0.7rem; color: var(--muted); max-width: 160px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }}
     .pos-amt {{
         font-size: 0.78rem; color: var(--muted);
         font-variant-numeric: tabular-nums;
@@ -380,9 +384,19 @@ def dna_card_html(dna: dict[str, float], label: str, title: str = "PORTFOLIO DNA
     )
 
 
-def hero_html(health: int, value: str, change: float, period: str) -> str:
+def hero_html(
+    health: int, value: str, change: float, period: str,
+    today_move: float | None = None,
+) -> str:
     gauge_color = GAIN if health >= 67 else AMBER if health >= 34 else LOSS
     arrow, css = ("▲", "up") if change >= 0 else ("▼", "down")
+    today_html = ""
+    if today_move is not None and today_move == today_move:
+        arrow_t, css_t = ("▲", "up") if today_move >= 0 else ("▼", "down")
+        today_html = (
+            f'<div class="chg {css_t}" style="font-size:.85rem;margin-top:2px">'
+            f'Ultima seduta {arrow_t} {today_move:+.2%}</div>'
+        )
     return f"""
     <div class="hero-panel" style="--val:{health}; --gcol:{gauge_color}">
       <div class="gauge"><div class="gauge-inner">
@@ -393,6 +407,7 @@ def hero_html(health: int, value: str, change: float, period: str) -> str:
         <div class="label">Valore stimato</div>
         <div class="big">{value}</div>
         <div class="chg {css}">{arrow} {change:+.1%} · {period}</div>
+        {today_html}
       </div>
     </div>"""
 
@@ -439,10 +454,13 @@ with st.sidebar:
     if holdings:
         max_amount = max(holdings.values())
         sorted_tickers = sorted(holdings, key=holdings.get, reverse=True)
+        known_names = st.session_state.get("names", {})
         for i, ticker in enumerate(sorted_tickers):
             amount = holdings[ticker]
             color = PALETTE[sorted(holdings).index(ticker) % len(PALETTE)]
             weight = amount / total if total else 0
+            company = known_names.get(ticker, "")
+            name_html = f'<div class="pos-name">{company}</div>' if company else ""
             col_card, col_menu = st.columns([5, 1], gap="small")
             with col_card:
                 st.markdown(
@@ -451,6 +469,7 @@ with st.sidebar:
                       <div class="pos-main">
                         <div class="pos-ticker">{ticker}
                           <span class="pos-amt">· {eur(amount)}</span></div>
+                        {name_html}
                         <div class="pos-weight-track"><div class="pos-weight-fill"
                           style="width:{weight:.0%};background:{color}"></div></div>
                       </div>
@@ -583,6 +602,11 @@ if portfolio:
             "contributions": contributions, "radar": radar, "fund": fund,
             "dna": dna, "health": health,
         }
+        if "name" in fund.columns:
+            st.session_state["names"] = {
+                **st.session_state.get("names", {}),
+                **fund["name"].dropna().to_dict(),
+            }
     except ValueError as exc:
         compute_error = str(exc)
 
@@ -619,7 +643,8 @@ elif view == "Check-up":
     with col_hero:
         st.markdown(
             hero_html(c["health"], eur(total * (1 + c["cum_return"])),
-                      c["cum_return"], period),
+                      c["cum_return"], period,
+                      today_move=float(c["pf_daily"].iloc[-1])),
             unsafe_allow_html=True,
         )
         st.caption(
@@ -639,11 +664,15 @@ elif view == "Check-up":
     sec("Le tue posizioni")
     cum_by_ticker = per_ticker_cumulative_return(c["prices"])
     normalized_pos = c["prices"] / c["prices"].apply(lambda s: s.dropna().iloc[0])
+    last_session = c["returns"].iloc[-1]
+    fund_names = c["fund"]["name"] if "name" in c["fund"].columns else pd.Series(dtype=str)
     position_rows = [
         {
             "Titolo": t,
+            "Nome": fund_names.get(t, ""),
             "Importo": amounts[t],
             "Peso": amounts[t] / total,
+            "Oggi": float(last_session[t]) if t in last_session.index else None,
             "Rendimento": cum_by_ticker.get(t),
             "Andamento": normalized_pos[t].dropna().tolist()[-130:],
         }
@@ -653,8 +682,10 @@ elif view == "Check-up":
         pd.DataFrame(position_rows),
         column_config={
             "Titolo": st.column_config.TextColumn("Titolo"),
+            "Nome": st.column_config.TextColumn("Società"),
             "Importo": st.column_config.NumberColumn("Importo", format="%.0f €"),
             "Peso": st.column_config.NumberColumn("Peso", format="percent"),
+            "Oggi": st.column_config.NumberColumn("Ultima seduta", format="percent"),
             "Rendimento": st.column_config.NumberColumn(
                 f"Rendimento ({period})", format="percent"
             ),

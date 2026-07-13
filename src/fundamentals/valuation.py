@@ -1,5 +1,7 @@
 """Fondamentali di bilancio e multipli di valutazione."""
 
+from concurrent.futures import ThreadPoolExecutor
+
 import pandas as pd
 
 from src.data.yahoo_client import get_ticker_info
@@ -31,15 +33,19 @@ def fetch_fundamentals(tickers: list[str]) -> pd.DataFrame:
     I ticker senza dati vengono esclusi; se nessun ticker ha dati solleva ValueError.
     I campi assenti per un singolo ticker restano NaN.
     """
-    rows = {}
-    for ticker in tickers:
+    def fetch_one(ticker: str) -> tuple[str, dict | None]:
         try:
-            info = get_ticker_info(ticker)
+            return ticker, get_ticker_info(ticker)
         except Exception:
-            continue
-        if not info or info.get("totalRevenue") is None:
-            continue
-        rows[ticker] = {column: info.get(field) for field, column in _FIELDS.items()}
+            return ticker, None
+
+    rows = {}
+    # una richiesta HTTP per ticker: in parallelo il tempo diventa ~costante
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        for ticker, info in executor.map(fetch_one, tickers):
+            if not info or info.get("totalRevenue") is None:
+                continue
+            rows[ticker] = {column: info.get(field) for field, column in _FIELDS.items()}
 
     if not rows:
         raise ValueError(f"Nessun dato fondamentale trovato per: {', '.join(tickers)}")
