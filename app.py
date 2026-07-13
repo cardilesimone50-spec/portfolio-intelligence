@@ -16,6 +16,14 @@ from src.analytics.backtest import (
     run_backtest,
 )
 from src.analytics.factors import composite_scores, multifactor_weights
+from src.analytics.interpret import (
+    interpret_beta,
+    interpret_correlation,
+    interpret_drawdown,
+    interpret_sharpe,
+    interpret_sortino,
+    interpret_volatility,
+)
 from src.ui.components import (
     breakdown_html,
     empty_state,
@@ -815,8 +823,16 @@ elif view == "Check-up":
                     "icon": "wave",
                     "label": "Oscillazione tipica in 1 anno",
                     "value": f"± {eur(total * c['annual_vol'])}",
-                    "sub": f"{c['annual_vol']:.1%} annuo — un anno normale può "
-                    "chiudersi con uno scarto di questa entità",
+                    "sub": f"{c['annual_vol']:.1%} annuo · "
+                    + interpret_volatility(
+                        c["annual_vol"],
+                        (
+                            compute_daily_returns(_db_for_search).std()
+                            * TRADING_DAYS**0.5
+                            if _db_for_search is not None
+                            else None
+                        ),
+                    ),
                 },
                 {
                     "icon": "bolt",
@@ -956,6 +972,12 @@ elif view == "Analisi":
     sharpe = annualized_sharpe(c["returns"], portfolio, risk_free_rate=risk_free)
     sortino = sortino_ratio(c["returns"], portfolio, risk_free_rate=risk_free)
 
+    # percentile di volatilità contro i singoli titoli del Nasdaq-100 (se in DB)
+    _db = load_market_db()
+    universe_vols = (
+        compute_daily_returns(_db).std() * TRADING_DAYS**0.5 if _db is not None else None
+    )
+
     sec("Rendimento")
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Investimento", eur(total))
@@ -965,15 +987,11 @@ elif view == "Analisi":
         delta=f"{c['annual_ret']:+.1%}",
         help="CAGR del periodo osservato: non sovrastima in presenza di volatilità.",
     )
-    m3.metric(
-        "Sharpe ratio", f"{sharpe:.2f}",
-        help=f"Rendimento extra per unità di rischio (risk-free {risk_free:.1%}): "
-        "sopra 1 è buono, sopra 2 ottimo.",
-    )
-    m4.metric(
-        "Sortino ratio", f"{sortino:.2f}",
-        help="Come lo Sharpe ma penalizza solo la volatilità al ribasso.",
-    )
+    m3.metric("Sharpe ratio", f"{sharpe:.2f}",
+              help=f"Calcolato con risk-free {risk_free:.1%}.")
+    m3.caption(interpret_sharpe(sharpe))
+    m4.metric("Sortino ratio", f"{sortino:.2f}")
+    m4.caption(interpret_sortino(sortino, sharpe))
 
     sec("Rischio")
     r1, r2, r3, r4 = st.columns(4)
@@ -982,12 +1000,18 @@ elif view == "Analisi":
         f"± {eur(total * c['annual_vol'])}",
         delta=f"{c['annual_vol']:.1%}", delta_color="off",
     )
+    r1.caption(interpret_volatility(c["annual_vol"], universe_vols))
     r2.metric("Perdita massima storica", f"{c['drawdown']:.1%}")
+    r2.caption(interpret_drawdown(c["drawdown"]))
     r3.metric("VaR 95% (1 giorno)", eur(total * c["var_95"]))
+    r3.caption(
+        "Nel 95% delle giornate storiche non hai perso più di questa cifra."
+    )
     r4.metric(
         f"Beta vs {BENCHMARK}", f"{c['beta']:.2f}",
         delta=f"α {c['alpha']:+.1%}/anno", delta_color="off",
     )
+    r4.caption(interpret_beta(c["beta"], BENCHMARK))
     st.caption("Stime basate sull'andamento storico: non sono una previsione.")
 
     sec(f"Portafoglio vs Nasdaq-100 ({BENCHMARK}) · base 100")
@@ -1274,11 +1298,11 @@ elif view == "Correlazioni":
         with col_metric:
             st.metric("Correlazione media", f"{avg_corr:.2f}")
             if avg_corr > 0.6:
-                st.warning("I tuoi titoli si muovono molto insieme.")
+                st.warning(interpret_correlation(avg_corr))
             elif avg_corr > 0.3:
-                st.info("Diversificazione nella media.")
+                st.info(interpret_correlation(avg_corr))
             else:
-                st.success("Buona diversificazione.")
+                st.success(interpret_correlation(avg_corr))
             if len(pairs):
                 tightest = pairs.idxmax()
                 st.caption(
