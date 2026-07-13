@@ -1,11 +1,22 @@
 # Portfolio Intelligence
 
-Dashboard Python per l'analisi di portafogli azionari su dati Yahoo Finance:
-rendimento/rischio in euro (Sharpe, Sortino, max drawdown, VaR, beta/alpha vs
-Nasdaq-100), correlazioni, fondamentali, ottimizzazione di Markowitz con
-frontiera efficiente, backtest di strategie, alert automatici, report PDF,
-import CSV/Excel dal broker e salvataggio portafogli/storico analisi in SQLite
-con aggiornamento incrementale dei prezzi.
+Dashboard Python per l'analisi di portafogli azionari: rendimento/rischio in
+euro (Sharpe, Sortino, max drawdown, VaR, beta/alpha vs Nasdaq-100),
+correlazioni, fondamentali, ottimizzazione di Markowitz con frontiera
+efficiente, backtest di strategie, alert automatici, report PDF, import
+CSV/Excel dal broker, vista consulente multi-cliente e salvataggio
+portafogli/storico analisi in SQLite.
+
+I prezzi arrivano da una **catena di provider dati** con fallback
+(`src/data/providers.py`): EODHD — dati con licenza commerciale, attivo con
+`EODHD_API_KEY` — poi Yahoo Finance, poi Stooq. Pensata per sostituire la
+sorgente senza toccare il resto del codice.
+
+## Licenza
+
+Elastic License 2.0 (source-available): puoi usare, modificare e ridistribuire
+il software, ma **non offrirlo a terzi come servizio hosted/gestito** che ne
+esponga le funzionalità principali. Vedi [LICENSE](LICENSE).
 
 ## Avvio
 

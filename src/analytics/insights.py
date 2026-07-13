@@ -365,9 +365,9 @@ def find_opportunities(
         ]
         for ticker in cheap.index[:2]:
             opportunities.append(
-                f"Valutazione interessante su **{ticker}** "
-                f"(P/E {cheap.loc[ticker, 'pe']:.0f}): "
-                "tra i tuoi titoli è il meno caro."
+                f"Tra i titoli in portafoglio, **{ticker}** presenta i multipli "
+                f"più contenuti (P/E {cheap.loc[ticker, 'pe']:.0f}, P/S "
+                f"{cheap.loc[ticker, 'ps']:.1f})."
             )
 
     if not opportunities:
@@ -383,27 +383,33 @@ def generate_suggestions(
     radar: dict[str, float],
     contributions: pd.Series,
 ) -> list[str]:
-    """Suggerimenti operativi, derivati dalle stesse regole dei punteggi."""
+    """Osservazioni descrittive derivate dalle stesse regole dei punteggi.
+
+    Formulazione deliberatamente NON prescrittiva (nessun imperativo, nessuna
+    raccomandazione su strumenti): descrive ciò che le metriche evidenziano e
+    cita, dove utile, prassi prudenziali generali. Vedi docs/ENTERPRISE.md §2.
+    """
     suggestions = []
     if radar.get("Concentrazione", 0) > 60 and len(contributions):
         suggestions.append(
-            f"Riduci la concentrazione: {contributions.index[0]} domina il rischio. "
-            "Una regola pratica è non superare il 25% su un singolo titolo."
+            f"La concentrazione è elevata: **{contributions.index[0]}** domina il "
+            "rischio. Una prassi prudenziale diffusa considera critico un peso "
+            "superiore al 25% su un singolo titolo."
         )
     if radar.get("Correlazione", 0) > 60:
         suggestions.append(
-            "Aggiungi esposizione difensiva o decorrelata (settori diversi da "
-            "quelli attuali): i tuoi titoli tendono a scendere insieme."
+            "I titoli tendono a muoversi insieme: strumenti di settori o aree "
+            "meno correlati riducono, in generale, la variabilità complessiva."
         )
     if radar.get("Volatilità", 0) > 70:
         suggestions.append(
-            "La volatilità è elevata: valuta di bilanciare con titoli a beta "
-            "più basso se l'oscillazione ti pesa."
+            "La volatilità è elevata: in generale, componenti a beta più basso "
+            "attenuano l'ampiezza delle oscillazioni di un portafoglio."
         )
     if dna.get("Value", 100) < 30:
         suggestions.append(
-            "I multipli medi del portafoglio sono cari (P/E e P/S alti): "
-            "il prezzo pagato incorpora aspettative di crescita elevate."
+            "I multipli medi del portafoglio sono elevati (P/E e P/S alti): il "
+            "prezzo incorpora aspettative di crescita significative."
         )
     if not suggestions:
         suggestions.append(

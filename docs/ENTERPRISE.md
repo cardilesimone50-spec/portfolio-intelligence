@@ -7,7 +7,11 @@
 ## 1. Integrazione dati (API, import automatico)
 
 **Oggi**: inserimento manuale, import CSV/Excel della posizione titoli,
-portafogli salvati in SQLite, aggiornamento prezzi incrementale.
+portafogli salvati in SQLite, aggiornamento prezzi incrementale. I prezzi
+passano da una **catena di provider astratta** (`src/data/providers.py`):
+EODHD (licenza commerciale, si attiva con `EODHD_API_KEY`) → Yahoo → Stooq.
+Sostituire la sorgente con il feed licenziato della banca è cambiare un
+provider nella catena, non riscrivere l'app.
 **Per una banca**: serve un'API `POST /portfolios/{client_id}` alimentata dai
 sistemi della banca. L'engine è già separato dalla UI (package `src/`), quindi
 esporlo via FastAPI è un lavoro di settimane, non mesi. Il collo di bottiglia
@@ -103,5 +107,7 @@ Prezzo di riferimento di mercato per tool advisory white-label: 50-150k€/anno.
 | Report PDF | Fatto (white-label parziale) |
 | API di integrazione | Da fare (settimane, engine pronto) |
 | Sicurezza enterprise + cloud UE | Da fare (4-8 settimane) |
-| Dati con licenza commerciale | Da fare (bloccante per produzione) |
+| Provider dati astratto (EODHD/Yahoo/Stooq) | Fatto — serve solo la key EODHD |
+| Moat legale (source-available, no rivendita SaaS) | Fatto — Elastic License 2.0 |
+| Dati con licenza commerciale attivi in produzione | Da fare (chiave + contratto) |
 | Parere legale MiFID II | Da fare (bloccante per produzione) |

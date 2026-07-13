@@ -124,6 +124,24 @@ def kpi_row_html(cards: list[dict]) -> str:
     return html + "</div>"
 
 
+DISCLAIMER = (
+    "Strumento di sola informazione, non di consulenza finanziaria. "
+    "Le analisi descrivono caratteristiche misurabili del portafoglio sulla "
+    "base di dati storici e non costituiscono raccomandazioni personalizzate "
+    "di investimento né previsioni. Nessuna sollecitazione all'acquisto o alla "
+    "vendita di strumenti finanziari. Le decisioni restano dell'utente o del "
+    "suo consulente."
+)
+
+
+def compliance_footer() -> None:
+    """Informativa MiFID persistente, visibile in ogni schermata."""
+    st.markdown(
+        f'<div class="compliance">{DISCLAIMER}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def empty_state(title: str, hint: str, icon: str = "search") -> None:
     """Stato vuoto elegante al posto del box info di default."""
     st.markdown(

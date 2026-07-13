@@ -1,41 +1,41 @@
 import pandas as pd
 import pytest
-import requests
 
-from src.data.yahoo_client import fetch_price_history
+from src.data import yahoo_client
+
+
+def _chain_returning(df: pd.DataFrame, source: str = "Fake"):
+    class FakeChain:
+        def fetch(self, tickers, period):
+            return df, source
+
+    return lambda: FakeChain()
 
 
 def test_fetch_price_history_valid(monkeypatch):
-    fake_data = pd.DataFrame({"Close": {"AAPL": [100, 101], "MSFT": [200, 201]}})
-    fake_close = pd.DataFrame({"AAPL": [100, 101], "MSFT": [200, 201]})
+    df = pd.DataFrame({"AAPL": [100, 101], "MSFT": [200, 201]})
+    monkeypatch.setattr(yahoo_client, "build_default_chain", _chain_returning(df))
 
-    def fake_download(tickers, period, auto_adjust, progress):
-        return pd.concat({"Close": fake_close}, axis=1)
-
-    monkeypatch.setattr("src.data.yahoo_client.yf.download", fake_download)
-
-    result = fetch_price_history(["AAPL", "MSFT"], period="5d")
+    result = yahoo_client.fetch_price_history(["AAPL", "MSFT"], period="5d")
     assert list(result.columns) == ["AAPL", "MSFT"]
     assert len(result) == 2
+    assert yahoo_client.last_price_source == "Fake"
 
 
 def test_fetch_price_history_missing_ticker_raises(monkeypatch):
-    fake_close = pd.DataFrame({"AAPL": [100, 101], "NOTATICKER": [float("nan"), float("nan")]})
-
-    def fake_download(tickers, period, auto_adjust, progress):
-        return pd.concat({"Close": fake_close}, axis=1)
-
-    monkeypatch.setattr("src.data.yahoo_client.yf.download", fake_download)
+    df = pd.DataFrame({"AAPL": [100, 101], "NOTATICKER": [float("nan"), float("nan")]})
+    monkeypatch.setattr(yahoo_client, "build_default_chain", _chain_returning(df))
 
     with pytest.raises(ValueError, match="NOTATICKER"):
-        fetch_price_history(["AAPL", "NOTATICKER"], period="5d")
+        yahoo_client.fetch_price_history(["AAPL", "NOTATICKER"], period="5d")
 
 
-def test_fetch_price_history_network_error_raises(monkeypatch):
-    def fake_download(tickers, period, auto_adjust, progress):
-        raise requests.exceptions.ConnectionError("boom")
+def test_fetch_price_history_all_providers_failed(monkeypatch):
+    class FailingChain:
+        def fetch(self, tickers, period):
+            raise ValueError("Nessun provider dati ha risposto")
 
-    monkeypatch.setattr("src.data.yahoo_client.yf.download", fake_download)
+    monkeypatch.setattr(yahoo_client, "build_default_chain", lambda: FailingChain())
 
-    with pytest.raises(ValueError, match="rete"):
-        fetch_price_history(["AAPL"], period="5d")
+    with pytest.raises(ValueError, match="Nessun provider"):
+        yahoo_client.fetch_price_history(["AAPL"], period="5d")

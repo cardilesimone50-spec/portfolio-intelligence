@@ -26,6 +26,7 @@ from src.analytics.interpret import (
 )
 from src.ui.components import (
     breakdown_html,
+    compliance_footer,
     empty_state,
     kpi_row_html,
     dna_card_html,
@@ -254,6 +255,11 @@ st.markdown(
         width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 12px;
         display: flex; align-items: center; justify-content: center;
         background: rgba(247, 166, 0, 0.1); color: var(--accent);
+    }}
+    .compliance {{
+        margin: 42px auto 8px; max-width: 900px; text-align: center;
+        font-size: 0.72rem; line-height: 1.5; color: #6b7280;
+        border-top: 1px solid var(--line); padding-top: 16px;
     }}
     .empty-title {{ font-weight: 700; font-size: 1.05rem; }}
     .empty-hint {{
@@ -693,11 +699,13 @@ if portfolio:
         compute_error = str(exc)
 
 # ================================================================ HEADER + NAV
+from src.data.yahoo_client import last_price_source
+
 st.markdown(
     f"""<div class="topbar">
     <span class="brand">◆ PORTFOLIO <b>INTELLIGENCE</b></span>
     <span class="brand-tag">{"EUR · cambio incluso" if in_eur else "valute originali"}
-    · dati Yahoo Finance</span></div>""",
+    · fonte prezzi: {last_price_source}</span></div>""",
     unsafe_allow_html=True,
 )
 def _start_checkup() -> None:
@@ -874,7 +882,7 @@ elif view == "Check-up":
     )
     st.caption("Stime dall'andamento storico del periodo: non sono una previsione.")
 
-    sec("Cosa puoi fare (simulato sui tuoi dati)")
+    sec("Scenari sui tuoi dati")
 
     def simulate_change(new_pf: list) -> tuple[float, int]:
         new_vol = portfolio_volatility(c["returns"], new_pf) * TRADING_DAYS**0.5
@@ -1722,3 +1730,6 @@ elif view == "Clienti":
             + ("valori in EUR, cambio incluso" if in_eur else "valute originali")
             + " · analisi aggiornate ogni 15 minuti."
         )
+
+# ============================================================ COMPLIANCE FOOTER
+compliance_footer()

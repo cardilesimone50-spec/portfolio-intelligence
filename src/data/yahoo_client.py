@@ -1,4 +1,9 @@
-"""Unico punto di accesso alla rete: prezzi, fondamentali e lista Nasdaq-100."""
+"""Accesso alla rete: prezzi (via catena di provider), fondamentali, lista indice.
+
+I prezzi passano dal layer `providers` (EODHD → Yahoo → Stooq): questo modulo
+resta il punto d'ingresso storico per non toccare i consumatori, ma la sorgente
+è pluggabile e pronta per un feed con licenza commerciale.
+"""
 
 import io
 
@@ -6,19 +11,20 @@ import pandas as pd
 import requests
 import yfinance as yf
 
+from src.data.providers import build_default_chain
+
 _NASDAQ100_URL = "https://www.slickcharts.com/nasdaq100"
 _HEADERS = {"User-Agent": "Mozilla/5.0 (portfolio-intelligence research script)"}
 
+# sorgente effettiva dell'ultimo download riuscito (per mostrarla nella UI)
+last_price_source: str = "—"
+
 
 def fetch_price_history(tickers: list[str], period: str = "1y") -> pd.DataFrame:
-    """Scarica i prezzi di chiusura (adjusted) per una lista di ticker."""
-    try:
-        data = yf.download(tickers, period=period, auto_adjust=True, progress=False)["Close"]
-    except requests.exceptions.RequestException as exc:
-        raise ValueError(f"Errore di rete durante il download dei prezzi: {exc}") from exc
-
-    if isinstance(data, pd.Series):
-        data = data.to_frame(name=tickers[0])
+    """Scarica i prezzi di chiusura (adjusted) via la catena di provider dati."""
+    global last_price_source
+    data, source = build_default_chain().fetch(tickers, period)
+    last_price_source = source
 
     missing = [
         ticker
