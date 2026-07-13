@@ -189,19 +189,111 @@ def equal_weight_portfolio(portfolio: Portfolio) -> Portfolio:
     return [{"ticker": p["ticker"], "weight": 1 / n} for p in portfolio]
 
 
-def portfolio_health_score(dna: dict[str, float], radar: dict[str, float]) -> int:
-    """Punteggio di salute 0-100: 40% basso rischio, 30% Quality,
-    15% Value, 15% diversificazione (bassa concentrazione)."""
-    parts = [
-        (100 - portfolio_risk_score(radar), 0.40),
-        (dna.get("Quality", float("nan")), 0.30),
-        (dna.get("Value", float("nan")), 0.15),
-        (100 - radar.get("Concentrazione", float("nan")), 0.15),
-    ]
-    valid = [(score, weight) for score, weight in parts if score == score]
+def usd_exposure(portfolio: Portfolio) -> float:
+    """Quota del portafoglio quotata in USD (0-1), dedotta dal suffisso ticker."""
+    from src.data.fx import is_usd_listing
+
+    return float(
+        sum(p["weight"] for p in portfolio if is_usd_listing(p["ticker"]))
+    )
+
+
+def health_breakdown(
+    dna: dict[str, float],
+    radar: dict[str, float],
+    usd_weight: float,
+) -> dict[str, float]:
+    """Le sei componenti dell'Health Score, ciascuna 0 (male) - 100 (bene).
+
+    Valuta: sotto il 50% di esposizione USD punteggio pieno; al 100% USD
+    punteggio zero — per un investitore in euro è rischio cambio puro.
+    """
+    return {
+        "Diversificazione": 100 - radar.get("Correlazione", float("nan")),
+        "Concentrazione": 100 - radar.get("Concentrazione", float("nan")),
+        "Volatilità": 100 - radar.get("Volatilità", float("nan")),
+        "Valuta": 100 - _scale(usd_weight, 0.5, 1.0),
+        "Drawdown": 100 - radar.get("Drawdown", float("nan")),
+        "Qualità": dna.get("Quality", float("nan")),
+    }
+
+
+def portfolio_health_score(breakdown: dict[str, float]) -> int:
+    """Punteggio di salute 0-100: media delle sei componenti disponibili."""
+    valid = [score for score in breakdown.values() if score == score]
     if not valid:
         return 0
-    return round(sum(s * w for s, w in valid) / sum(w for _, w in valid))
+    return round(sum(valid) / len(valid))
+
+
+def executive_summary(
+    period: str,
+    cumulative_return: float,
+    breakdown: dict[str, float],
+    contributions: pd.Series,
+    avg_correlation: float,
+    usd_weight: float,
+    drawdown: float,
+    beta: float,
+    benchmark: str,
+) -> str:
+    """Sintesi da analista in un paragrafo, composta solo dalle metriche calcolate."""
+    parts = [f"Nel periodo ({period}) il portafoglio ha reso {cumulative_return:+.1%}."]
+
+    if avg_correlation == avg_correlation:
+        if avg_correlation > 0.6:
+            parts.append(
+                "La diversificazione è debole: i titoli si muovono in modo "
+                f"molto simile (correlazione media {avg_correlation:.2f})."
+            )
+        elif avg_correlation < 0.3:
+            parts.append(
+                f"Il portafoglio è ben diversificato (correlazione media "
+                f"{avg_correlation:.2f})."
+            )
+        else:
+            parts.append(
+                f"La diversificazione è nella media (correlazione {avg_correlation:.2f})."
+            )
+
+    if len(contributions) >= 2 and contributions.iloc[0] > max(
+        0.40, 1.5 / len(contributions)
+    ):
+        parts.append(
+            f"Il rischio è concentrato: {contributions.index[0]} da solo genera "
+            f"il {contributions.iloc[0]:.0%} della variabilità complessiva."
+        )
+
+    if usd_weight >= 0.7:
+        parts.append(
+            f"L'esposizione al dollaro è elevata ({usd_weight:.0%} del capitale): "
+            "il risultato in euro dipende anche dal cambio EUR/USD."
+        )
+
+    if drawdown == drawdown:
+        if drawdown < -0.25:
+            parts.append(
+                "Il rischio storico di ribasso è sopra la media: nel periodo il "
+                f"portafoglio è arrivato a perdere il {-drawdown:.0%} dal picco."
+            )
+        elif drawdown > -0.10:
+            parts.append(
+                f"Le discese dal picco sono state contenute (max {-drawdown:.0%})."
+            )
+
+    if beta == beta:
+        if beta > 1.15:
+            parts.append(
+                f"Con un beta di {beta:.2f} verso il {benchmark}, il portafoglio "
+                "amplifica i movimenti del mercato."
+            )
+        elif beta < 0.85:
+            parts.append(
+                f"Con un beta di {beta:.2f} verso il {benchmark}, il portafoglio "
+                "è più difensivo del mercato."
+            )
+
+    return " ".join(parts)
 
 
 def find_problems(

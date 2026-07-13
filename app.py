@@ -16,8 +16,19 @@ from src.analytics.backtest import (
     run_backtest,
 )
 from src.analytics.factors import composite_scores, multifactor_weights
+from src.ui.components import (
+    breakdown_html,
+    dna_card_html,
+    eur,
+    hero_html,
+    render_landing,
+    sec,
+)
 from src.analytics.insights import (
     dna_label,
+    executive_summary,
+    health_breakdown,
+    usd_exposure,
     dna_scores,
     equal_weight_portfolio,
     find_opportunities,
@@ -143,28 +154,28 @@ st.markdown(
     .brand-tag {{ font-size: 0.72rem; color: var(--muted); letter-spacing: 0.04em; }}
 
     /* ---- menu di navigazione (segmented control) ---- */
-    .st-key-nav [data-testid="stSegmentedControl"] button,
-    .st-key-nav [role="radiogroup"] button {{
+    .st-key-navbar [data-testid="stSegmentedControl"] button,
+    .st-key-navbar [role="radiogroup"] button {{
         background: transparent !important;
         border: none !important;
         border-radius: 0 !important;
         border-bottom: 2px solid transparent !important;
         padding: 6px 14px 10px !important;
     }}
-    .st-key-nav button p {{
+    .st-key-navbar button p {{
         font-size: 0.78rem !important; font-weight: 600;
         letter-spacing: 0.07em; text-transform: uppercase;
         color: var(--muted) !important;
     }}
-    .st-key-nav button[aria-checked="true"],
-    .st-key-nav button[kind="segmented_controlActive"] {{
+    .st-key-navbar button[aria-checked="true"],
+    .st-key-navbar button[kind="segmented_controlActive"] {{
         border-bottom-color: var(--accent) !important;
     }}
-    .st-key-nav button[aria-checked="true"] p,
-    .st-key-nav button[kind="segmented_controlActive"] p {{
+    .st-key-navbar button[aria-checked="true"] p,
+    .st-key-navbar button[kind="segmented_controlActive"] p {{
         color: #ffffff !important;
     }}
-    .st-key-nav {{ border-bottom: 1px solid var(--line); }}
+    .st-key-navbar {{ border-bottom: 1px solid var(--line); }}
 
     /* ---- metriche flat: niente scatole, solo numeri e separatori ---- */
     .panel {{
@@ -333,14 +344,6 @@ def cached_eurusd(period: str) -> pd.Series:
     return fetch_eurusd(period)
 
 
-def eur(value: float) -> str:
-    return f"{value:,.0f} €".replace(",", ".")
-
-
-def sec(title: str) -> None:
-    st.markdown(f'<div class="sec">{title}</div>', unsafe_allow_html=True)
-
-
 @st.cache_data(ttl=600, show_spinner=False)
 def _cached_market_db(_mtime: float | None) -> pd.DataFrame | None:
     # _mtime nel cache key: il DB aggiornato invalida la cache
@@ -372,50 +375,6 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
                 update_nasdaq100()
             st.rerun()
     return prices
-
-
-def dna_card_html(dna: dict[str, float], label: str, title: str = "PORTFOLIO DNA") -> str:
-    rows = ""
-    for name, score in dna.items():
-        css = "risk" if name == "Risk" else ""
-        rows += (
-            f'<div class="dna-row"><div class="dna-name">{name}</div>'
-            f'<div class="dna-track"><div class="dna-fill {css}" '
-            f'style="width:{score:.0f}%"></div></div>'
-            f'<div class="dna-value">{score:.0f}</div></div>'
-        )
-    return (
-        f'<div class="panel"><div class="dna-title">{title}</div>{rows}'
-        f'<div class="dna-status">{label}</div></div>'
-    )
-
-
-def hero_html(
-    health: int, value: str, change: float, period: str,
-    today_move: float | None = None,
-) -> str:
-    gauge_color = GAIN if health >= 67 else AMBER if health >= 34 else LOSS
-    arrow, css = ("▲", "up") if change >= 0 else ("▼", "down")
-    today_html = ""
-    if today_move is not None and today_move == today_move:
-        arrow_t, css_t = ("▲", "up") if today_move >= 0 else ("▼", "down")
-        today_html = (
-            f'<div class="chg {css_t}" style="font-size:.85rem;margin-top:2px">'
-            f'Ultima seduta {arrow_t} {today_move:+.2%}</div>'
-        )
-    return f"""
-    <div class="hero-panel" style="--val:{health}; --gcol:{gauge_color}">
-      <div class="gauge"><div class="gauge-inner">
-        <span class="gauge-num">{health}</span>
-        <span class="gauge-sub">HEALTH /100</span>
-      </div></div>
-      <div class="hero-meta">
-        <div class="label">Valore stimato</div>
-        <div class="big">{value}</div>
-        <div class="chg {css}">{arrow} {change:+.1%} · {period}</div>
-        {today_html}
-      </div>
-    </div>"""
 
 
 # ================================================================ SIDEBAR
@@ -596,7 +555,9 @@ if portfolio:
 
         fund = cached_fundamentals(tickers)
         dna = dna_scores(fund, portfolio, annual_vol, avg_corr)
-        health = portfolio_health_score(dna, radar)
+        usd_weight = usd_exposure(portfolio)
+        breakdown = health_breakdown(dna, radar, usd_weight)
+        health = portfolio_health_score(breakdown)
 
         computed = {
             "returns": returns, "prices": prices, "pf_daily": pf_daily,
@@ -606,7 +567,8 @@ if portfolio:
             "beta": beta, "alpha": alpha, "min_periods": min_periods,
             "cum_return": cum_return, "risk_score": risk_score,
             "contributions": contributions, "radar": radar, "fund": fund,
-            "dna": dna, "health": health,
+            "dna": dna, "health": health, "breakdown": breakdown,
+            "usd_weight": usd_weight,
         }
         if "name" in fund.columns:
             st.session_state["names"] = {
@@ -624,21 +586,31 @@ st.markdown(
     · dati Yahoo Finance</span></div>""",
     unsafe_allow_html=True,
 )
-with st.container(key="nav"):
+def _start_checkup() -> None:
+    st.session_state.nav = "Check-up"
+
+
+with st.container(key="navbar"):
     view = st.segmented_control(
         "Sezione",
-        ["Check-up", "Analisi", "Visual", "Ottimizza", "Correlazioni",
+        ["Home", "Check-up", "Analisi", "Visual", "Ottimizza", "Correlazioni",
          "Fondamentali", "Mercato", "Backtest"],
-        default="Check-up",
+        default="Home",
         label_visibility="collapsed",
+        key="nav",
     )
-view = view or "Check-up"
+view = view or "Home"
 
 if compute_error:
     st.error(compute_error)
 
 NEEDS_PORTFOLIO = {"Check-up", "Analisi", "Visual", "Ottimizza"}
-if view in NEEDS_PORTFOLIO and computed is None:
+
+# ================================================================ HOME
+if view == "Home":
+    render_landing(on_start=_start_checkup)
+
+elif view in NEEDS_PORTFOLIO and computed is None:
     if not compute_error:
         st.info("Inserisci almeno un titolo con un importo nella barra laterale.")
 
@@ -654,8 +626,9 @@ elif view == "Check-up":
             unsafe_allow_html=True,
         )
         st.caption(
-            "Health Score: 40% basso rischio, 30% qualità dei bilanci, "
-            "15% valutazioni, 15% diversificazione."
+            "Health Score: media di sei componenti — diversificazione, "
+            "concentrazione, volatilità, esposizione valutaria, drawdown, "
+            "qualità dei bilanci."
         )
         if c["dna"]:
             st.markdown(f"**{dna_label(c['dna'])}**")
@@ -666,6 +639,22 @@ elif view == "Check-up":
             width="stretch",
         )
         st.caption("Linea tratteggiata = capitale investito oggi, proiettato indietro.")
+
+    col_break, col_exec = st.columns([1, 1.4], gap="large")
+    with col_break:
+        st.markdown(breakdown_html(c["breakdown"]), unsafe_allow_html=True)
+    with col_exec:
+        sec("Executive summary")
+        st.markdown(
+            executive_summary(
+                period, c["cum_return"], c["breakdown"], c["contributions"],
+                c["avg_corr"], c["usd_weight"], c["drawdown"], c["beta"], BENCHMARK,
+            )
+        )
+        st.caption(
+            "Sintesi generata da regole deterministiche sulle metriche calcolate: "
+            "nessun testo inventato."
+        )
 
     sec("Le tue posizioni")
     cum_by_ticker = per_ticker_cumulative_return(c["prices"])
@@ -748,7 +737,8 @@ elif view == "Check-up":
         new_dd = max_drawdown((1 + new_daily).cumprod())
         new_radar = radar_scores(new_vol, new_pf, new_dd, c["avg_corr"])
         new_dna = dna_scores(c["fund"], new_pf, new_vol, c["avg_corr"])
-        return new_vol, portfolio_health_score(new_dna, new_radar)
+        new_breakdown = health_breakdown(new_dna, new_radar, usd_exposure(new_pf))
+        return new_vol, portfolio_health_score(new_breakdown)
 
     weights_sorted = sorted(portfolio, key=lambda p: -p["weight"])
     candidates_sim = {}

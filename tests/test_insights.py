@@ -92,18 +92,60 @@ def test_monthly_returns_compound_correctly():
     assert january == pytest.approx(1.01**n_january - 1)
 
 
-def test_portfolio_health_score_bounds_and_direction():
-    from src.analytics.insights import portfolio_health_score
+def test_health_breakdown_and_score_direction():
+    from src.analytics.insights import health_breakdown, portfolio_health_score
 
-    healthy = portfolio_health_score(
-        {"Quality": 80, "Value": 60}, {"Volatilità": 20, "Concentrazione": 10,
-                                       "Drawdown": 15, "Correlazione": 20}
+    healthy = health_breakdown(
+        {"Quality": 80}, {"Volatilità": 20, "Concentrazione": 10,
+                          "Drawdown": 15, "Correlazione": 20},
+        usd_weight=0.3,
     )
-    risky = portfolio_health_score(
-        {"Quality": 30, "Value": 20}, {"Volatilità": 90, "Concentrazione": 80,
-                                       "Drawdown": 85, "Correlazione": 90}
+    risky = health_breakdown(
+        {"Quality": 30}, {"Volatilità": 90, "Concentrazione": 80,
+                          "Drawdown": 85, "Correlazione": 90},
+        usd_weight=1.0,
     )
-    assert 0 <= risky < healthy <= 100
+    assert set(healthy) == {
+        "Diversificazione", "Concentrazione", "Volatilità",
+        "Valuta", "Drawdown", "Qualità",
+    }
+    assert healthy["Valuta"] == 100.0  # sotto il 50% USD: punteggio pieno
+    assert risky["Valuta"] == 0.0  # tutto in USD: rischio cambio puro
+    assert 0 <= portfolio_health_score(risky) < portfolio_health_score(healthy) <= 100
+
+
+def test_usd_exposure_by_suffix():
+    from src.analytics.insights import usd_exposure
+
+    pf = [
+        {"ticker": "AAPL", "weight": 0.6},
+        {"ticker": "ENI.MI", "weight": 0.4},
+    ]
+    assert usd_exposure(pf) == pytest.approx(0.6)
+
+
+def test_executive_summary_is_deterministic_and_grounded():
+    from src.analytics.insights import executive_summary, health_breakdown
+
+    contrib = pd.Series({"NVDA": 0.55, "AAPL": 0.30, "KO": 0.15})
+    breakdown = health_breakdown(
+        {"Quality": 70}, {"Volatilità": 50, "Concentrazione": 60,
+                          "Drawdown": 55, "Correlazione": 70},
+        usd_weight=0.9,
+    )
+    summary = executive_summary(
+        "1y", 0.184, breakdown, contrib, avg_correlation=0.70,
+        usd_weight=0.9, drawdown=-0.28, beta=1.3, benchmark="QQQ",
+    )
+    assert "+18.4%" in summary
+    assert "NVDA" in summary and "55%" in summary  # concentrazione del rischio
+    assert "dollaro" in summary and "90%" in summary  # esposizione valutaria
+    assert "beta" in summary.lower()
+    # stesso input, stesso output: nessuna generazione stocastica
+    assert summary == executive_summary(
+        "1y", 0.184, breakdown, contrib, avg_correlation=0.70,
+        usd_weight=0.9, drawdown=-0.28, beta=1.3, benchmark="QQQ",
+    )
 
 
 def test_find_problems_flags_weight_correlation_and_dividends():
