@@ -306,6 +306,12 @@ st.markdown(
         border: 1px solid var(--line); border-radius: 10px; background: transparent;
     }}
     header[data-testid="stHeader"] {{ background: transparent; }}
+    [data-testid="stMainMenu"] {{ display: none; }}
+    [data-testid="stPopover"] > button {{
+        border: none !important; background: transparent !important;
+        color: var(--muted) !important; font-weight: 700;
+    }}
+    [data-testid="stPopover"] > button:hover {{ color: #e6e8ee !important; }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -811,6 +817,7 @@ elif view == "Check-up":
                 suggestions=simulations
                 + generate_suggestions(c["dna"], c["radar"], c["contributions"])
                 + find_opportunities(portfolio, c["fund"]),
+                names=st.session_state.get("names", {}),
             ),
             file_name=f"portfolio_report_{pd.Timestamp.now():%Y%m%d}.pdf",
             mime="application/pdf",
