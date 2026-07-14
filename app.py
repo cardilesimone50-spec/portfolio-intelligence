@@ -3,6 +3,9 @@
 Avvio: streamlit run app.py
 """
 
+import random
+import time
+
 import pandas as pd
 import streamlit as st
 
@@ -601,8 +604,9 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
 
 
 # ================================================================ SIDEBAR
+SAMPLE_PORTFOLIO = {"AAPL": 4000.0, "MSFT": 3000.0, "NVDA": 3000.0}
 if "holdings" not in st.session_state:
-    st.session_state.holdings = {"AAPL": 4000.0, "MSFT": 3000.0, "NVDA": 3000.0}
+    st.session_state.holdings = {}
 
 _db_for_search = load_market_db()
 KNOWN_TICKERS = (
@@ -621,6 +625,225 @@ KNOWN_TICKERS = (
         "NFLX",
     ]
 )
+
+# ================================================================ ONBOARDING GATE
+# Three-stage flow before the platform unlocks:
+#   landing  -> only the hero + "Analyze my portfolio" is reachable
+#   input    -> you are forced onto the page that collects the tickers
+#   loading  -> a spinning gear + an investing quote, then the platform opens
+if "stage" not in st.session_state:
+    st.session_state.stage = "landing"
+
+QUOTES = [
+    ("Risk comes from not knowing what you're doing.", "Warren Buffett"),
+    ("Be fearful when others are greedy, and greedy when others are fearful.", "Warren Buffett"),
+    (
+        "The stock market is a device for transferring money "
+        "from the impatient to the patient.",
+        "Warren Buffett",
+    ),
+    ("Know what you own, and know why you own it.", "Peter Lynch"),
+    ("The big money is not in the buying and selling, but in the waiting.", "Charlie Munger"),
+    (
+        "The investor's chief problem — and even his worst enemy — "
+        "is likely to be himself.",
+        "Benjamin Graham",
+    ),
+    ("The four most dangerous words in investing are: 'this time it's different.'", "John Templeton"),
+    ("In investing, what is comfortable is rarely profitable.", "Robert Arnott"),
+]
+
+GATE_CSS = """
+<style>
+/* while gated, nothing but the screen itself is reachable */
+[data-testid="stSidebar"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] { display: none !important; }
+
+.gate-head { max-width: 620px; margin: 8px auto 4px; text-align: center; }
+.gate-title {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 2rem; letter-spacing: -0.01em; color: var(--ink); margin: 0;
+}
+.gate-sub { color: var(--muted); font-size: 0.98rem; margin-top: 10px; line-height: 1.5; }
+.gate-step {
+    display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent);
+    background: var(--accent-soft); border: 1px solid var(--accent-border);
+    border-radius: 999px; padding: 4px 14px; margin-bottom: 14px;
+}
+
+/* loading screen: full-screen overlay so no stale widgets show through */
+.loading-wrap {
+    position: fixed; inset: 0; z-index: 99999;
+    background: #F8FAFC; padding: 24px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 26px;
+}
+.gear { width: 96px; height: 96px; animation: gearspin 3.4s linear infinite; }
+.gear svg { width: 100%; height: 100%; display: block; }
+@keyframes gearspin { to { transform: rotate(360deg); } }
+.loading-quote {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 1.35rem; line-height: 1.45; color: var(--ink);
+    max-width: 560px;
+}
+.loading-author {
+    font-size: 0.9rem; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--accent);
+}
+.loading-hint { color: var(--muted); font-size: 0.85rem; }
+</style>
+"""
+
+GEAR_SVG = (
+    '<div class="gear"><svg viewBox="0 0 24 24" fill="none" '
+    'xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" '
+    'stroke="var(--accent)" stroke-width="1.4"/>'
+    '<path d="M19.4 13a7.6 7.6 0 0 0 .05-2l1.7-1.32a.5.5 0 0 0 .12-.64l-1.6-2.77a.5.5 0 0 0'
+    '-.6-.22l-2 .8a7.4 7.4 0 0 0-1.73-1l-.3-2.12a.5.5 0 0 0-.5-.42h-3.2a.5.5 0 0 0-.5.42'
+    'l-.3 2.12a7.4 7.4 0 0 0-1.73 1l-2-.8a.5.5 0 0 0-.6.22l-1.6 2.77a.5.5 0 0 0 .12.64L4.55 11'
+    'a7.6 7.6 0 0 0 0 2l-1.7 1.32a.5.5 0 0 0-.12.64l1.6 2.77a.5.5 0 0 0 .6.22l2-.8a7.4 7.4 0 0 0'
+    ' 1.73 1l.3 2.12a.5.5 0 0 0 .5.42h3.2a.5.5 0 0 0 .5-.42l.3-2.12a7.4 7.4 0 0 0 1.73-1l2 .8'
+    'a.5.5 0 0 0 .6-.22l1.6-2.77a.5.5 0 0 0-.12-.64L19.4 13Z" '
+    'stroke="var(--accent)" stroke-width="1.4" stroke-linejoin="round"/>'
+    "</svg></div>"
+)
+
+
+def _go_input() -> None:
+    st.session_state.stage = "input"
+
+
+def _go_loading() -> None:
+    st.session_state.stage = "loading"
+
+
+def _load_sample() -> None:
+    st.session_state.holdings = dict(SAMPLE_PORTFOLIO)
+
+
+def _gate_add() -> None:
+    chosen = st.session_state.get("gate_ticker")
+    if not chosen:
+        return
+    k = str(chosen).upper().strip()
+    amt = float(st.session_state.get("gate_amount") or 0)
+    if amt <= 0:
+        return
+    st.session_state.holdings[k] = st.session_state.holdings.get(k, 0.0) + amt
+    st.session_state.gate_ticker = None
+
+
+if st.session_state.stage != "app":
+    st.markdown(GATE_CSS, unsafe_allow_html=True)
+
+    # ---- stage 1: landing ------------------------------------------------
+    if st.session_state.stage == "landing":
+        render_landing(on_start=_go_input)
+
+    # ---- stage 2: you must enter the tickers -----------------------------
+    elif st.session_state.stage == "input":
+        st.markdown(
+            """
+            <div class="gate-head">
+              <div class="gate-step">Step 1 of 2 · Build your portfolio</div>
+              <div class="gate-title">Which stocks do you hold?</div>
+              <div class="gate-sub">Add each position with the amount you have invested.
+              Nothing else is available until you tell us what to analyze.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        _l, mid, _r = st.columns([1, 2, 1])
+        with mid:
+            new_ticker = st.selectbox(
+                "Search stock",
+                KNOWN_TICKERS,
+                index=None,
+                placeholder="Search by symbol (e.g. AAPL)...",
+                accept_new_options=True,
+                label_visibility="collapsed",
+                key="gate_ticker",
+            )
+            if new_ticker:
+                key = str(new_ticker).upper().strip()
+                color = PALETTE[abs(hash(key)) % len(PALETTE)]
+                st.markdown(
+                    ticker_preview_html(key, color, ticker_preview(key)),
+                    unsafe_allow_html=True,
+                )
+                col_amt, col_add = st.columns([3, 2], gap="small")
+                with col_amt:
+                    st.number_input(
+                        "Amount",
+                        min_value=100.0,
+                        value=1000.0,
+                        step=500.0,
+                        label_visibility="collapsed",
+                        key="gate_amount",
+                    )
+                with col_add:
+                    st.button(
+                        "＋ Add", width="stretch", type="primary", on_click=_gate_add
+                    )
+
+            gate_holdings = st.session_state.holdings
+            if gate_holdings:
+                sec("Your holdings")
+                gate_total = sum(gate_holdings.values())
+                for ticker in sorted(gate_holdings, key=gate_holdings.get, reverse=True):
+                    amount = gate_holdings[ticker]
+                    color = PALETTE[sorted(gate_holdings).index(ticker) % len(PALETTE)]
+                    weight = amount / gate_total if gate_total else 0
+                    company = st.session_state.get("names", {}).get(ticker, "")
+                    col_card, col_del = st.columns([6, 1], gap="small")
+                    with col_card:
+                        st.markdown(
+                            position_card_html(ticker, amount, weight, color, company),
+                            unsafe_allow_html=True,
+                        )
+                    with col_del:
+                        if st.button("✕", key=f"gate_del_{ticker}", width="stretch"):
+                            st.session_state.holdings.pop(ticker, None)
+                            st.rerun()
+                st.caption(f"Total: **{eur(gate_total)}** · {len(gate_holdings)} stocks")
+            else:
+                st.caption("Search a stock above and add it with its amount.")
+                st.button(
+                    "Try a sample portfolio (AAPL · MSFT · NVDA)",
+                    on_click=_load_sample,
+                    width="stretch",
+                )
+
+            st.divider()
+            st.button(
+                "Analyze my portfolio →",
+                type="primary",
+                width="stretch",
+                on_click=_go_loading,
+                disabled=not st.session_state.holdings,
+            )
+
+    # ---- stage 3: gear + investing quote, then the platform opens --------
+    elif st.session_state.stage == "loading":
+        quote, author = random.choice(QUOTES)
+        st.markdown(
+            '<div class="loading-wrap">'
+            + GEAR_SVG
+            + f'<div class="loading-quote">“{quote}”</div>'
+            + f'<div class="loading-author">— {author}</div>'
+            + '<div class="loading-hint">Crunching the numbers on your portfolio…</div>'
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+        time.sleep(2.8)
+        st.session_state.stage = "app"
+        st.rerun()
+
+    st.stop()
 
 with st.sidebar:
     st.markdown(
@@ -872,12 +1095,9 @@ st.markdown(
 )
 
 
-def _start_checkup() -> None:
-    st.session_state.nav = "Check-up"
-
-
-# nav a due livelli: 6 voci macro + sub-nav contestuale che rimappa alla vista
-MACRO_ORDER = ["Home", "Check-up", "Analysis", "Strategies", "Market", "Clients"]
+# nav a due livelli: 5 voci macro + sub-nav contestuale che rimappa alla vista
+# (Home non è più qui: è il gate di onboarding che precede la piattaforma)
+MACRO_ORDER = ["Check-up", "Analysis", "Strategies", "Market", "Clients"]
 SUBNAV = {
     "Analysis": [("Metrics", "Analisi"), ("Charts", "Visual")],
     "Strategies": [("Optimization", "Ottimizza"), ("Backtest", "Backtest")],
@@ -890,9 +1110,9 @@ SUBNAV = {
 
 with st.container(key="navbar"):
     macro = st.segmented_control(
-        "Section", MACRO_ORDER, default="Home", label_visibility="collapsed", key="nav"
+        "Section", MACRO_ORDER, default="Check-up", label_visibility="collapsed", key="nav"
     )
-macro = macro or "Home"
+macro = macro or "Check-up"
 
 if macro in SUBNAV:
     labels = [label for label, _ in SUBNAV[macro]]
@@ -913,11 +1133,8 @@ if compute_error:
 
 NEEDS_PORTFOLIO = {"Check-up", "Analisi", "Visual", "Ottimizza"}
 
-# ================================================================ HOME
-if view == "Home":
-    render_landing(on_start=_start_checkup)
-
-elif view in NEEDS_PORTFOLIO and computed is None:
+# ================================================================ EMPTY PORTFOLIO
+if view in NEEDS_PORTFOLIO and computed is None:
     if not compute_error:
         empty_state(
             "No portfolio to analyze",
