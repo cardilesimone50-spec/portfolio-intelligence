@@ -199,6 +199,26 @@ st.markdown(
         background: rgba(11, 14, 19, 0.82);
         backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     }}
+    /* sub-nav contestuale: chip discrete sotto la nav primaria */
+    .st-key-subnav {{ margin: 4px 0 2px; }}
+    .st-key-subnav [data-testid="stSegmentedControl"] button {{
+        background: transparent !important; border: 1px solid var(--line) !important;
+        border-radius: 8px !important; padding: 3px 14px !important;
+        margin-right: 6px;
+    }}
+    .st-key-subnav button p {{
+        font-size: 0.72rem !important; font-weight: 600; letter-spacing: 0.04em;
+        text-transform: none; color: var(--muted) !important;
+    }}
+    .st-key-subnav button[aria-checked="true"],
+    .st-key-subnav button[kind="segmented_controlActive"] {{
+        background: rgba(247,166,0,0.12) !important;
+        border-color: rgba(247,166,0,0.4) !important;
+    }}
+    .st-key-subnav button[aria-checked="true"] p,
+    .st-key-subnav button[kind="segmented_controlActive"] p {{
+        color: var(--accent) !important;
+    }}
 
     /* ---- profondità e hover ---- */
     .panel, .hero-panel {{
@@ -806,26 +826,37 @@ def _start_checkup() -> None:
     st.session_state.nav = "Check-up"
 
 
+# nav a due livelli: 6 voci macro + sub-nav contestuale che rimappa alla vista
+MACRO_ORDER = ["Home", "Check-up", "Analisi", "Strategie", "Mercato", "Clienti"]
+SUBNAV = {
+    "Analisi": [("Metriche", "Analisi"), ("Grafici", "Visual")],
+    "Strategie": [("Ottimizzazione", "Ottimizza"), ("Backtest", "Backtest")],
+    "Mercato": [
+        ("Nasdaq-100", "Mercato"),
+        ("Correlazioni", "Correlazioni"),
+        ("Fondamentali", "Fondamentali"),
+    ],
+}
+
 with st.container(key="navbar"):
-    view = st.segmented_control(
-        "Sezione",
-        [
-            "Home",
-            "Check-up",
-            "Analisi",
-            "Visual",
-            "Ottimizza",
-            "Correlazioni",
-            "Fondamentali",
-            "Mercato",
-            "Backtest",
-            "Clienti",
-        ],
-        default="Home",
-        label_visibility="collapsed",
-        key="nav",
+    macro = st.segmented_control(
+        "Sezione", MACRO_ORDER, default="Home", label_visibility="collapsed", key="nav"
     )
-view = view or "Home"
+macro = macro or "Home"
+
+if macro in SUBNAV:
+    labels = [label for label, _ in SUBNAV[macro]]
+    with st.container(key="subnav"):
+        sub = st.segmented_control(
+            "Sottosezione",
+            labels,
+            default=labels[0],
+            label_visibility="collapsed",
+            key=f"sub_{macro}",
+        )
+    view = dict(SUBNAV[macro]).get(sub or labels[0], SUBNAV[macro][0][1])
+else:
+    view = macro
 
 if compute_error:
     st.error(compute_error)
