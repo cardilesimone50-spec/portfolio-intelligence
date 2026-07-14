@@ -49,7 +49,7 @@ def _footer(canvas, doc) -> None:
     canvas.drawString(
         18 * mm,
         10 * mm,
-        "Portfolio Intelligence · Yahoo Finance data · historical estimates, "
+        "SmarteeFinance · Portfolio Intelligence · Yahoo Finance data · "
         "not a forecast or financial advice",
     )
     canvas.drawRightString(width - 18 * mm, 10 * mm, f"Page {doc.page}")
@@ -100,7 +100,7 @@ def build_report(
         rightMargin=18 * mm,
         topMargin=14 * mm,
         bottomMargin=20 * mm,
-        title="Portfolio Intelligence — Health Report",
+        title="SmarteeFinance — Portfolio Health Report",
     )
     styles = getSampleStyleSheet()
     wordmark = ParagraphStyle(
@@ -132,7 +132,7 @@ def build_report(
     return_color = _GREEN if cum_return >= 0 else _RED
 
     story = [
-        Paragraph("PORTFOLIO INTELLIGENCE", wordmark),
+        Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", wordmark),
         HRFlowable(width="100%", thickness=2, color=_AMBER, spaceAfter=10),
         Paragraph("Portfolio Health Report", h1),
         Paragraph(f"{portfolio_name} · generated on {now}", subtitle),

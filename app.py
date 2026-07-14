@@ -1,4 +1,4 @@
-"""Portfolio Intelligence — il check-up onesto del portafoglio in 60 secondi.
+"""SmarteeFinance — Portfolio Intelligence: the honest 60-second portfolio check-up.
 
 Avvio: streamlit run app.py
 """
@@ -125,7 +125,7 @@ ACCENT = "#1E40AF"  # brand primary (Stripe/Mercury blue)
 PROFILE_VOL = {"Conservative": 0.10, "Moderate": 0.18, "Aggressive": 0.30}
 
 st.set_page_config(
-    page_title="Portfolio Intelligence",
+    page_title="SmarteeFinance · Portfolio Intelligence",
     page_icon="◆",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -174,6 +174,12 @@ st.markdown(
         text-transform: uppercase; font-weight: 500;
     }}
     .brand b {{ color: var(--accent); font-weight: 700; }}
+    .brand-product {{
+        font-family: var(--font-ui) !important; text-transform: none;
+        font-size: 0.7rem; font-weight: 600; color: var(--muted);
+        letter-spacing: 0.01em; margin-left: 10px; padding-left: 10px;
+        border-left: 1px solid var(--line);
+    }}
     .brand-tag {{ font-size: 0.72rem; color: var(--muted); letter-spacing: 0.04em; }}
 
     /* ---- menu di navigazione (segmented control) ---- */
@@ -303,6 +309,8 @@ st.markdown(
         border-right-color: rgba(30,64,175,0.25) !important;
     }}
 
+    .brand-product {{ white-space: nowrap; }}
+
     /* ---- responsive ---- */
     @media (max-width: 920px) {{
         .hero-panel {{ flex-direction: column; text-align: center; gap: 16px; }}
@@ -310,6 +318,36 @@ st.markdown(
         .landing-hero {{ padding: 44px 26px 40px !important; }}
         .landing-title {{ font-size: 2.1rem !important; }}
         .glass-row {{ flex-direction: column; }}
+    }}
+    @media (max-width: 640px) {{
+        .block-container {{ padding-left: 0.6rem; padding-right: 0.6rem; }}
+        .topbar {{ flex-direction: column; align-items: flex-start; gap: 2px; }}
+        .brand {{ font-size: 0.92rem; letter-spacing: 0.08em; }}
+        .brand-product {{
+            display: block; margin: 3px 0 0; padding: 0; border-left: none;
+        }}
+        .brand-tag {{ font-size: 0.66rem; }}
+        /* nav: horizontal scroll instead of wrapping onto 2 rows */
+        .st-key-navbar [role="radiogroup"] {{
+            flex-wrap: nowrap !important; overflow-x: auto; width: 100%;
+            -webkit-overflow-scrolling: touch; scrollbar-width: none;
+        }}
+        .st-key-navbar [role="radiogroup"]::-webkit-scrollbar {{ display: none; }}
+        .st-key-navbar button {{
+            flex: 0 0 auto !important; padding: 6px 12px 10px !important;
+        }}
+        .st-key-navbar button p {{
+            font-size: 0.72rem !important; letter-spacing: 0.04em;
+            white-space: nowrap !important; overflow: visible !important;
+            text-overflow: clip !important;
+        }}
+        .hero-panel {{ padding: 20px 18px; }}
+        .hero-meta .big {{ font-size: 2.1rem; }}
+        .gauge {{ width: 112px; height: 112px; }}
+        .gauge-inner {{ width: 90px; height: 90px; }}
+        .kpi-value {{ font-size: 1.5rem; }}
+        [data-testid="stMetricValue"] {{ font-size: 1.4rem !important; }}
+        .sec {{ margin: 20px 0 8px; }}
     }}
 
     /* ---- metriche flat: niente scatole, solo numeri e separatori ---- */
@@ -586,7 +624,7 @@ KNOWN_TICKERS = (
 
 with st.sidebar:
     st.markdown(
-        '<div class="brand" style="font-size:.9rem">◆ PORTFOLIO <b>INTELLIGENCE</b></div>',
+        '<div class="brand" style="font-size:.9rem">◆ SMARTEE<b>FINANCE</b></div>',
         unsafe_allow_html=True,
     )
     sec("Add a stock")
@@ -819,7 +857,7 @@ if portfolio:
 # ================================================================ HEADER + NAV
 st.markdown(
     f"""<div class="topbar">
-    <span class="brand">◆ PORTFOLIO <b>INTELLIGENCE</b></span>
+    <span class="brand">◆ SMARTEE<b>FINANCE</b><span class="brand-product">Portfolio Intelligence</span></span>
     <span class="brand-tag">{"EUR · currency included" if in_eur else "original currencies"}
     · price source: {yahoo_client.last_price_source}</span></div>""",
     unsafe_allow_html=True,
