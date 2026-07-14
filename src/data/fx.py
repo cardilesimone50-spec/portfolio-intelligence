@@ -28,12 +28,12 @@ def fetch_eurusd(period: str = "1y") -> pd.Series:
     try:
         data = yf.download(EURUSD_TICKER, period=period, auto_adjust=True, progress=False)["Close"]
     except requests.exceptions.RequestException as exc:
-        raise ValueError(f"Errore di rete durante il download del cambio EUR/USD: {exc}") from exc
+        raise ValueError(f"Network error while downloading the EUR/USD rate: {exc}") from exc
     if isinstance(data, pd.DataFrame):
         data = data.iloc[:, 0]
     data = data.dropna()
     if data.empty:
-        raise ValueError("Nessun dato disponibile per il cambio EUR/USD")
+        raise ValueError("No data available for the EUR/USD rate")
     return data
 
 

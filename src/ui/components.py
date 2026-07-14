@@ -4,7 +4,8 @@ import streamlit as st
 
 from src.visualization.charts import GAIN, LOSS
 
-AMBER = "#f7a600"
+AMBER = "#d97706"  # status mid-band (gauge/health)
+ACCENT = "#1E40AF"  # brand primary
 
 
 def eur(value: float) -> str:
@@ -45,7 +46,7 @@ def ticker_preview_html(ticker: str, color: str, preview: dict | None) -> str:
         return (
             f'<div class="ticker-preview">{avatar}<div class="tp-main">'
             f'<div class="tp-name">{ticker}</div>'
-            f'<div class="tp-meta">Titolo personalizzato</div></div></div>'
+            f'<div class="tp-meta">Custom ticker</div></div></div>'
         )
     meta = ticker + (f" · {preview['sector']}" if preview.get("sector") else "")
     price_html = ""
@@ -79,7 +80,7 @@ def hero_html(
         arrow_t, css_t = ("▲", "up") if today_move >= 0 else ("▼", "down")
         today_html = (
             f'<div class="chg {css_t}" style="font-size:.85rem;margin-top:2px">'
-            f"Ultima seduta {arrow_t} {today_move:+.2%}</div>"
+            f"Last session {arrow_t} {today_move:+.2%}</div>"
         )
     return f"""
     <div class="hero-panel" style="--val:{health}; --gcol:{gauge_color}">
@@ -88,7 +89,7 @@ def hero_html(
         <span class="gauge-sub">HEALTH /100</span>
       </div></div>
       <div class="hero-meta">
-        <div class="label">Valore stimato</div>
+        <div class="label">Estimated value</div>
         <div class="big">{value}</div>
         <div class="chg {css}">{arrow} {change:+.1%} · {period}</div>
         {today_html}
@@ -125,9 +126,7 @@ def breakdown_html(breakdown: dict[str, float]) -> str:
             f'style="width:{score:.0f}%;background:{color}"></div></div>'
             f'<div class="dna-value" style="color:{color}">{score:.0f}</div></div>'
         )
-    return (
-        f'<div class="panel"><div class="dna-title">COME SI FORMA IL PUNTEGGIO</div>{rows}</div>'
-    )
+    return f'<div class="panel"><div class="dna-title">HOW THE SCORE IS BUILT</div>{rows}</div>'
 
 
 _ICONS = {
@@ -157,7 +156,7 @@ def kpi_row_html(cards: list[dict]) -> str:
     """Riga di KPI card con icona: [{icon, label, value, sub, color?}]."""
     html = '<div class="kpi-row">'
     for card in cards:
-        color = card.get("color", AMBER)
+        color = card.get("color", ACCENT)
         html += f"""
         <div class="kpi">
           <div class="kpi-top">
@@ -172,12 +171,11 @@ def kpi_row_html(cards: list[dict]) -> str:
 
 
 DISCLAIMER = (
-    "Strumento di sola informazione, non di consulenza finanziaria. "
-    "Le analisi descrivono caratteristiche misurabili del portafoglio sulla "
-    "base di dati storici e non costituiscono raccomandazioni personalizzate "
-    "di investimento né previsioni. Nessuna sollecitazione all'acquisto o alla "
-    "vendita di strumenti finanziari. Le decisioni restano dell'utente o del "
-    "suo consulente."
+    "Information tool only, not financial advice. The analyses describe "
+    "measurable characteristics of the portfolio based on historical data and "
+    "do not constitute personalized investment recommendations or forecasts. "
+    "No solicitation to buy or sell financial instruments. Decisions remain "
+    "with the user or their advisor."
 )
 
 
@@ -207,14 +205,14 @@ LANDING_CSS = """
 .landing-hero {
     position: relative; overflow: hidden;
     background:
-        radial-gradient(900px 380px at 82% -10%, rgba(181,116,0,0.10), transparent 60%),
+        radial-gradient(900px 380px at 82% -10%, rgba(30,64,175,0.08), transparent 60%),
         radial-gradient(700px 300px at 8% 110%, rgba(57,135,229,0.08), transparent 60%),
-        linear-gradient(165deg, #ffffff 0%, #eef1f5 70%);
-    border: 1px solid rgba(20,25,35,0.09);
-    border-radius: 22px;
+        linear-gradient(165deg, #ffffff 0%, #f1f5f9 70%);
+    border: 1px solid #E2E8F0;
+    border-radius: 18px;
     padding: 74px 60px 66px;
     text-align: center;
-    box-shadow: 0 8px 30px rgba(20,25,35,0.05);
+    box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.05);
     animation: fadeUp .5s ease-out both;
 }
 .landing-title {
@@ -222,7 +220,7 @@ LANDING_CSS = """
     font-size: 3rem; font-weight: 700; letter-spacing: -0.02em;
     line-height: 1.12; margin: 0 auto 16px; max-width: 720px; color: #14171e;
 }
-.landing-title em { font-style: normal; color: #b57400; }
+.landing-title em { font-style: normal; color: #1E40AF; }
 .landing-sub {
     font-size: 1.08rem; color: #5a6270; max-width: 560px;
     margin: 0 auto 8px; line-height: 1.6;
@@ -231,16 +229,16 @@ LANDING_CSS = """
 .glass {
     flex: 1; text-align: center;
     background: #ffffff;
-    border: 1px solid rgba(20,25,35,0.09);
-    border-radius: 16px; padding: 26px 18px;
-    box-shadow: 0 4px 14px rgba(20,25,35,0.04);
+    border: 1px solid #E2E8F0;
+    border-radius: 18px; padding: 26px 18px;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.04);
     animation: fadeUp .6s ease-out both;
 }
 .glass:nth-child(2) { animation-delay: .12s; }
 .glass:nth-child(3) { animation-delay: .24s; }
 .glass-num {
     font-family: 'Space Grotesk', 'Inter', sans-serif !important;
-    font-size: 2rem; font-weight: 700; color: #b57400;
+    font-size: 2rem; font-weight: 700; color: #1E40AF;
     font-variant-numeric: tabular-nums;
 }
 .glass-label {
@@ -261,11 +259,11 @@ def render_landing(on_start) -> None:
     st.markdown(
         """
         <div class="landing-hero">
-          <div class="landing-title">Capisci il tuo portafoglio
-          in <em>60 secondi</em>.</div>
-          <div class="landing-sub">Health score, problemi concreti e rischio
-          misurato in euro, cambio incluso. Onesto per costruzione:
-          nessuna promessa di rendimento, solo i tuoi dati.</div>
+          <div class="landing-title">Understand your portfolio
+          in <em>60 seconds</em>.</div>
+          <div class="landing-sub">Health score, concrete problems and risk
+          measured in euros, currency included. Honest by construction:
+          no promise of returns, only your data.</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -273,7 +271,7 @@ def render_landing(on_start) -> None:
     col_left, col_cta, col_right = st.columns([1, 1.2, 1])
     with col_cta:
         st.button(
-            "Analizza il mio portafoglio",
+            "Analyze my portfolio",
             type="primary",
             width="stretch",
             on_click=on_start,
@@ -282,17 +280,16 @@ def render_landing(on_start) -> None:
         """
         <div class="glass-row">
           <div class="glass"><div class="glass-num">60s</div>
-            <div class="glass-label">al primo report</div></div>
+            <div class="glass-label">to first report</div></div>
           <div class="glass"><div class="glass-num">6</div>
-            <div class="glass-label">componenti dell'health score</div></div>
+            <div class="glass-label">health-score components</div></div>
           <div class="glass"><div class="glass-num">103</div>
-            <div class="glass-label">titoli Nasdaq-100 coperti</div></div>
+            <div class="glass-label">Nasdaq-100 stocks covered</div></div>
         </div>
         """,
         unsafe_allow_html=True,
     )
     st.caption(
-        "Analisi in euro con rischio cambio EUR/USD incluso · report PDF "
-        "condivisibile · nessuna registrazione richiesta. Non è consulenza "
-        "finanziaria."
+        "Analysis in euros with EUR/USD currency risk included · shareable "
+        "PDF report · no sign-up required. Not financial advice."
     )

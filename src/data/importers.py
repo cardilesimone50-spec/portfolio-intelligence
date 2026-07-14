@@ -61,7 +61,7 @@ def parse_positions(content: bytes, filename: str) -> dict[str, float]:
             io.BytesIO(content), sep=None, engine="python", skiprows=skip
         )
     else:
-        raise ValueError("Formato non supportato: usa un file .csv o .xlsx")
+        raise ValueError("Unsupported format: use a .csv or .xlsx file")
 
     # gli export dei broker spesso hanno righe di intestazione prima della tabella:
     # prova a saltarne fino a 10 finché non compaiono colonne riconoscibili
@@ -81,9 +81,9 @@ def parse_positions(content: bytes, filename: str) -> dict[str, float]:
             break
     else:
         raise ValueError(
-            f"Colonne non riconosciute: {last_columns}. Servono una colonna "
-            "ticker (es. 'ticker', 'titolo') e una importo (es. 'importo', "
-            "'controvalore') oppure quantità + prezzo."
+            f"Unrecognized columns: {last_columns}. A ticker column is required "
+            "(e.g. 'ticker', 'symbol') and an amount column (e.g. 'amount', "
+            "'value') or quantity + price."
         )
 
     positions: dict[str, float] = {}
@@ -103,5 +103,5 @@ def parse_positions(content: bytes, filename: str) -> dict[str, float]:
         positions[ticker] = positions.get(ticker, 0.0) + amount
 
     if not positions:
-        raise ValueError("Nessuna posizione valida trovata nel file")
+        raise ValueError("No valid position found in the file")
     return positions

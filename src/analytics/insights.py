@@ -48,10 +48,10 @@ def radar_scores(
 ) -> dict[str, float]:
     """Quattro assi di rischio, ciascuno 0 (tranquillo) - 100 (estremo)."""
     return {
-        "Volatilità": _scale(annual_volatility, 0.10, 0.60),
-        "Concentrazione": concentration_score(portfolio),
+        "Volatility": _scale(annual_volatility, 0.10, 0.60),
+        "Concentration": concentration_score(portfolio),
         "Drawdown": _scale(-drawdown, 0.0, 0.50),
-        "Correlazione": _scale(avg_correlation, 0.0, 1.0),
+        "Correlation": _scale(avg_correlation, 0.0, 1.0),
     }
 
 
@@ -111,14 +111,14 @@ def dna_label(dna: dict[str, float]) -> str:
         return ""
     growth, value, risk = dna.get("Growth", 0), dna.get("Value", 0), dna.get("Risk", 0)
     if growth >= 70 and risk >= 60:
-        return "Profilo growth aggressivo"
+        return "Aggressive growth profile"
     if growth >= 70:
-        return "Profilo growth"
+        return "Growth profile"
     if value >= 60:
-        return "Profilo value"
+        return "Value profile"
     if risk <= 35:
-        return "Profilo difensivo"
-    return "Profilo bilanciato"
+        return "Defensive profile"
+    return "Balanced profile"
 
 
 def stock_scores(row: pd.Series, annual_volatility: float) -> dict[str, float]:
@@ -179,7 +179,7 @@ def reduce_position(portfolio: Portfolio, ticker: str, reduction: float = 0.5) -
     liberata si redistribuisce proporzionalmente sugli altri titoli."""
     weights = weights_series(portfolio).copy()
     if ticker not in weights.index:
-        raise ValueError(f"Ticker '{ticker}' non presente nel portafoglio")
+        raise ValueError(f"Ticker '{ticker}' not in the portfolio")
     weights[ticker] *= 1 - reduction
     weights = weights / weights.sum()
     return [{"ticker": t, "weight": float(w)} for t, w in weights.items() if w > 0]
@@ -209,12 +209,12 @@ def health_breakdown(
     punteggio zero — per un investitore in euro è rischio cambio puro.
     """
     return {
-        "Diversificazione": 100 - radar.get("Correlazione", float("nan")),
-        "Concentrazione": 100 - radar.get("Concentrazione", float("nan")),
-        "Volatilità": 100 - radar.get("Volatilità", float("nan")),
-        "Valuta": 100 - _scale(usd_weight, 0.5, 1.0),
+        "Diversification": 100 - radar.get("Correlation", float("nan")),
+        "Concentration": 100 - radar.get("Concentration", float("nan")),
+        "Volatility": 100 - radar.get("Volatility", float("nan")),
+        "Currency": 100 - _scale(usd_weight, 0.5, 1.0),
         "Drawdown": 100 - radar.get("Drawdown", float("nan")),
-        "Qualità": dna.get("Quality", float("nan")),
+        "Quality": dna.get("Quality", float("nan")),
     }
 
 
@@ -238,54 +238,52 @@ def executive_summary(
     benchmark: str,
 ) -> str:
     """Sintesi da analista in un paragrafo, composta solo dalle metriche calcolate."""
-    parts = [f"Nel periodo ({period}) il portafoglio ha reso {cumulative_return:+.1%}."]
+    parts = [f"Over the period ({period}) the portfolio returned {cumulative_return:+.1%}."]
 
     if avg_correlation == avg_correlation:
         if avg_correlation > 0.6:
             parts.append(
-                "La diversificazione è debole: i titoli si muovono in modo "
-                f"molto simile (correlazione media {avg_correlation:.2f})."
+                "Diversification is weak: the holdings move very similarly "
+                f"(average correlation {avg_correlation:.2f})."
             )
         elif avg_correlation < 0.3:
             parts.append(
-                f"Il portafoglio è ben diversificato (correlazione media {avg_correlation:.2f})."
+                f"The portfolio is well diversified (average correlation {avg_correlation:.2f})."
             )
         else:
-            parts.append(
-                f"La diversificazione è nella media (correlazione {avg_correlation:.2f})."
-            )
+            parts.append(f"Diversification is average (correlation {avg_correlation:.2f}).")
 
     if len(contributions) >= 2 and contributions.iloc[0] > max(0.40, 1.5 / len(contributions)):
         parts.append(
-            f"Il rischio è concentrato: {contributions.index[0]} da solo genera "
-            f"il {contributions.iloc[0]:.0%} della variabilità complessiva."
+            f"Risk is concentrated: {contributions.index[0]} alone drives "
+            f"{contributions.iloc[0]:.0%} of total variability."
         )
 
     if usd_weight >= 0.7:
         parts.append(
-            f"L'esposizione al dollaro è elevata ({usd_weight:.0%} del capitale): "
-            "il risultato in euro dipende anche dal cambio EUR/USD."
+            f"US-dollar exposure is high ({usd_weight:.0%} of capital): "
+            "the euro result also depends on the EUR/USD rate."
         )
 
     if drawdown == drawdown:
         if drawdown < -0.25:
             parts.append(
-                "Il rischio storico di ribasso è sopra la media: nel periodo il "
-                f"portafoglio è arrivato a perdere il {-drawdown:.0%} dal picco."
+                "Historical downside risk is above average: over the period the "
+                f"portfolio fell as much as {-drawdown:.0%} from its peak."
             )
         elif drawdown > -0.10:
-            parts.append(f"Le discese dal picco sono state contenute (max {-drawdown:.0%}).")
+            parts.append(f"Drops from the peak stayed contained (max {-drawdown:.0%}).")
 
     if beta == beta:
         if beta > 1.15:
             parts.append(
-                f"Con un beta di {beta:.2f} verso il {benchmark}, il portafoglio "
-                "amplifica i movimenti del mercato."
+                f"With a beta of {beta:.2f} versus {benchmark}, the portfolio "
+                "amplifies market moves."
             )
         elif beta < 0.85:
             parts.append(
-                f"Con un beta di {beta:.2f} verso il {benchmark}, il portafoglio "
-                "è più difensivo del mercato."
+                f"With a beta of {beta:.2f} versus {benchmark}, the portfolio "
+                "is more defensive than the market."
             )
 
     return " ".join(parts)
@@ -304,18 +302,17 @@ def find_problems(
 
     if len(weights) > 1 and weights.iloc[0] > 0.25:
         problems.append(
-            f"**{weights.index[0]}** pesa il **{weights.iloc[0]:.0%}** del "
-            "portafoglio: rischio di concentrazione elevato."
+            f"**{weights.index[0]}** is **{weights.iloc[0]:.0%}** of the "
+            "portfolio: high concentration risk."
         )
     if len(contributions) >= 2 and contributions.iloc[0] > max(0.40, 1.5 / len(contributions)):
         problems.append(
-            f"**{contributions.index[0]}** genera il "
-            f"**{contributions.iloc[0]:.0%} del rischio totale**."
+            f"**{contributions.index[0]}** drives **{contributions.iloc[0]:.0%} of total risk**."
         )
     if avg_correlation == avg_correlation and avg_correlation > 0.6:
         problems.append(
-            f"Correlazione media **{avg_correlation:.0%}**: i titoli si muovono "
-            "insieme, il portafoglio dipende da un solo motore."
+            f"Average correlation **{avg_correlation:.0%}**: the holdings move "
+            "together, the portfolio rides a single engine."
         )
     if "dividend_yield" in fundamentals.columns:
         dy = fundamentals["dividend_yield"]
@@ -327,11 +324,11 @@ def find_problems(
             )
             if weighted_yield < 1.0:  # in punti percentuali
                 problems.append(
-                    f"Rendimento da dividendi **{weighted_yield:.1f}%**, sotto "
-                    "la media di mercato: il portafoglio non genera reddito."
+                    f"Dividend yield **{weighted_yield:.1f}%**, below the "
+                    "market average: the portfolio generates little income."
                 )
-    if radar.get("Volatilità", 0) > 70:
-        problems.append("Volatilità elevata rispetto a un portafoglio bilanciato.")
+    if radar.get("Volatility", 0) > 70:
+        problems.append("Elevated volatility versus a balanced portfolio.")
     return problems
 
 
@@ -348,8 +345,8 @@ def find_opportunities(
         missing = [s for s in DEFENSIVE_SECTORS if s not in held_sectors]
         if missing:
             opportunities.append(
-                f"Settori difensivi scoperti (**{', '.join(missing)}**): "
-                "aggiungerli ridurrebbe la dipendenza dal ciclo tech."
+                f"Uncovered defensive sectors (**{', '.join(missing)}**): "
+                "adding them would reduce reliance on the tech cycle."
             )
 
     if {"pe", "ps"}.issubset(fundamentals.columns):
@@ -358,15 +355,14 @@ def find_opportunities(
         ]
         for ticker in cheap.index[:2]:
             opportunities.append(
-                f"Tra i titoli in portafoglio, **{ticker}** presenta i multipli "
-                f"più contenuti (P/E {cheap.loc[ticker, 'pe']:.0f}, P/S "
+                f"Among the holdings, **{ticker}** has the lowest multiples "
+                f"(P/E {cheap.loc[ticker, 'pe']:.0f}, P/S "
                 f"{cheap.loc[ticker, 'ps']:.1f})."
             )
 
     if not opportunities:
         opportunities.append(
-            "Nessuna lacuna evidente rispetto alle regole monitorate "
-            "(settori difensivi, valutazioni)."
+            "No obvious gaps against the monitored rules (defensive sectors, valuations)."
         )
     return opportunities
 
@@ -383,31 +379,31 @@ def generate_suggestions(
     cita, dove utile, prassi prudenziali generali. Vedi docs/ENTERPRISE.md §2.
     """
     suggestions = []
-    if radar.get("Concentrazione", 0) > 60 and len(contributions):
+    if radar.get("Concentration", 0) > 60 and len(contributions):
         suggestions.append(
-            f"La concentrazione è elevata: **{contributions.index[0]}** domina il "
-            "rischio. Una prassi prudenziale diffusa considera critico un peso "
-            "superiore al 25% su un singolo titolo."
+            f"Concentration is high: **{contributions.index[0]}** dominates "
+            "risk. A common prudential guideline treats a single-stock weight "
+            "above 25% as critical."
         )
-    if radar.get("Correlazione", 0) > 60:
+    if radar.get("Correlation", 0) > 60:
         suggestions.append(
-            "I titoli tendono a muoversi insieme: strumenti di settori o aree "
-            "meno correlati riducono, in generale, la variabilità complessiva."
+            "The holdings tend to move together: instruments from less-correlated "
+            "sectors or regions generally reduce overall variability."
         )
-    if radar.get("Volatilità", 0) > 70:
+    if radar.get("Volatility", 0) > 70:
         suggestions.append(
-            "La volatilità è elevata: in generale, componenti a beta più basso "
-            "attenuano l'ampiezza delle oscillazioni di un portafoglio."
+            "Volatility is high: in general, lower-beta components dampen the "
+            "amplitude of a portfolio's swings."
         )
     if dna.get("Value", 100) < 30:
         suggestions.append(
-            "I multipli medi del portafoglio sono elevati (P/E e P/S alti): il "
-            "prezzo incorpora aspettative di crescita significative."
+            "The portfolio's average multiples are high (elevated P/E and P/S): "
+            "the price embeds significant growth expectations."
         )
     if not suggestions:
         suggestions.append(
-            "Il portafoglio appare equilibrato rispetto alle regole monitorate: "
-            "concentrazione, correlazione, volatilità e multipli."
+            "The portfolio looks balanced against the monitored rules: "
+            "concentration, correlation, volatility and multiples."
         )
     return suggestions
 
@@ -423,34 +419,34 @@ def generate_insights(
 ) -> list[str]:
     """Frasi di analisi in italiano, tutte derivate dai numeri calcolati."""
     insights = [
-        f"Il portafoglio ha reso **{cumulative_return:+.1%}** nel periodo ({period_label})."
+        f"The portfolio returned **{cumulative_return:+.1%}** over the period ({period_label})."
     ]
     if len(contributions) >= 2:
         top2 = contributions.head(2)
         insights.append(
-            f"**{top2.index[0]}** e **{top2.index[1]}** rappresentano il "
-            f"**{top2.sum():.0%} del rischio totale** del portafoglio."
+            f"**{top2.index[0]}** and **{top2.index[1]}** account for "
+            f"**{top2.sum():.0%} of the portfolio's total risk**."
         )
     if avg_correlation == avg_correlation:
         if avg_correlation > 0.6:
             insights.append(
-                f"I tuoi titoli sono molto legati tra loro (correlazione media "
-                f"**{avg_correlation:.2f}**): la diversificazione è debole."
+                f"Your holdings are tightly linked (average correlation "
+                f"**{avg_correlation:.2f}**): diversification is weak."
             )
         elif avg_correlation < 0.3:
             insights.append(
-                f"Buona diversificazione: correlazione media **{avg_correlation:.2f}**."
+                f"Good diversification: average correlation **{avg_correlation:.2f}**."
             )
     if drawdown == drawdown and drawdown < -0.15:
         insights.append(
-            f"Nel periodo il portafoglio ha subito una discesa massima del "
-            f"**{drawdown:.0%}** dal picco."
+            f"Over the period the portfolio suffered a maximum drop of "
+            f"**{drawdown:.0%}** from its peak."
         )
     if beta == beta:
         if beta > 1.15:
-            insights.append(
-                f"Beta **{beta:.2f}** vs {benchmark}: amplifichi i movimenti del mercato."
-            )
+            insights.append(f"Beta **{beta:.2f}** vs {benchmark}: you amplify market moves.")
         elif beta < 0.85:
-            insights.append(f"Beta **{beta:.2f}** vs {benchmark}: sei più difensivo del mercato.")
+            insights.append(
+                f"Beta **{beta:.2f}** vs {benchmark}: you are more defensive than the market."
+            )
     return insights

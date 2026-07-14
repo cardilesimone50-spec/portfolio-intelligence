@@ -59,7 +59,7 @@ class YahooProvider:
         if isinstance(data, pd.Series):
             data = data.to_frame(name=tickers[0])
         if data.empty or data.isna().all().all():
-            raise ProviderError("Yahoo: nessun dato")
+            raise ProviderError("Yahoo: no data")
         return data
 
 
@@ -80,7 +80,7 @@ class StooqProvider:
         resp.raise_for_status()
         frame = pd.read_csv(io.StringIO(resp.text))
         if "Close" not in frame.columns or frame.empty:
-            raise ProviderError(f"Stooq: nessun dato per {ticker}")
+            raise ProviderError(f"Stooq: no data for {ticker}")
         series = pd.Series(
             frame["Close"].to_numpy(),
             index=pd.to_datetime(frame["Date"]),
@@ -97,7 +97,7 @@ class StooqProvider:
             except (requests.RequestException, ProviderError, ValueError):
                 continue
         if not columns:
-            raise ProviderError("Stooq: nessun ticker disponibile")
+            raise ProviderError("Stooq: no ticker available")
         return pd.DataFrame(columns).sort_index()
 
 
@@ -125,7 +125,7 @@ class EODHDProvider:
         resp.raise_for_status()
         rows = resp.json()
         if not rows:
-            raise ProviderError(f"EODHD: nessun dato per {ticker}")
+            raise ProviderError(f"EODHD: no data for {ticker}")
         frame = pd.DataFrame(rows)
         # adjusted_close se disponibile, altrimenti close
         col = "adjusted_close" if "adjusted_close" in frame.columns else "close"
@@ -144,7 +144,7 @@ class EODHDProvider:
             except (requests.RequestException, ProviderError, ValueError, KeyError):
                 continue
         if not columns:
-            raise ProviderError("EODHD: nessun ticker disponibile")
+            raise ProviderError("EODHD: no ticker available")
         return pd.DataFrame(columns).sort_index()
 
 
@@ -153,7 +153,7 @@ class ProviderChain:
 
     def __init__(self, providers: list[PriceProvider]):
         if not providers:
-            raise ValueError("La catena deve avere almeno un provider")
+            raise ValueError("The chain must have at least one provider")
         self._providers = providers
 
     @property
@@ -170,8 +170,8 @@ class ProviderChain:
                 continue
             if not data.empty and not data.isna().all().all():
                 return data, provider.name
-            errors.append(f"{provider.name}: risultato vuoto")
-        raise ValueError("Nessun provider dati ha risposto: " + " · ".join(errors))
+            errors.append(f"{provider.name}: empty result")
+        raise ValueError("No data provider responded: " + " · ".join(errors))
 
 
 def build_default_chain() -> ProviderChain:

@@ -9,14 +9,14 @@ from src.portfolio.risk import portfolio_volatility
 
 def generate_report(portfolio: Portfolio, period: str = "1y") -> None:
     if not weights_sum_to_one(portfolio):
-        raise ValueError("I pesi del portafoglio devono sommare a 1")
+        raise ValueError("Portfolio weights must sum to 1")
 
     tickers = [position["ticker"] for position in portfolio]
     prices = fetch_price_history(tickers, period=period)
     returns = compute_daily_returns(prices)
 
     if returns.empty:
-        raise ValueError(f"Dati insufficienti per calcolare i rendimenti nel periodo '{period}'")
+        raise ValueError(f"Insufficient data to compute returns for period '{period}'")
 
     expected_return = portfolio_expected_return(returns, portfolio)
     volatility = portfolio_volatility(returns, portfolio)

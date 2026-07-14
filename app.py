@@ -119,9 +119,10 @@ from src.visualization.pdf_report import build_report
 BENCHMARK = "QQQ"  # ETF sul Nasdaq-100
 TRADING_DAYS = 252
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
-AMBER = "#b57400"
-# soglie di volatilità annua per profilo di rischio (dichiarate nella UI)
-PROFILE_VOL = {"Prudente": 0.10, "Moderato": 0.18, "Aggressivo": 0.30}
+AMBER = "#d97706"  # status mid-band only (gauge/health)
+ACCENT = "#1E40AF"  # brand primary (Stripe/Mercury blue)
+# annual volatility thresholds per risk profile (declared in the UI)
+PROFILE_VOL = {"Conservative": 0.10, "Moderate": 0.18, "Aggressive": 0.30}
 
 st.set_page_config(
     page_title="Portfolio Intelligence",
@@ -138,11 +139,13 @@ st.markdown(
 
     :root {{
         --panel: #ffffff;
-        --panel-2: #f0f2f5;
-        --line: rgba(20, 25, 35, 0.10);
-        --muted: #6b7280;
-        --ink: #1a1d24;
-        --accent: {AMBER};
+        --panel-2: #ffffff;
+        --line: #E2E8F0;
+        --muted: #64748b;
+        --ink: #0F172A;
+        --accent: {ACCENT};
+        --accent-soft: rgba(30, 64, 175, 0.08);
+        --accent-border: rgba(30, 64, 175, 0.28);
         --gain: {GAIN};
         --loss: {LOSS};
         --font-ui: 'Inter', -apple-system, 'Segoe UI', sans-serif;
@@ -214,8 +217,8 @@ st.markdown(
     }}
     .st-key-subnav button[aria-checked="true"],
     .st-key-subnav button[kind="segmented_controlActive"] {{
-        background: rgba(247,166,0,0.12) !important;
-        border-color: rgba(247,166,0,0.4) !important;
+        background: var(--accent-soft) !important;
+        border-color: var(--accent-border) !important;
     }}
     .st-key-subnav button[aria-checked="true"] p,
     .st-key-subnav button[kind="segmented_controlActive"] p {{
@@ -224,12 +227,12 @@ st.markdown(
 
     /* ---- profondità e hover ---- */
     .panel, .hero-panel {{
-        box-shadow: 0 4px 16px rgba(20, 25, 35, 0.06);
+        box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04);
         transition: transform 0.18s ease, border-color 0.18s ease;
     }}
     .panel:hover, .hero-panel:hover {{
         transform: translateY(-2px);
-        border-color: rgba(247, 166, 0, 0.28);
+        border-color: rgba(30,64,175,0.28);
     }}
     .pos-row {{ transition: background 0.15s ease; border-radius: 8px; }}
     .pos-row:hover {{ background: rgba(20, 25, 35, 0.03); }}
@@ -238,7 +241,7 @@ st.markdown(
     }}
     .stButton button:hover, .stDownloadButton button:hover {{
         transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(20, 25, 35, 0.1);
+        box-shadow: 0 4px 14px rgba(30,64,175,0.14);
     }}
 
     /* ---- KPI card con icona ---- */
@@ -246,12 +249,12 @@ st.markdown(
     .kpi {{
         flex: 1; min-width: 210px;
         background: var(--panel); border: 1px solid var(--line);
-        border-radius: 14px; padding: 18px 20px;
-        box-shadow: 0 4px 14px rgba(20, 25, 35, 0.05);
+        border-radius: 18px; padding: 20px 22px;
+        box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04);
         transition: transform 0.18s ease, border-color 0.18s ease;
         animation: fadeUpSubtle 0.3s ease-out both;
     }}
-    .kpi:hover {{ transform: translateY(-2px); border-color: rgba(247,166,0,0.3); }}
+    .kpi:hover {{ transform: translateY(-2px); border-color: rgba(30,64,175,0.3); }}
     .kpi-top {{ display: flex; justify-content: space-between; align-items: center; }}
     .kpi-icon {{
         width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
@@ -276,12 +279,12 @@ st.markdown(
     .empty {{
         text-align: center; padding: 54px 30px;
         border: 1.5px dashed rgba(20, 25, 35, 0.14);
-        border-radius: 16px; margin: 20px 0;
+        border-radius: 18px; margin: 20px 0;
     }}
     .empty-icon {{
         width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 12px;
         display: flex; align-items: center; justify-content: center;
-        background: rgba(247, 166, 0, 0.1); color: var(--accent);
+        background: rgba(30,64,175,0.1); color: var(--accent);
     }}
     .compliance {{
         margin: 42px auto 8px; max-width: 900px; text-align: center;
@@ -297,7 +300,7 @@ st.markdown(
     /* ---- spinner brandizzato ---- */
     [data-testid="stSpinner"] i {{
         border-top-color: var(--accent) !important;
-        border-right-color: rgba(247, 166, 0, 0.25) !important;
+        border-right-color: rgba(30,64,175,0.25) !important;
     }}
 
     /* ---- responsive ---- */
@@ -312,7 +315,7 @@ st.markdown(
     /* ---- metriche flat: niente scatole, solo numeri e separatori ---- */
     .panel {{
         background: var(--panel); border: 1px solid var(--line);
-        border-radius: 12px; padding: 20px 24px; height: 100%;
+        border-radius: 18px; padding: 22px 26px; height: 100%;
     }}
     [data-testid="stMetric"] {{
         background: transparent; border: none;
@@ -437,9 +440,9 @@ st.markdown(
     /* ---- anteprima titolo (aggiungi) ---- */
     .ticker-preview {{
         display: flex; align-items: center; gap: 12px;
-        background: rgba(247,166,0,0.06);
-        border: 1px solid rgba(247,166,0,0.22);
-        border-radius: 12px; padding: 12px 14px; margin: 4px 0 10px;
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-border);
+        border-radius: 14px; padding: 12px 14px; margin: 4px 0 10px;
         animation: fadeUpSubtle 0.25s ease-out both;
     }}
     .tp-main {{ flex: 1; min-width: 0; }}
@@ -546,15 +549,14 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
     if prices is None:
         empty_state(
             "Database prezzi non ancora presente",
-            "Servono 5 anni di prezzi giornalieri per i 103 titoli del "
-            "Nasdaq-100: si scaricano una sola volta, poi si aggiornano "
-            "in modo incrementale.",
+            "5 years of daily prices for the 103 Nasdaq-100 stocks are "
+            "needed: downloaded once, then refreshed incrementally.",
             icon="folder",
         )
-        if st.button("Scarica i dati (~1 minuto)", key=f"dl_{view_key}", type="primary"):
+        if st.button("Download data (~1 minute)", key=f"dl_{view_key}", type="primary"):
             from download_nasdaq100 import update_nasdaq100
 
-            with st.spinner("Scarico 5 anni di prezzi da Yahoo Finance..."):
+            with st.spinner("Downloading 5 years of prices from Yahoo Finance..."):
                 update_nasdaq100()
             st.rerun()
     return prices
@@ -587,13 +589,13 @@ with st.sidebar:
         '<div class="brand" style="font-size:.9rem">◆ PORTFOLIO <b>INTELLIGENCE</b></div>',
         unsafe_allow_html=True,
     )
-    sec("Aggiungi un titolo")
+    sec("Add a stock")
 
     new_ticker = st.selectbox(
-        "Cerca titolo",
+        "Search stock",
         KNOWN_TICKERS,
         index=None,
-        placeholder="Cerca per simbolo (es. AAPL)...",
+        placeholder="Search by symbol (e.g. AAPL)...",
         accept_new_options=True,
         label_visibility="collapsed",
         key="add_ticker",
@@ -610,7 +612,7 @@ with st.sidebar:
         col_amt, col_add = st.columns([3, 2], gap="small")
         with col_amt:
             new_amount = st.number_input(
-                "Importo",
+                "Amount",
                 min_value=100.0,
                 value=1000.0,
                 step=500.0,
@@ -618,16 +620,16 @@ with st.sidebar:
                 key="add_amount",
             )
         with col_add:
-            if st.button("＋ Aggiungi", width="stretch", type="primary"):
+            if st.button("＋ Add", width="stretch", type="primary"):
                 st.session_state.holdings[key] = st.session_state.holdings.get(key, 0.0) + float(
                     new_amount
                 )
                 st.session_state.add_ticker = None
                 st.rerun()
     else:
-        st.caption("Cerca un titolo per vederne nome, prezzo e aggiungerlo.")
+        st.caption("Search a stock to see its name and price, then add it.")
 
-    sec("Le tue posizioni")
+    sec("Your holdings")
 
     holdings = st.session_state.holdings
     total = sum(holdings.values())
@@ -647,39 +649,39 @@ with st.sidebar:
                 )
             with col_menu, st.popover("···"):
                 updated = st.number_input(
-                    "Importo (€)",
+                    "Amount (€)",
                     min_value=0.0,
                     value=float(amount),
                     step=500.0,
                     key=f"edit_{ticker}",
                 )
                 col_ok, col_del = st.columns(2)
-                if col_ok.button("Salva", key=f"save_{ticker}", width="stretch"):
+                if col_ok.button("Save", key=f"save_{ticker}", width="stretch"):
                     if updated > 0:
                         st.session_state.holdings[ticker] = float(updated)
                     else:
                         st.session_state.holdings.pop(ticker, None)
                     st.rerun()
-                if col_del.button("Rimuovi", key=f"del_{ticker}", width="stretch"):
+                if col_del.button("Remove", key=f"del_{ticker}", width="stretch"):
                     st.session_state.holdings.pop(ticker, None)
                     st.rerun()
-        st.caption(f"Totale: **{eur(total)}** · {len(holdings)} titoli")
+        st.caption(f"Total: **{eur(total)}** · {len(holdings)} stocks")
     else:
         empty_state(
-            "Portafoglio vuoto",
-            "Cerca un titolo qui sopra e aggiungilo con il suo importo.",
+            "Empty portfolio",
+            "Search a stock above and add it with its amount.",
             icon="folder",
         )
 
-    with st.expander("Importa da CSV / Excel"):
+    with st.expander("Import from CSV / Excel"):
         uploaded = st.file_uploader(
-            "Posizione titoli in CSV o Excel",
+            "Securities position in CSV or Excel",
             type=["csv", "xlsx", "xls"],
-            help="Esporta dal tuo broker la POSIZIONE TITOLI (detta anche "
-            "dossier o patrimonio), non l'estratto dei movimenti di conto. "
-            "Formati supportati: CSV ed Excel — i PDF non sono leggibili. "
-            "Colonne attese: titolo/ticker e importo/controvalore, oppure "
-            "quantità e prezzo.",
+            help="Export your broker's SECURITIES POSITION (also called holdings "
+            "or portfolio), not the account transactions statement. "
+            "Supported formats: CSV and Excel — PDFs are not readable. "
+            "Expected columns: ticker/symbol and amount/value, or "
+            "quantity and price.",
         )
         if uploaded is not None:
             file_id = f"{uploaded.name}-{uploaded.size}"
@@ -687,54 +689,54 @@ with st.sidebar:
                 try:
                     st.session_state.holdings = parse_positions(uploaded.getvalue(), uploaded.name)
                     st.session_state.last_upload = file_id
-                    st.toast(f"Importate {len(st.session_state.holdings)} posizioni")
+                    st.toast(f"Imported {len(st.session_state.holdings)} positions")
                     st.rerun()
                 except ValueError as exc:
-                    st.error(f"Import fallito: {exc}")
+                    st.error(f"Import failed: {exc}")
 
     saved = list_portfolios()
-    with st.expander("Portafogli salvati"):
-        portfolio_name = st.text_input("Nome", value="Il mio portafoglio")
-        if st.button("Salva composizione attuale", width="stretch") and holdings:
+    with st.expander("Saved portfolios"):
+        portfolio_name = st.text_input("Name", value="My portfolio")
+        if st.button("Save current composition", width="stretch") and holdings:
             save_portfolio(portfolio_name, holdings)
-            st.toast(f"Portafoglio «{portfolio_name}» salvato")
+            st.toast(f'Portfolio "{portfolio_name}" saved')
         if saved:
             selected_saved = st.selectbox(
-                "Carica", sorted(saved), index=None, placeholder="Scegli un portafoglio..."
+                "Load", sorted(saved), index=None, placeholder="Choose a portfolio..."
             )
-            if selected_saved and st.button("Carica nel portafoglio", width="stretch"):
+            if selected_saved and st.button("Load into portfolio", width="stretch"):
                 st.session_state.holdings = dict(saved[selected_saved])
                 st.rerun()
 
-    with st.expander("Impostazioni"):
+    with st.expander("Settings"):
         period = st.selectbox(
-            "Orizzonte storico", ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
+            "Historical horizon", ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
         )
         in_eur = st.toggle(
-            "Misura tutto in euro",
+            "Measure everything in euros",
             value=True,
-            help="I titoli USA quotano in dollari: convertendo in EUR le metriche "
-            "includono anche le oscillazioni EUR/USD, il rischio reale di un "
-            "investitore europeo.",
+            help="US stocks trade in dollars: converting to EUR makes the metrics "
+            "include EUR/USD swings too — the real risk for a European "
+            "investor.",
         )
         risk_free = (
             st.number_input(
-                "Tasso risk-free annuo (%)",
+                "Annual risk-free rate (%)",
                 min_value=0.0,
                 max_value=10.0,
                 value=3.0,
                 step=0.25,
-                help="Rendimento senza rischio usato in Sharpe, Sortino e ottimizzazione.",
+                help="Risk-free return used in Sharpe, Sortino and optimization.",
             )
             / 100
         )
         risk_profile = st.selectbox(
-            "Profilo di rischio",
-            ["Non impostato", "Prudente", "Moderato", "Aggressivo"],
+            "Risk profile",
+            ["Not set", "Conservative", "Moderate", "Aggressive"],
             index=0,
-            help="Soglie di volatilità annua attesa dichiarate: prudente fino al "
-            "10%, moderato fino al 18%, aggressivo fino al 30%. Il check-up "
-            "confronta il portafoglio con la soglia del profilo.",
+            help="Declared expected annual volatility thresholds: conservative up to "
+            "10%, moderate up to 18%, aggressive up to 30%. The check-up "
+            "compares the portfolio with the profile threshold.",
         )
 
 amounts = dict(st.session_state.holdings)
@@ -744,7 +746,7 @@ portfolio = (
     [{"ticker": t, "weight": amount / total} for t, amount in amounts.items()] if total else []
 )
 
-# ================================================================ CALCOLI CONDIVISI
+# ================================================================ SHARED COMPUTATIONS
 computed: dict | None = None
 compute_error: str | None = None
 if portfolio:
@@ -818,8 +820,8 @@ if portfolio:
 st.markdown(
     f"""<div class="topbar">
     <span class="brand">◆ PORTFOLIO <b>INTELLIGENCE</b></span>
-    <span class="brand-tag">{"EUR · cambio incluso" if in_eur else "valute originali"}
-    · fonte prezzi: {yahoo_client.last_price_source}</span></div>""",
+    <span class="brand-tag">{"EUR · currency included" if in_eur else "original currencies"}
+    · price source: {yahoo_client.last_price_source}</span></div>""",
     unsafe_allow_html=True,
 )
 
@@ -829,20 +831,20 @@ def _start_checkup() -> None:
 
 
 # nav a due livelli: 6 voci macro + sub-nav contestuale che rimappa alla vista
-MACRO_ORDER = ["Home", "Check-up", "Analisi", "Strategie", "Mercato", "Clienti"]
+MACRO_ORDER = ["Home", "Check-up", "Analysis", "Strategies", "Market", "Clients"]
 SUBNAV = {
-    "Analisi": [("Metriche", "Analisi"), ("Grafici", "Visual")],
-    "Strategie": [("Ottimizzazione", "Ottimizza"), ("Backtest", "Backtest")],
-    "Mercato": [
+    "Analysis": [("Metrics", "Analisi"), ("Charts", "Visual")],
+    "Strategies": [("Optimization", "Ottimizza"), ("Backtest", "Backtest")],
+    "Market": [
         ("Nasdaq-100", "Mercato"),
-        ("Correlazioni", "Correlazioni"),
-        ("Fondamentali", "Fondamentali"),
+        ("Correlations", "Correlazioni"),
+        ("Fundamentals", "Fondamentali"),
     ],
 }
 
 with st.container(key="navbar"):
     macro = st.segmented_control(
-        "Sezione", MACRO_ORDER, default="Home", label_visibility="collapsed", key="nav"
+        "Section", MACRO_ORDER, default="Home", label_visibility="collapsed", key="nav"
     )
 macro = macro or "Home"
 
@@ -850,7 +852,7 @@ if macro in SUBNAV:
     labels = [label for label, _ in SUBNAV[macro]]
     with st.container(key="subnav"):
         sub = st.segmented_control(
-            "Sottosezione",
+            "Subsection",
             labels,
             default=labels[0],
             label_visibility="collapsed",
@@ -872,9 +874,9 @@ if view == "Home":
 elif view in NEEDS_PORTFOLIO and computed is None:
     if not compute_error:
         empty_state(
-            "Nessun portafoglio da analizzare",
-            "Aggiungi un titolo con il suo importo nella barra laterale, "
-            "carica un CSV del broker o un portafoglio salvato.",
+            "No portfolio to analyze",
+            "Add a stock with its amount in the sidebar, "
+            "import a broker CSV or load a saved portfolio.",
         )
 
 # ================================================================ CHECK-UP
@@ -893,19 +895,19 @@ elif view == "Check-up":
             unsafe_allow_html=True,
         )
         st.caption(
-            "Health Score: media di sei componenti — diversificazione, "
-            "concentrazione, volatilità, esposizione valutaria, drawdown, "
-            "qualità dei bilanci."
+            "Health Score: the average of six components — diversification, "
+            "concentration, volatility, currency exposure, drawdown, "
+            "balance-sheet quality."
         )
         if c["dna"]:
             st.markdown(f"**{dna_label(c['dna'])}**")
     with col_equity:
-        sec(f"Andamento del capitale ({period})")
+        sec(f"Capital over time ({period})")
         st.altair_chart(
             equity_area(total * (1 + c["pf_daily"]).cumprod(), total),
             width="stretch",
         )
-        st.caption("Linea tratteggiata = capitale investito oggi, proiettato indietro.")
+        st.caption("Dashed line = capital invested today, projected backwards.")
 
     col_break, col_exec = st.columns([1, 1.4], gap="large")
     with col_break:
@@ -926,77 +928,74 @@ elif view == "Check-up":
             )
         )
         st.caption(
-            "Sintesi generata da regole deterministiche sulle metriche calcolate: "
-            "nessun testo inventato."
+            "Summary generated by deterministic rules on the computed metrics: no invented text."
         )
 
-    sec("Le tue posizioni")
+    sec("Your holdings")
     cum_by_ticker = per_ticker_cumulative_return(c["prices"])
     normalized_pos = c["prices"] / c["prices"].apply(lambda s: s.dropna().iloc[0])
     last_session = c["returns"].iloc[-1]
     fund_names = c["fund"]["name"] if "name" in c["fund"].columns else pd.Series(dtype=str)
     position_rows = [
         {
-            "Titolo": t,
-            "Nome": fund_names.get(t, ""),
-            "Importo": amounts[t],
-            "Peso": amounts[t] / total,
-            "Oggi": float(last_session[t]) if t in last_session.index else None,
-            "Rendimento": cum_by_ticker.get(t),
-            "Andamento": normalized_pos[t].dropna().tolist()[-130:],
+            "Ticker": t,
+            "Company": fund_names.get(t, ""),
+            "Amount": amounts[t],
+            "Weight": amounts[t] / total,
+            "Today": float(last_session[t]) if t in last_session.index else None,
+            "Return": cum_by_ticker.get(t),
+            "Trend": normalized_pos[t].dropna().tolist()[-130:],
         }
         for t in sorted(amounts, key=amounts.get, reverse=True)
     ]
     st.dataframe(
         pd.DataFrame(position_rows),
         column_config={
-            "Titolo": st.column_config.TextColumn("Titolo"),
-            "Nome": st.column_config.TextColumn("Società"),
-            "Importo": st.column_config.NumberColumn("Importo", format="%.0f €"),
-            "Peso": st.column_config.NumberColumn("Peso", format="percent"),
-            "Oggi": st.column_config.NumberColumn("Ultima seduta", format="percent"),
-            "Rendimento": st.column_config.NumberColumn(
-                f"Rendimento ({period})", format="percent"
-            ),
-            "Andamento": st.column_config.AreaChartColumn(f"Andamento ({period})", width="medium"),
+            "Ticker": st.column_config.TextColumn("Ticker"),
+            "Company": st.column_config.TextColumn("Company"),
+            "Amount": st.column_config.NumberColumn("Amount", format="%.0f €"),
+            "Weight": st.column_config.NumberColumn("Weight", format="percent"),
+            "Today": st.column_config.NumberColumn("Last session", format="percent"),
+            "Return": st.column_config.NumberColumn(f"Return ({period})", format="percent"),
+            "Trend": st.column_config.AreaChartColumn(f"Trend ({period})", width="medium"),
         },
         hide_index=True,
         width="stretch",
     )
 
-    sec("I problemi principali")
+    sec("Top problems")
     problems = find_problems(portfolio, c["fund"], c["contributions"], c["avg_corr"], c["radar"])
     session_alerts = [
         a
         for a in evaluate_alerts(
             c["returns"], portfolio, c["contributions"], c["avg_corr"], c["drawdown"]
         )
-        if "Ultima seduta" in a
+        if "Last session" in a
     ]
     if risk_profile in PROFILE_VOL and c["annual_vol"] > PROFILE_VOL[risk_profile]:
         band = PROFILE_VOL[risk_profile]
         problems.insert(
             0,
-            f"Per un profilo **{risk_profile.lower()}** (volatilità attesa fino al "
-            f"{band:.0%}), il portafoglio oscilla il "
-            f"**{c['annual_vol'] / band - 1:.0%} in più** della soglia.",
+            f"For a **{risk_profile.lower()}** profile (expected volatility up to "
+            f"{band:.0%}), the portfolio swings "
+            f"**{c['annual_vol'] / band - 1:.0%} more** than the threshold.",
         )
     top_problems = (session_alerts + problems)[:5]
     if top_problems:
         for problem in top_problems:
             st.markdown(problem)
     else:
-        st.success("Nessun problema rilevato dalle regole monitorate.")
+        st.success("No problems flagged by the monitored rules.")
 
-    sec("Il tuo rischio, in euro")
+    sec("Your risk, in euros")
     st.markdown(
         kpi_row_html(
             [
                 {
                     "icon": "wave",
-                    "label": "Oscillazione tipica in 1 anno",
+                    "label": "Typical 1-year swing",
                     "value": f"± {eur(total * c['annual_vol'])}",
-                    "sub": f"{c['annual_vol']:.1%} annuo · "
+                    "sub": f"{c['annual_vol']:.1%} per year · "
                     + interpret_volatility(
                         c["annual_vol"],
                         (
@@ -1008,25 +1007,25 @@ elif view == "Check-up":
                 },
                 {
                     "icon": "bolt",
-                    "label": "In una giornata nera (VaR 95%)",
+                    "label": "On a bad day (95% VaR)",
                     "value": eur(total * c["var_95"]),
-                    "sub": "nel 95% dei giorni non perdi più di questa cifra (stima storica)",
+                    "sub": "on 95% of days you don't lose more than this (historical estimate)",
                     "color": LOSS,
                 },
                 {
                     "icon": "down",
-                    "label": "Nella peggior discesa del periodo",
+                    "label": "In the worst drop of the period",
                     "value": eur(total * c["drawdown"]),
-                    "sub": f"{c['drawdown']:.1%} dal picco (max drawdown) investendo questa cifra",
+                    "sub": f"{c['drawdown']:.1%} from the peak (max drawdown) investing this amount",
                     "color": LOSS,
                 },
             ]
         ),
         unsafe_allow_html=True,
     )
-    st.caption("Stime dall'andamento storico del periodo: non sono una previsione.")
+    st.caption("Estimates from the period's historical performance: not a forecast.")
 
-    sec("Scenari sui tuoi dati")
+    sec("Scenarios on your data")
 
     def simulate_change(new_pf: list) -> tuple[float, int]:
         new_vol = portfolio_volatility(c["returns"], new_pf) * TRADING_DAYS**0.5
@@ -1041,11 +1040,11 @@ elif view == "Check-up":
     candidates_sim = {}
     if len(portfolio) >= 2 and weights_sorted[0]["weight"] > 0.25:
         top_t = weights_sorted[0]["ticker"]
-        candidates_sim[f"Se dimezzi {top_t} (redistribuendo sugli altri)"] = reduce_position(
+        candidates_sim[f"Halve {top_t} (redistributing to the others)"] = reduce_position(
             portfolio, top_t, 0.5
         )
-    if len(portfolio) >= 3 and c["radar"].get("Concentrazione", 0) > 25:
-        candidates_sim["Se equipesassi tutti i titoli"] = equal_weight_portfolio(portfolio)
+    if len(portfolio) >= 3 and c["radar"].get("Concentration", 0) > 25:
+        candidates_sim["Equal-weight all holdings"] = equal_weight_portfolio(portfolio)
 
     simulations, discarded = [], []
     for name, new_pf in candidates_sim.items():
@@ -1054,9 +1053,9 @@ elif view == "Check-up":
             new_health == c["health"] and new_vol < c["annual_vol"] * 0.98
         )
         text = (
-            f"**{name}**: oscillazione annua da ± {eur(total * c['annual_vol'])} "
-            f"a ± {eur(total * new_vol)}, Health Score da {c['health']} "
-            f"a **{new_health}**."
+            f"**{name}**: annual swing from ± {eur(total * c['annual_vol'])} "
+            f"to ± {eur(total * new_vol)}, Health Score from {c['health']} "
+            f"to **{new_health}**."
         )
         (simulations if improves else discarded).append(text)
 
@@ -1064,15 +1063,15 @@ elif view == "Check-up":
         st.markdown(simulation)
     if not simulations and candidates_sim:
         st.markdown(
-            "Abbiamo simulato le mosse più ovvie sui tuoi dati, ma **nessuna "
-            "migliora il profilo attuale** — un buon segno per come sei pesato:"
+            "We simulated the most obvious moves on your data, but **none "
+            "improves the current profile** — a good sign for how you're weighted:"
         )
         for text in discarded:
-            st.caption("Scartata: " + text)
+            st.caption("Discarded: " + text)
     for opportunity in find_opportunities(portfolio, c["fund"])[:2]:
         st.markdown(opportunity)
     if not candidates_sim:
-        st.caption("Nessuna simulazione proposta: i pesi sono già ben distribuiti.")
+        st.caption("No scenario proposed: the weights are already well distributed.")
 
     st.divider()
     col_pdf, col_log, col_hist = st.columns([1.2, 1, 1.8], gap="large")
@@ -1089,15 +1088,15 @@ elif view == "Check-up":
         report_metrics = {
             "Sharpe ratio": f"{annualized_sharpe(c['returns'], portfolio, risk_free_rate=risk_free):.2f}",
             "Sortino ratio": f"{sortino_ratio(c['returns'], portfolio, risk_free_rate=risk_free):.2f}",
-            "Oscillazione annua": f"± {eur(total * c['annual_vol'])}",
-            "VaR 95% (1 giorno)": eur(total * c["var_95"]),
-            "Perdita massima storica": f"{c['drawdown']:.1%}",
+            "Annual swing": f"± {eur(total * c['annual_vol'])}",
+            "95% VaR (1 day)": eur(total * c["var_95"]),
+            "Max historical drop": f"{c['drawdown']:.1%}",
             f"Beta vs {BENCHMARK}": f"{c['beta']:.2f}",
-            "Correlazione media": f"{c['avg_corr']:.2f}",
-            "Tasso risk-free usato": f"{risk_free:.2%}",
+            "Average correlation": f"{c['avg_corr']:.2f}",
+            "Risk-free rate used": f"{risk_free:.2%}",
         }
         st.download_button(
-            "Scarica il report PDF",
+            "Download PDF report",
             data=build_report(
                 portfolio_name=portfolio_name,
                 positions=amounts,
@@ -1117,7 +1116,7 @@ elif view == "Check-up":
             type="primary",
         )
     with col_log:
-        if st.button("Salva nello storico", width="stretch"):
+        if st.button("Save to history", width="stretch"):
             log_analysis(
                 portfolio_name,
                 period,
@@ -1126,11 +1125,11 @@ elif view == "Check-up":
                 c["risk_score"],
                 health=c["health"],
             )
-            st.toast("Analisi salvata")
+            st.toast("Analysis saved")
     with col_hist:
         history = load_analyses()
         if not history.empty:
-            with st.expander(f"Storico analisi ({len(history)})"):
+            with st.expander(f"Analysis history ({len(history)})"):
                 trend = history.dropna(subset=["health"])
                 trend = trend[trend["portfolio"] == portfolio_name]
                 if len(trend) >= 2:
@@ -1141,20 +1140,18 @@ elif view == "Check-up":
                     st.altair_chart(simple_line(series, y_format=".0f"), width="stretch")
                     delta_h = int(series.iloc[-1] - series.iloc[0])
                     st.caption(
-                        f"Health Score di «{portfolio_name}» nel tempo: "
-                        f"{delta_h:+d} punti dalla prima analisi salvata."
+                        f'Health Score of "{portfolio_name}" over time: '
+                        f"{delta_h:+d} points since the first saved analysis."
                     )
                 st.dataframe(
                     history,
                     column_config={
-                        "timestamp": st.column_config.TextColumn("Data"),
-                        "portfolio": st.column_config.TextColumn("Portafoglio"),
-                        "period": st.column_config.TextColumn("Periodo"),
-                        "invested": st.column_config.NumberColumn("Investito", format="%.0f €"),
-                        "cum_return": st.column_config.NumberColumn(
-                            "Rendimento", format="percent"
-                        ),
-                        "risk_score": st.column_config.NumberColumn("Rischio /100"),
+                        "timestamp": st.column_config.TextColumn("Date"),
+                        "portfolio": st.column_config.TextColumn("Portfolio"),
+                        "period": st.column_config.TextColumn("Period"),
+                        "invested": st.column_config.NumberColumn("Invested", format="%.0f €"),
+                        "cum_return": st.column_config.NumberColumn("Return", format="percent"),
+                        "risk_score": st.column_config.NumberColumn("Risk /100"),
                         "health": st.column_config.NumberColumn("Health /100"),
                     },
                     hide_index=True,
@@ -1172,43 +1169,43 @@ elif view == "Analisi":
         compute_daily_returns(_db).std() * TRADING_DAYS**0.5 if _db is not None else None
     )
 
-    sec("Rendimento")
+    sec("Return")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Investimento", eur(total))
+    m1.metric("Invested", eur(total))
     m2.metric(
-        "Rendimento annualizzato (composto)",
+        "Annualized return (compound)",
         eur(total * c["annual_ret"]),
         delta=f"{c['annual_ret']:+.1%}",
-        help="CAGR del periodo osservato: non sovrastima in presenza di volatilità.",
+        help="CAGR over the observed period: does not overstate under volatility.",
     )
-    m3.metric("Sharpe ratio", f"{sharpe:.2f}", help=f"Calcolato con risk-free {risk_free:.1%}.")
+    m3.metric("Sharpe ratio", f"{sharpe:.2f}", help=f"Computed with risk-free {risk_free:.1%}.")
     m3.caption(interpret_sharpe(sharpe))
     m4.metric("Sortino ratio", f"{sortino:.2f}")
     m4.caption(interpret_sortino(sortino, sharpe))
 
-    sec("Rischio")
+    sec("Risk")
     r1, r2, r3, r4 = st.columns(4)
     r1.metric(
-        "Oscillazione tipica in 1 anno",
+        "Typical 1-year swing",
         f"± {eur(total * c['annual_vol'])}",
         delta=f"{c['annual_vol']:.1%}",
         delta_color="off",
     )
     r1.caption(interpret_volatility(c["annual_vol"], universe_vols))
-    r2.metric("Perdita massima storica", f"{c['drawdown']:.1%}")
+    r2.metric("Max historical drop", f"{c['drawdown']:.1%}")
     r2.caption(interpret_drawdown(c["drawdown"]))
-    r3.metric("VaR 95% (1 giorno)", eur(total * c["var_95"]))
-    r3.caption("Nel 95% delle giornate storiche non hai perso più di questa cifra.")
+    r3.metric("95% VaR (1 day)", eur(total * c["var_95"]))
+    r3.caption("On 95% of historical days you did not lose more than this.")
     r4.metric(
         f"Beta vs {BENCHMARK}",
         f"{c['beta']:.2f}",
-        delta=f"α {c['alpha']:+.1%}/anno",
+        delta=f"α {c['alpha']:+.1%}/yr",
         delta_color="off",
     )
     r4.caption(interpret_beta(c["beta"], BENCHMARK))
-    st.caption("Stime basate sull'andamento storico: non sono una previsione.")
+    st.caption("Estimates based on historical performance: not a forecast.")
 
-    sec(f"Portafoglio vs Nasdaq-100 ({BENCHMARK}) · base 100")
+    sec(f"Portfolio vs Nasdaq-100 ({BENCHMARK}) · base 100")
     bench_value = (1 + c["bench_daily"]).cumprod()
     st.altair_chart(
         benchmark_overlay(c["pf_value"], bench_value, BENCHMARK),
@@ -1216,34 +1213,32 @@ elif view == "Analisi":
     )
     excess = c["cum_return"] - float(bench_value.iloc[-1] - 1)
     st.caption(
-        f"Nel periodo hai fatto **{excess:+.1%}** rispetto al Nasdaq-100"
-        + (" (al netto del cambio EUR/USD)." if in_eur else ".")
+        f"Over the period you did **{excess:+.1%}** versus the Nasdaq-100"
+        + (" (net of the EUR/USD rate)." if in_eur else ".")
     )
 
     col_dd, col_hist = st.columns(2, gap="large")
     with col_dd:
-        sec("Quanto sotto il massimo (drawdown)")
+        sec("How far below the peak (drawdown)")
         st.altair_chart(underwater_chart(c["pf_value"]), width="stretch")
-        st.caption(
-            "Ogni discesa sotto lo zero è tempo passato in perdita rispetto al picco precedente."
-        )
+        st.caption("Every dip below zero is time spent at a loss versus the prior peak.")
     with col_hist:
-        sec("Distribuzione dei giorni")
+        sec("Distribution of days")
         st.altair_chart(returns_histogram(c["pf_daily"], c["var_95"]), width="stretch")
         st.caption(
-            "Ogni barra conta i giorni con quel rendimento. La linea rossa è il "
-            "VaR 95%: solo il 5% dei giorni è andato peggio."
+            "Each bar counts the days with that return. The red line is the "
+            "95% VaR: only 5% of days were worse."
         )
 
     if len(c["pf_daily"]) >= 80:
         col_rvol, col_rbeta = st.columns(2, gap="large")
         with col_rvol:
-            sec("Volatilità annualizzata · rolling 60 giorni")
+            sec("Annualized volatility · 60-day rolling")
             rolling_vol = (c["pf_daily"].rolling(60).std() * TRADING_DAYS**0.5).dropna()
             st.altair_chart(simple_line(rolling_vol), width="stretch")
-            st.caption("Come è cambiata la rischiosità del portafoglio nel tempo.")
+            st.caption("How the portfolio's riskiness changed over time.")
         with col_rbeta:
-            sec(f"Beta vs {BENCHMARK} · rolling 60 giorni")
+            sec(f"Beta vs {BENCHMARK} · 60-day rolling")
             aligned = pd.concat({"pf": c["pf_daily"], "bench": c["bench_daily"]}, axis=1).dropna()
             rolling_beta = (
                 aligned["pf"].rolling(60).cov(aligned["bench"])
@@ -1253,25 +1248,25 @@ elif view == "Analisi":
                 simple_line(rolling_beta, color=PALETTE[0], y_format=".1f"),
                 width="stretch",
             )
-            st.caption("Sopra 1 amplifichi il mercato, sotto 1 lo attenui.")
+            st.caption("Above 1 you amplify the market, below 1 you dampen it.")
 
     col_contrib, col_alloc = st.columns([1.3, 1], gap="large")
     with col_contrib:
-        sec("Chi ha fatto il risultato (in euro)")
+        sec("Who drove the result (in euros)")
         cum_by_ticker = per_ticker_cumulative_return(c["prices"])
         contributions_eur = pd.Series(
             {t: amounts[t] * float(cum_by_ticker.get(t, 0.0)) for t in amounts}
         )
         st.altair_chart(contribution_bars(contributions_eur), width="stretch")
         st.caption(
-            "Importo investito × rendimento del titolo (pesi costanti): "
-            "la somma ricostruisce circa il risultato totale."
+            "Invested amount × stock return (constant weights): "
+            "the sum roughly reconstructs the total result."
         )
     with col_alloc:
-        sec("Distribuzione")
+        sec("Distribution")
         st.altair_chart(allocation_bars(amounts), width="stretch")
 
-    sec("100 € su ciascun titolo")
+    sec("€100 in each stock")
     normalized = c["prices"] / c["prices"].iloc[0] * 100
     st.line_chart(normalized, color=PALETTE[: len(normalized.columns)], height=300)
 
@@ -1280,7 +1275,7 @@ elif view == "Visual":
     c = computed
     col_ai, col_radar = st.columns([1.3, 1], gap="large")
     with col_ai:
-        sec("Analisi automatica")
+        sec("Automatic analysis")
         insights = generate_insights(
             period,
             c["cum_return"],
@@ -1292,15 +1287,15 @@ elif view == "Visual":
         )
         for insight in insights:
             st.markdown(insight)
-        st.caption("Generata con regole deterministiche sui tuoi dati, non da un modello.")
+        st.caption("Generated by deterministic rules on your data, not by a model.")
     with col_radar:
-        sec("Radar di rischio")
+        sec("Risk radar")
         st.altair_chart(radar_chart(c["radar"]), width="stretch")
 
     col_galaxy, col_timeline = st.columns([1.15, 1], gap="large")
     with col_galaxy:
-        sec("La tua galassia")
-        st.caption("Dimensione = peso · colore = rendimento · vicinanza = correlazione")
+        sec("Your galaxy")
+        st.caption("Size = weight · color = return · proximity = correlation")
         if len(amounts) >= 2:
             corr = correlation_matrix(c["returns"], min_periods=c["min_periods"])
             weights_s = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
@@ -1309,87 +1304,87 @@ elif view == "Visual":
                 width="stretch",
             )
         else:
-            st.info("Servono almeno 2 titoli.")
+            st.info("At least 2 stocks are needed.")
     with col_timeline:
-        sec("Mese per mese")
+        sec("Month by month")
         monthly = monthly_returns(c["pf_daily"])
         if len(monthly) >= 2:
             st.altair_chart(monthly_bars(monthly), width="stretch")
             best, worst = monthly.idxmax(), monthly.idxmin()
             st.caption(
-                f"Mese migliore: **{best.strftime('%b %Y')}** ({monthly.max():+.1%}) "
-                f"· peggiore: **{worst.strftime('%b %Y')}** ({monthly.min():+.1%})"
+                f"Best month: **{best.strftime('%b %Y')}** ({monthly.max():+.1%}) "
+                f"· worst: **{worst.strftime('%b %Y')}** ({monthly.min():+.1%})"
             )
         else:
-            st.info("Periodo troppo corto per la vista mensile.")
+            st.info("Period too short for the monthly view.")
 
     if len(amounts) >= 2:
         col_wr, col_wr_txt = st.columns([1.5, 1], gap="large")
         with col_wr:
-            sec("Peso investito vs contributo al rischio")
+            sec("Invested weight vs risk contribution")
             weights_series_ui = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
             st.altair_chart(
                 weight_vs_risk_bars(weights_series_ui, c["contributions"]),
                 width="stretch",
             )
         with col_wr_txt:
-            sec("Come leggerlo")
+            sec("How to read it")
             top_c = c["contributions"].index[0]
             gap = float(c["contributions"].iloc[0] - weights_series_ui.get(top_c, 0))
             st.markdown(
-                f"Quando la barra ambra supera quella blu, il titolo pesa sul "
-                f"rischio **più di quanto pesi sul capitale**. "
-                f"Oggi **{top_c}** genera il "
-                f"**{c['contributions'].iloc[0]:.0%}** del rischio "
-                f"({gap:+.0%} rispetto al suo peso)."
+                f"When the amber bar exceeds the blue one, the stock weighs on "
+                f"risk **more than it weighs on capital**. "
+                f"Today **{top_c}** drives "
+                f"**{c['contributions'].iloc[0]:.0%}** of risk "
+                f"({gap:+.0%} versus its weight)."
             )
             st.caption(
-                "Contributo marginale alla varianza di portafoglio: tiene conto "
-                "di volatilità e correlazioni, non solo dell'importo investito."
+                "Marginal contribution to portfolio variance: it accounts for "
+                "volatility and correlations, not just the invested amount."
             )
 
-    sec('Simulatore "What if?"')
+    sec('"What if?" simulator')
     col_sim_in, col_sim_out = st.columns([1, 2], gap="large")
     with col_sim_in:
-        sim_ticker = st.selectbox("Se questo titolo...", sorted(amounts))
-        shock_pct = st.slider("...si muovesse di", -50, 50, -20, step=5, format="%d%%")
+        sim_ticker = st.selectbox("If this stock...", sorted(amounts))
+        shock_pct = st.slider("...moved by", -50, 50, -20, step=5, format="%d%%")
     with col_sim_out:
         impact = simulate_shock(c["returns"], portfolio, sim_ticker, shock_pct / 100)
         s1, s2, s3 = st.columns(3)
-        s1.metric("Portafoglio oggi", eur(total))
+        s1.metric("Portfolio today", eur(total))
         s2.metric(
-            "Dopo lo shock (con contagio)",
+            "After the shock (with contagion)",
             eur(total * (1 + impact["total"])),
             delta=f"{impact['total']:+.1%}",
         )
         s3.metric(
-            "Solo effetto diretto",
+            "Direct effect only",
             eur(total * (1 + impact["direct"])),
             delta=f"{impact['direct']:+.1%}",
             delta_color="off",
         )
         st.caption(
-            "Il contagio stima come gli altri titoli reagirebbero, "
-            "usando i loro beta storici verso il titolo colpito."
+            "Contagion estimates how the other holdings would react, "
+            "using their historical betas toward the shocked stock."
         )
 
 # ================================================================ OTTIMIZZA
 elif view == "Ottimizza":
     c = computed
     if len(amounts) < 2:
-        st.info("Servono almeno 2 titoli per l'ottimizzazione.")
+        st.info("At least 2 stocks are needed for optimization.")
     else:
-        sec("Frontiera efficiente di Markowitz")
+        sec("Markowitz efficient frontier")
         st.caption(
-            "Per ogni livello di rischio, il miglior rendimento raggiungibile "
-            "combinando i tuoi titoli (rendimenti attesi = medie aritmetiche "
-            "storiche, convenzione di Markowitz)."
+            "For each level of risk, the best return achievable by combining "
+            "your holdings (expected returns = historical arithmetic means, "
+            "Markowitz convention)."
         )
         returns = c["returns"]
         candidates = {
-            "Attuale": pd.Series({p["ticker"]: p["weight"] for p in portfolio}),
-            "Minimo rischio": minimum_variance_weights(returns),
-            "Massimo Sharpe": max_sharpe_weights(returns, risk_free_rate=risk_free),
+            "Current": pd.Series({p["ticker"]: p["weight"] for p in portfolio}),
+            "Minimum risk": minimum_variance_weights(returns),
+            "Maximum Sharpe": max_sharpe_weights(returns, risk_free_rate=risk_free),
         }
 
         def pf_stats(weights: pd.Series) -> tuple[float, float]:
@@ -1412,7 +1407,7 @@ elif view == "Ottimizza":
                 width="stretch",
             )
         with col_compare:
-            st.markdown("**Confronto**")
+            st.markdown("**Comparison**")
             compare = points.set_index("nome")
             compare["sharpe"] = (compare["annual_return"] - risk_free) / compare[
                 "annual_volatility"
@@ -1420,14 +1415,14 @@ elif view == "Ottimizza":
             st.dataframe(
                 compare,
                 column_config={
-                    "annual_return": st.column_config.NumberColumn("Rendimento", format="percent"),
+                    "annual_return": st.column_config.NumberColumn("Return", format="percent"),
                     "annual_volatility": st.column_config.NumberColumn(
-                        "Volatilità", format="percent"
+                        "Volatility", format="percent"
                     ),
                     "sharpe": st.column_config.NumberColumn("Sharpe", format="%.2f"),
                 },
             )
-            st.markdown("**Pesi suggeriti**")
+            st.markdown("**Suggested weights**")
             st.dataframe(
                 pd.DataFrame(candidates),
                 column_config={
@@ -1437,25 +1432,24 @@ elif view == "Ottimizza":
 
 # ================================================================ CORRELAZIONI
 elif view == "Correlazioni":
-    sec("Quali titoli si muovono insieme")
+    sec("Which stocks move together")
     st.caption(
-        "Correlazione dei rendimenti giornalieri: **+1** = identici, "
-        "**0** = indipendenti, **-1** = opposti."
+        "Correlation of daily returns: **+1** = identical, **0** = independent, **-1** = opposite."
     )
     all_prices = market_db_required("corr")
     if all_prices is None:
-        st.info("Serve il database Nasdaq-100: esegui `python download_nasdaq100.py`.")
+        st.info("The Nasdaq-100 database is required: run `python download_nasdaq100.py`.")
     else:
         col_sel, col_per = st.columns([2, 1])
         with col_sel:
             corr_ticker = st.selectbox(
-                "Titolo di riferimento",
+                "Reference stock",
                 sorted(all_prices.columns),
                 index=None,
-                placeholder="Scegli un titolo del Nasdaq-100...",
+                placeholder="Choose a Nasdaq-100 stock...",
             )
         with col_per:
-            corr_period = st.selectbox("Periodo", list(PERIOD_DAYS), index=2, key="corr_period")
+            corr_period = st.selectbox("Period", list(PERIOD_DAYS), index=2, key="corr_period")
         if corr_ticker:
             cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[corr_period])
             window_returns = compute_daily_returns(all_prices.loc[all_prices.index >= cutoff])
@@ -1464,14 +1458,14 @@ elif view == "Correlazioni":
 
             col_top, col_bottom = st.columns(2, gap="large")
             with col_top:
-                st.markdown(f"**Si muovono INSIEME a {corr_ticker}**")
+                st.markdown(f"**Move TOGETHER with {corr_ticker}**")
                 st.altair_chart(correlation_bars(corr.head(10)), width="stretch")
             with col_bottom:
-                st.markdown(f"**INDIPENDENTI o OPPOSTI a {corr_ticker}**")
+                st.markdown(f"**INDEPENDENT or OPPOSITE to {corr_ticker}**")
                 st.altair_chart(correlation_bars(corr.tail(10).sort_values()), width="stretch")
 
     if computed is not None and len(amounts) >= 2:
-        sec("Diversificazione del tuo portafoglio")
+        sec("Your portfolio diversification")
         pf_corr = correlation_matrix(computed["returns"], min_periods=computed["min_periods"])
         avg_corr = computed["avg_corr"]
         pairs = pf_corr.where(
@@ -1484,7 +1478,7 @@ elif view == "Correlazioni":
 
         col_metric, col_heat = st.columns([1, 2], gap="large")
         with col_metric:
-            st.metric("Correlazione media", f"{avg_corr:.2f}")
+            st.metric("Average correlation", f"{avg_corr:.2f}")
             if avg_corr > 0.6:
                 st.warning(interpret_correlation(avg_corr))
             elif avg_corr > 0.3:
@@ -1494,16 +1488,16 @@ elif view == "Correlazioni":
             if len(pairs):
                 tightest = pairs.idxmax()
                 st.caption(
-                    f"Coppia più legata: **{tightest[0]} – {tightest[1]}** ({pairs.max():+.2f})"
+                    f"Tightest pair: **{tightest[0]} – {tightest[1]}** ({pairs.max():+.2f})"
                 )
         with col_heat:
             st.altair_chart(correlation_heatmap(pf_corr), width="stretch")
 
 # ================================================================ FONDAMENTALI
 elif view == "Fondamentali":
-    sec("Ricavi, margini, debito, crescita e multipli")
+    sec("Revenue, margins, debt, growth and multiples")
     default_tickers = " ".join(sorted(amounts)) if amounts else "AAPL MSFT NVDA"
-    tickers_text = st.text_input("Ticker separati da spazio", default_tickers)
+    tickers_text = st.text_input("Tickers separated by spaces", default_tickers)
     fund_tickers = tuple(t.upper() for t in tickers_text.split())
 
     if fund_tickers:
@@ -1512,29 +1506,29 @@ elif view == "Fondamentali":
             st.dataframe(
                 data,
                 column_config={
-                    "name": st.column_config.TextColumn("Nome"),
-                    "sector": st.column_config.TextColumn("Settore"),
+                    "name": st.column_config.TextColumn("Name"),
+                    "sector": st.column_config.TextColumn("Sector"),
                     "dividend_yield": st.column_config.NumberColumn("Div. yield", format="%.2f%%"),
-                    "revenue": st.column_config.NumberColumn("Ricavi (TTM)", format="compact"),
+                    "revenue": st.column_config.NumberColumn("Revenue (TTM)", format="compact"),
                     "net_income": st.column_config.NumberColumn(
-                        "Utile netto (TTM)", format="compact"
+                        "Net income (TTM)", format="compact"
                     ),
                     "gross_margin": st.column_config.NumberColumn(
-                        "Margine lordo", format="percent"
+                        "Gross margin", format="percent"
                     ),
                     "operating_margin": st.column_config.NumberColumn(
-                        "Margine operativo", format="percent"
+                        "Operating margin", format="percent"
                     ),
-                    "net_margin": st.column_config.NumberColumn("Margine netto", format="percent"),
-                    "total_debt": st.column_config.NumberColumn("Debito", format="compact"),
+                    "net_margin": st.column_config.NumberColumn("Net margin", format="percent"),
+                    "total_debt": st.column_config.NumberColumn("Debt", format="compact"),
                     "debt_to_equity": st.column_config.NumberColumn(
                         "Debito/Equity", format="%.1f"
                     ),
                     "revenue_growth": st.column_config.NumberColumn(
-                        "Crescita ricavi", format="percent"
+                        "Revenue growth", format="percent"
                     ),
                     "earnings_growth": st.column_config.NumberColumn(
-                        "Crescita utili", format="percent"
+                        "Earnings growth", format="percent"
                     ),
                     "pe": st.column_config.NumberColumn("P/E", format="%.1f"),
                     "forward_pe": st.column_config.NumberColumn("P/E fwd", format="%.1f"),
@@ -1543,8 +1537,8 @@ elif view == "Fondamentali":
                 },
             )
 
-            sec("Scheda titolo")
-            card_ticker = st.selectbox("Titolo", list(data.index))
+            sec("Stock card")
+            card_ticker = st.selectbox("Stock", list(data.index))
             row = data.loc[card_ticker]
             card_prices = cached_prices((card_ticker,), "1y")
             card_vol = float(
@@ -1561,23 +1555,23 @@ elif view == "Fondamentali":
                 )
             with col_num:
                 st.metric(
-                    "Punteggio complessivo",
+                    "Overall score",
                     f"{overall:.0f}/100",
-                    help="Media pesata: Growth 35%, Quality 35%, Valuation 20%, "
-                    "basso rischio 10%. Euristica, non un consiglio d'investimento.",
+                    help="Weighted average: Growth 35%, Quality 35%, Valuation 20%, "
+                    "low risk 10%. Heuristic, not investment advice.",
                 )
-                st.caption(f"Volatilità annua: {card_vol:.0%}")
+                st.caption(f"Annual volatility: {card_vol:.0%}")
         except ValueError as exc:
             st.error(f"{exc}")
 
 # ================================================================ MERCATO
 elif view == "Mercato":
-    sec("I 103 componenti del Nasdaq-100 a confronto")
+    sec("The 103 Nasdaq-100 constituents compared")
     all_prices = market_db_required("mercato")
     if all_prices is None:
-        st.info("Database non ancora scaricato: esegui `python download_nasdaq100.py`.")
+        st.info("Database not downloaded yet: run `python download_nasdaq100.py`.")
     else:
-        ndx_period = st.selectbox("Periodo di confronto", list(PERIOD_DAYS), index=2)
+        ndx_period = st.selectbox("Comparison period", list(PERIOD_DAYS), index=2)
         cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[ndx_period])
         window = all_prices.loc[all_prices.index >= cutoff]
 
@@ -1594,44 +1588,44 @@ elif view == "Mercato":
 
         col_scatter, col_table = st.columns([3, 2], gap="large")
         with col_scatter:
-            st.markdown(f"**Rischio vs rendimento ({ndx_period})** — ogni punto è un titolo")
+            st.markdown(f"**Risk vs return ({ndx_period})** — each dot is a stock")
             st.scatter_chart(
                 stats,
                 x="annual_volatility",
                 y="period_return",
-                x_label="Volatilità annualizzata",
-                y_label=f"Rendimento cumulato ({ndx_period})",
+                x_label="Annualized volatility",
+                y_label=f"Cumulative return ({ndx_period})",
                 color=PALETTE[0],
                 height=420,
             )
         with col_table:
-            st.markdown("**Classifica completa**")
+            st.markdown("**Full ranking**")
             st.dataframe(
                 stats.sort_values("period_return", ascending=False),
                 column_config={
                     "ticker": st.column_config.TextColumn("Ticker"),
                     "period_return": st.column_config.NumberColumn(
-                        f"Rendimento ({ndx_period})", format="percent"
+                        f"Return ({ndx_period})", format="percent"
                     ),
                     "annual_volatility": st.column_config.NumberColumn(
-                        "Volatilità annua", format="percent"
+                        "Annual volatility", format="percent"
                     ),
                 },
                 hide_index=True,
                 height=420,
             )
         st.caption(
-            "Rendimento cumulato nel periodo (prezzi in USD). "
-            "Aggiorna i dati con `python download_nasdaq100.py`."
+            "Cumulative return over the period (USD prices). "
+            "Refresh the data with `python download_nasdaq100.py`."
         )
 
-        sec("PI Score — ranking multifattore")
+        sec("PI Score — multifactor ranking")
         st.caption(
-            "Punteggio composito 0-100: **50% momentum 12-1 mesi** (Jegadeesh & "
-            "Titman 1993), **30% bassa volatilità** (Baker et al. 2011), "
-            "**20% trend** (distanza dalla media a 200 giorni). Regolarità "
-            "storiche documentate in letteratura, non garanzie — e non un "
-            "consiglio di investimento."
+            "Composite score 0-100: **50% 12-1 month momentum** (Jegadeesh & "
+            "Titman 1993), **30% low volatility** (Baker et al. 2011), "
+            "**20% trend** (distance from the 200-day average). Historical "
+            "regularities documented in the literature, not guarantees — and "
+            "not investment advice."
         )
         pi_window = compute_daily_returns(all_prices).tail(TRADING_DAYS)
         pi_ranking = composite_scores(pi_window).dropna().head(15)
@@ -1643,7 +1637,7 @@ elif view == "Mercato":
                     "Momentum", min_value=0, max_value=100, format="%.0f"
                 ),
                 "low_vol": st.column_config.ProgressColumn(
-                    "Bassa volatilità", min_value=0, max_value=100, format="%.0f"
+                    "Low volatility", min_value=0, max_value=100, format="%.0f"
                 ),
                 "trend": st.column_config.ProgressColumn(
                     "Trend", min_value=0, max_value=100, format="%.0f"
@@ -1656,54 +1650,54 @@ elif view == "Mercato":
 
 # ================================================================ BACKTEST
 elif view == "Backtest":
-    sec("E se avessi seguito una strategia?")
+    sec("What if you had followed a strategy?")
     st.caption(
-        "Ribilanciamento trimestrale, pesi calcolati solo sui dati precedenti "
-        "(nessuno sguardo al futuro). Limiti: niente costi di transazione, prezzi "
-        "in USD, universo = componenti ATTUALI del Nasdaq-100 (survivorship bias)."
+        "Quarterly rebalancing, weights computed only on prior data "
+        "(no look-ahead). Limits: no transaction costs, USD prices, "
+        "universe = CURRENT Nasdaq-100 constituents (survivorship bias)."
     )
     all_prices = market_db_required("backtest")
     if all_prices is None:
-        st.info("Serve il database Nasdaq-100: esegui `python download_nasdaq100.py`.")
+        st.info("The Nasdaq-100 database is required: run `python download_nasdaq100.py`.")
     else:
         options = [
-            "Equipesato Nasdaq-100",
-            "Momentum (top 10 a 6 mesi)",
+            "Equal-weight Nasdaq-100",
+            "Momentum (top 10 at 6 months)",
             "PI Multifactor (top 10)",
         ]
         if len(amounts) >= 2:
             options += [
-                "Il tuo portafoglio (buy & hold)",
-                "Massimo Sharpe sui tuoi titoli",
-                "Minima varianza sui tuoi titoli",
+                "Your portfolio (buy & hold)",
+                "Maximum Sharpe on your holdings",
+                "Minimum variance on your holdings",
             ]
-        chosen = st.multiselect("Strategie da confrontare", options, default=options[:3])
+        chosen = st.multiselect("Strategies to compare", options, default=options[:3])
         col_bt1, col_bt2 = st.columns(2)
         with col_bt1:
-            bt_years = st.select_slider("Orizzonte", ["1 anno", "2 anni", "5 anni"], "5 anni")
+            bt_years = st.select_slider("Horizon", ["1 year", "2 years", "5 years"], "5 years")
         with col_bt2:
             cost_bps = st.slider(
-                "Costi di transazione (bps per ribilanciamento)",
+                "Transaction costs (bps per rebalance)",
                 0,
                 50,
                 20,
                 step=5,
-                help="20 bps = 0.20% sul controvalore scambiato: realistico per un "
-                "retail su titoli liquidi. Il buy & hold paga solo l'acquisto iniziale.",
+                help="20 bps = 0.20% of traded value: realistic for retail on liquid "
+                "stocks. Buy & hold pays only the initial purchase.",
             )
         cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[bt_years])
         window = all_prices.loc[all_prices.index >= cutoff]
 
         if chosen:
-            with st.spinner("Eseguo i backtest..."):
+            with st.spinner("Running the backtests..."):
                 curves = {}
                 try:
-                    if "Equipesato Nasdaq-100" in chosen:
-                        curves["Equipesato Nasdaq-100"] = run_backtest(
+                    if "Equal-weight Nasdaq-100" in chosen:
+                        curves["Equal-weight Nasdaq-100"] = run_backtest(
                             window, equal_weight, cost_bps=cost_bps
                         )
-                    if "Momentum (top 10 a 6 mesi)" in chosen:
-                        curves["Momentum (top 10 a 6 mesi)"] = run_backtest(
+                    if "Momentum (top 10 at 6 months)" in chosen:
+                        curves["Momentum (top 10 at 6 months)"] = run_backtest(
                             window,
                             lambda w: momentum_top(w, top_n=10),
                             cost_bps=cost_bps,
@@ -1722,20 +1716,20 @@ elif view == "Backtest":
                             if len(my_tickers) == len(amounts)
                             else cached_prices(
                                 tuple(sorted(amounts)),
-                                {"1 anno": "1y", "2 anni": "2y", "5 anni": "5y"}[bt_years],
+                                {"1 year": "1y", "2 years": "2y", "5 years": "5y"}[bt_years],
                             )
                         )
                         weights_now = pd.Series(amounts) / sum(amounts.values())
-                        if "Il tuo portafoglio (buy & hold)" in chosen:
-                            curves["Il tuo portafoglio (buy & hold)"] = buy_and_hold(
+                        if "Your portfolio (buy & hold)" in chosen:
+                            curves["Your portfolio (buy & hold)"] = buy_and_hold(
                                 my_prices, weights_now
                             )
-                        if "Massimo Sharpe sui tuoi titoli" in chosen:
-                            curves["Massimo Sharpe sui tuoi titoli"] = run_backtest(
+                        if "Maximum Sharpe on your holdings" in chosen:
+                            curves["Maximum Sharpe on your holdings"] = run_backtest(
                                 my_prices, max_sharpe, cost_bps=cost_bps
                             )
-                        if "Minima varianza sui tuoi titoli" in chosen:
-                            curves["Minima varianza sui tuoi titoli"] = run_backtest(
+                        if "Minimum variance on your holdings" in chosen:
+                            curves["Minimum variance on your holdings"] = run_backtest(
                                 my_prices, min_variance, cost_bps=cost_bps
                             )
                 except ValueError as exc:
@@ -1751,9 +1745,9 @@ elif view == "Backtest":
                 strategy_stats = pd.DataFrame(
                     [
                         {
-                            "Strategia": name,
-                            "Rendimento": curve.iloc[-1] / 100 - 1,
-                            "Volatilità annua": curve.pct_change().std() * TRADING_DAYS**0.5,
+                            "Strategy": name,
+                            "Return": curve.iloc[-1] / 100 - 1,
+                            "Annual volatility": curve.pct_change().std() * TRADING_DAYS**0.5,
                             "Max drawdown": float((curve / curve.cummax() - 1).min()),
                         }
                         for name, curve in curves.items()
@@ -1762,25 +1756,25 @@ elif view == "Backtest":
                 st.dataframe(
                     strategy_stats,
                     column_config={
-                        "Rendimento": st.column_config.NumberColumn(format="percent"),
-                        "Volatilità annua": st.column_config.NumberColumn(format="percent"),
+                        "Return": st.column_config.NumberColumn(format="percent"),
+                        "Annual volatility": st.column_config.NumberColumn(format="percent"),
                         "Max drawdown": st.column_config.NumberColumn(format="percent"),
                     },
                     hide_index=True,
                     width="stretch",
                 )
                 st.caption(
-                    f"Curve a base 100, costi {cost_bps} bps per ribilanciamento. "
-                    "Il rendimento non è tutto: guarda volatilità e drawdown."
+                    f"Base-100 curves, {cost_bps} bps cost per rebalance. "
+                    "Return isn't everything: look at volatility and drawdown."
                 )
 
 # ================================================================ CLIENTI
-elif view == "Clienti":
-    sec("Vista consulente — tutti i portafogli salvati")
+elif view == "Clients":
+    sec("Advisor view — all saved portfolios")
     st.caption(
-        "Ogni portafoglio salvato è un cliente: semaforo, valore, Health Score "
-        "e il problema più urgente, in un colpo d'occhio. Per aprirne uno: "
-        "barra laterale → Portafogli salvati → Carica."
+        "Each saved portfolio is a client: status light, value, Health Score "
+        "and the most urgent problem at a glance. To open one: "
+        "sidebar → Saved portfolios → Load."
     )
 
     @st.cache_data(ttl=900, show_spinner=False)
@@ -1812,21 +1806,21 @@ elif view == "Clienti":
             "vol": vol_c,
             "problem": problems_c[0].replace("**", "")
             if problems_c
-            else "Nessun problema rilevato dalle regole monitorate.",
+            else "No problems flagged by the monitored rules.",
         }
 
     book = list_portfolios()
     if not book:
         empty_state(
-            "Nessun cliente nel libro",
-            "Salva almeno un portafoglio (barra laterale → Portafogli salvati) "
-            "per vederlo comparire qui con semaforo e problema principale.",
+            "No clients in the book",
+            "Save at least one portfolio (sidebar → Saved portfolios) "
+            "to see it appear here with status light and main problem.",
             icon="folder",
         )
     else:
         rows_html = ""
         failures = []
-        with st.spinner("Analizzo il libro clienti..."):
+        with st.spinner("Analyzing the client book..."):
             for client_name in sorted(book):
                 try:
                     a = quick_client_analysis(
@@ -1844,11 +1838,11 @@ elif view == "Clienti":
                        background:{color};flex-shrink:0"></div>
                   <div style="min-width:150px">
                     <div style="font-weight:700">{client_name}</div>
-                    <div class="kpi-sub">{eur(a["invested"])} investiti ·
+                    <div class="kpi-sub">{eur(a["invested"])} invested ·
                          vol. {a["vol"]:.0%}</div>
                   </div>
                   <div style="min-width:120px">
-                    <div class="kpi-sub">VALORE</div>
+                    <div class="kpi-sub">VALUE</div>
                     <div style="font-weight:700;font-variant-numeric:tabular-nums">
                          {eur(a["value"])}
                          <span class="chg {chg_css}" style="font-size:.8rem">
@@ -1862,11 +1856,11 @@ elif view == "Clienti":
                 </div>"""
         st.markdown(rows_html, unsafe_allow_html=True)
         for failure in failures:
-            st.warning(f"Analisi non riuscita — {failure}")
+            st.warning(f"Analysis failed — {failure}")
         st.caption(
-            f"{len(book)} clienti · orizzonte {period} · "
-            + ("valori in EUR, cambio incluso" if in_eur else "valute originali")
-            + " · analisi aggiornate ogni 15 minuti."
+            f"{len(book)} clients · horizon {period} · "
+            + ("EUR values, currency included" if in_eur else "original currencies")
+            + " · analyses refreshed every 15 minutes."
         )
 
 # ============================================================ COMPLIANCE FOOTER

@@ -33,9 +33,9 @@ def test_fetch_price_history_missing_ticker_raises(monkeypatch):
 def test_fetch_price_history_all_providers_failed(monkeypatch):
     class FailingChain:
         def fetch(self, tickers, period):
-            raise ValueError("Nessun provider dati ha risposto")
+            raise ValueError("No data provider responded")
 
     monkeypatch.setattr(yahoo_client, "build_default_chain", lambda: FailingChain())
 
-    with pytest.raises(ValueError, match="Nessun provider"):
+    with pytest.raises(ValueError, match="No data provider"):
         yahoo_client.fetch_price_history(["AAPL"], period="5d")

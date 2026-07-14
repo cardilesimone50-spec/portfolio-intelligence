@@ -104,7 +104,7 @@ def known_tickers(db_path: Path = DB_PATH) -> list[str]:
 def save_portfolio(name: str, positions: dict[str, float], db_path: Path = DB_PATH) -> None:
     """Salva (o sovrascrive) un portafoglio con nome: {ticker: importo}."""
     if not name.strip():
-        raise ValueError("Il nome del portafoglio non può essere vuoto")
+        raise ValueError("The portfolio name cannot be empty")
     with _connect(db_path) as conn:
         conn.execute(
             "INSERT OR REPLACE INTO portfolios (name, positions, updated) VALUES (?, ?, ?)",

@@ -28,7 +28,7 @@ def correlations_with(returns: pd.DataFrame, ticker: str, min_periods: int = 40)
     Esclude il titolo stesso e le coppie senza abbastanza storico in comune.
     """
     if ticker not in returns.columns:
-        raise ValueError(f"Ticker '{ticker}' non presente nei dati")
+        raise ValueError(f"Ticker '{ticker}' not present in the data")
     corr = correlation_matrix(returns, min_periods=min_periods)[ticker]
     return corr.drop(index=ticker).dropna().sort_values(ascending=False)
 

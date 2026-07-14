@@ -21,7 +21,7 @@ PORTFOLIO = [
 def test_alert_on_risk_concentration():
     contrib = risk_contributions(RETURNS, PORTFOLIO)
     alerts = evaluate_alerts(RETURNS, PORTFOLIO, contrib, 0.2, -0.10)
-    assert any("WILD" in a and "rischio totale" in a for a in alerts)
+    assert any("WILD" in a and "total risk" in a for a in alerts)
 
 
 def test_no_alerts_when_all_quiet():
@@ -41,12 +41,12 @@ def test_alert_on_bad_last_session():
     returns.iloc[-1] = [-0.01, -0.08]  # giornata pesante trainata da WILD
     contrib = risk_contributions(returns, PORTFOLIO)
     alerts = evaluate_alerts(returns, PORTFOLIO, contrib, 0.2, -0.10)
-    assert any("Ultima seduta" in a and "WILD" in a for a in alerts)
+    assert any("Last session" in a and "WILD" in a for a in alerts)
 
 
 def test_generate_suggestions_flags_concentration():
     contrib = pd.Series({"WILD": 0.9, "CALM": 0.1})
-    radar = {"Concentrazione": 80.0, "Correlazione": 20.0, "Volatilità": 50.0}
+    radar = {"Concentration": 80.0, "Correlation": 20.0, "Volatility": 50.0}
     suggestions = generate_suggestions({"Value": 50}, radar, contrib)
     assert any("WILD" in s for s in suggestions)
 

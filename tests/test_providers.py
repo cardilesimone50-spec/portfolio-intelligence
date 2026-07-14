@@ -52,7 +52,7 @@ def test_chain_skips_empty_results():
 
 def test_chain_raises_when_all_fail():
     chain = ProviderChain([_StubProvider("A", fail=True), _StubProvider("B", fail=True)])
-    with pytest.raises(ValueError, match="Nessun provider"):
+    with pytest.raises(ValueError, match="No data provider"):
         chain.fetch(["AAPL"], "1y")
 
 

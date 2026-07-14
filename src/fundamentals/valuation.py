@@ -49,6 +49,6 @@ def fetch_fundamentals(tickers: list[str]) -> pd.DataFrame:
             rows[ticker] = {column: info.get(field) for field, column in _FIELDS.items()}
 
     if not rows:
-        raise ValueError(f"Nessun dato fondamentale trovato per: {', '.join(tickers)}")
+        raise ValueError(f"No fundamental data found for: {', '.join(tickers)}")
 
     return pd.DataFrame.from_dict(rows, orient="index")

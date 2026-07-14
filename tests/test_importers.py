@@ -46,10 +46,10 @@ def test_parse_quantity_times_price_fallback():
 
 
 def test_unrecognized_columns_raise():
-    with pytest.raises(ValueError, match="Colonne non riconosciute"):
+    with pytest.raises(ValueError, match="Unrecognized columns"):
         parse_positions(b"a,b\n1,2\n", "x.csv")
 
 
 def test_unsupported_extension_raises():
-    with pytest.raises(ValueError, match="Formato non supportato"):
+    with pytest.raises(ValueError, match="Unsupported format"):
         parse_positions(b"", "portafoglio.pdf")

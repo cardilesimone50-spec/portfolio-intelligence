@@ -26,7 +26,7 @@ def test_save_list_delete_portfolio(tmp_path):
 
 
 def test_empty_portfolio_name_raises(tmp_path):
-    with pytest.raises(ValueError, match="vuoto"):
+    with pytest.raises(ValueError, match="empty"):
         save_portfolio("  ", {"AAPL": 100.0}, db_path=tmp_path / "test.db")
 
 

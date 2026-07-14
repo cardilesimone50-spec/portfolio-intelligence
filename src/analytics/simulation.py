@@ -16,7 +16,7 @@ def simulate_shock(
     """
     weights = weights_series(portfolio)
     if ticker not in weights.index or ticker not in returns.columns:
-        raise ValueError(f"Ticker '{ticker}' non presente nel portafoglio")
+        raise ValueError(f"Ticker '{ticker}' not present in the portfolio")
 
     direct = float(weights[ticker] * shock)
 

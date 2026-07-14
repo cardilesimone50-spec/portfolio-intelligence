@@ -30,7 +30,7 @@ def fetch_price_history(tickers: list[str], period: str = "1y") -> pd.DataFrame:
         ticker for ticker in tickers if ticker not in data.columns or data[ticker].isna().all()
     ]
     if missing:
-        raise ValueError(f"Nessun dato trovato per i ticker: {', '.join(missing)}")
+        raise ValueError(f"No data found for tickers: {', '.join(missing)}")
 
     return data
 
@@ -46,9 +46,7 @@ def get_nasdaq100_tickers() -> list[str]:
         response = requests.get(_NASDAQ100_URL, headers=_HEADERS, timeout=10)
         response.raise_for_status()
     except requests.exceptions.RequestException as exc:
-        raise ValueError(
-            f"Errore di rete durante il download della lista Nasdaq-100: {exc}"
-        ) from exc
+        raise ValueError(f"Network error while downloading the Nasdaq-100 list: {exc}") from exc
 
     tables = pd.read_html(io.StringIO(response.text))
     components = tables[0]

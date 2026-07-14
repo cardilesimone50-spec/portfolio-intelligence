@@ -34,5 +34,5 @@ def test_get_nasdaq100_tickers_network_error_raises(monkeypatch):
 
     monkeypatch.setattr("src.data.yahoo_client.requests.get", fake_get)
 
-    with pytest.raises(ValueError, match="rete"):
+    with pytest.raises(ValueError, match="Network error"):
         get_nasdaq100_tickers()

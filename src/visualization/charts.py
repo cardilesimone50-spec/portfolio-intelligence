@@ -40,7 +40,7 @@ def correlation_bars(series: pd.Series) -> alt.Chart:
     df = series.rename("corr").rename_axis("ticker").reset_index()
     base = alt.Chart(df).encode(
         y=alt.Y("ticker:N", sort=None, title=None),
-        x=alt.X("corr:Q", title="Correlazione", scale=alt.Scale(domain=[-1, 1])),
+        x=alt.X("corr:Q", title="Correlation", scale=alt.Scale(domain=[-1, 1])),
     )
     bars = base.mark_bar(cornerRadiusEnd=4, height=18).encode(
         color=alt.Color(
@@ -93,12 +93,12 @@ def galaxy_chart(
             color=alt.Color(
                 "rendimento:Q",
                 scale=alt.Scale(domain=[-max_abs, 0, max_abs], range=RETURNS_DIVERGING),
-                legend=alt.Legend(title="Rendimento", format="+.0%", orient="bottom"),
+                legend=alt.Legend(title="Return", format="+.0%", orient="bottom"),
             ),
             tooltip=[
-                alt.Tooltip("ticker:N", title="Titolo"),
-                alt.Tooltip("peso:Q", title="Peso", format=".0%"),
-                alt.Tooltip("rendimento:Q", title="Rendimento", format="+.1%"),
+                alt.Tooltip("ticker:N", title="Ticker"),
+                alt.Tooltip("peso:Q", title="Weight", format=".0%"),
+                alt.Tooltip("rendimento:Q", title="Return", format="+.1%"),
             ],
         )
     )
@@ -215,8 +215,8 @@ def equity_area(values: pd.Series, baseline: float) -> alt.Chart:
                 axis=alt.Axis(format="~s"),
             ),
             tooltip=[
-                alt.Tooltip("data:T", title="Data"),
-                alt.Tooltip("valore:Q", title="Valore", format=",.0f"),
+                alt.Tooltip("data:T", title="Date"),
+                alt.Tooltip("valore:Q", title="Value", format=",.0f"),
             ],
         )
     )
@@ -255,7 +255,7 @@ def benchmark_overlay(
                 legend=alt.Legend(title=None, orient="top-left"),
             ),
             tooltip=[
-                alt.Tooltip("data:T", title="Data"),
+                alt.Tooltip("data:T", title="Date"),
                 alt.Tooltip("serie:N", title="Serie"),
                 alt.Tooltip("valore:Q", title="Base 100", format=".1f"),
             ],
@@ -278,8 +278,8 @@ def underwater_chart(pf_value: pd.Series) -> alt.Chart:
                 "dd:Q", title=None, axis=alt.Axis(format="%"), scale=alt.Scale(domain=[floor, 0])
             ),
             tooltip=[
-                alt.Tooltip("data:T", title="Data"),
-                alt.Tooltip("dd:Q", title="Dal picco", format=".1%"),
+                alt.Tooltip("data:T", title="Date"),
+                alt.Tooltip("dd:Q", title="From peak", format=".1%"),
             ],
         )
         .properties(height=210)
@@ -298,10 +298,8 @@ def simple_line(series: pd.Series, color: str = ACCENT, y_format: str = "%") -> 
                 "valore:Q", title=None, axis=alt.Axis(format=y_format), scale=alt.Scale(zero=False)
             ),
             tooltip=[
-                alt.Tooltip("data:T", title="Data"),
-                alt.Tooltip(
-                    "valore:Q", title="Valore", format=".2f" if y_format != "%" else ".1%"
-                ),
+                alt.Tooltip("data:T", title="Date"),
+                alt.Tooltip("valore:Q", title="Value", format=".2f" if y_format != "%" else ".1%"),
             ],
         )
         .properties(height=200)
@@ -395,9 +393,9 @@ def efficient_frontier_chart(frontier: pd.DataFrame, points: pd.DataFrame) -> al
         .mark_line(strokeWidth=2, color="#9ca3af")
         .encode(
             x=alt.X(
-                "annual_volatility:Q", title="Volatilità annualizzata", axis=alt.Axis(format="%")
+                "annual_volatility:Q", title="Annualized volatility", axis=alt.Axis(format="%")
             ),
-            y=alt.Y("annual_return:Q", title="Rendimento annualizzato", axis=alt.Axis(format="%")),
+            y=alt.Y("annual_return:Q", title="Annualized return", axis=alt.Axis(format="%")),
         )
     )
     dots = (
@@ -412,9 +410,9 @@ def efficient_frontier_chart(frontier: pd.DataFrame, points: pd.DataFrame) -> al
                 legend=alt.Legend(title=None, orient="top"),
             ),
             tooltip=[
-                alt.Tooltip("nome:N", title="Portafoglio"),
-                alt.Tooltip("annual_return:Q", title="Rendimento", format=".1%"),
-                alt.Tooltip("annual_volatility:Q", title="Volatilità", format=".1%"),
+                alt.Tooltip("nome:N", title="Portfolio"),
+                alt.Tooltip("annual_return:Q", title="Return", format=".1%"),
+                alt.Tooltip("annual_volatility:Q", title="Volatility", format=".1%"),
             ],
         )
     )
@@ -440,7 +438,7 @@ def correlation_heatmap(corr: pd.DataFrame) -> alt.Chart:
             color=alt.Color(
                 "corr:Q",
                 scale=alt.Scale(domain=[-1, 0, 1], range=DIVERGING),
-                legend=alt.Legend(title="Correlazione"),
+                legend=alt.Legend(title="Correlation"),
             ),
         )
     )

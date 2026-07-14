@@ -20,7 +20,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-_AMBER = colors.HexColor("#f7a600")
+_AMBER = colors.HexColor("#1E40AF")
 _INK = colors.HexColor("#14171e")
 _MUTED = colors.HexColor("#6b7280")
 _ROW = colors.HexColor("#f7f8fa")
@@ -49,10 +49,10 @@ def _footer(canvas, doc) -> None:
     canvas.drawString(
         18 * mm,
         10 * mm,
-        "Portfolio Intelligence · dati Yahoo Finance · stime storiche, "
-        "non una previsione né consulenza finanziaria",
+        "Portfolio Intelligence · Yahoo Finance data · historical estimates, "
+        "not a forecast or financial advice",
     )
-    canvas.drawRightString(width - 18 * mm, 10 * mm, f"Pagina {doc.page}")
+    canvas.drawRightString(width - 18 * mm, 10 * mm, f"Page {doc.page}")
     canvas.restoreState()
 
 
@@ -135,12 +135,12 @@ def build_report(
         Paragraph("PORTFOLIO INTELLIGENCE", wordmark),
         HRFlowable(width="100%", thickness=2, color=_AMBER, spaceAfter=10),
         Paragraph("Portfolio Health Report", h1),
-        Paragraph(f"{portfolio_name} · generato il {now}", subtitle),
+        Paragraph(f"{portfolio_name} · generated on {now}", subtitle),
     ]
 
     kpi = Table(
         [
-            ["HEALTH SCORE", "VALORE STIMATO", f"RENDIMENTO ({period.upper()})", "INVESTIMENTO"],
+            ["HEALTH SCORE", "ESTIMATED VALUE", f"RETURN ({period.upper()})", "INVESTED"],
             [
                 f"{health_score}/100",
                 _eur(total * (1 + cum_return)),
@@ -171,8 +171,8 @@ def build_report(
     )
     story += [kpi, Spacer(1, 14)]
 
-    story += [_section("Composizione"), Spacer(1, 5)]
-    rows = [["Titolo", "Società", "Importo", "Peso"]] + [
+    story += [_section("Holdings"), Spacer(1, 5)]
+    rows = [["Ticker", "Company", "Amount", "Weight"]] + [
         [
             ticker,
             names.get(ticker, "")[:38],
@@ -202,7 +202,7 @@ def build_report(
     )
     story += [composition, Spacer(1, 14)]
 
-    story += [_section("Metriche di rischio"), Spacer(1, 5)]
+    story += [_section("Risk metrics"), Spacer(1, 5)]
     metric_items = list(metrics.items())
     half = (len(metric_items) + 1) // 2
     left, right = metric_items[:half], metric_items[half:]
@@ -230,13 +230,13 @@ def build_report(
     )
     story += [metrics_table, Spacer(1, 14)]
 
-    story += [_section("Punti di attenzione"), Spacer(1, 5)]
+    story += [_section("Points of attention"), Spacer(1, 5)]
     for insight in insights:
         story.append(Paragraph(f"–&nbsp;&nbsp;{_clean(insight)}", body))
         story.append(Spacer(1, 3))
     story.append(Spacer(1, 10))
 
-    story += [_section("Suggerimenti"), Spacer(1, 5)]
+    story += [_section("Observations"), Spacer(1, 5)]
     for suggestion in suggestions:
         story.append(Paragraph(f"–&nbsp;&nbsp;{_clean(suggestion)}", body))
         story.append(Spacer(1, 3))
