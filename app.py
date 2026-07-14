@@ -90,8 +90,10 @@ from src.ui.components import (
     eur,
     hero_html,
     kpi_row_html,
+    position_card_html,
     render_landing,
     sec,
+    ticker_preview_html,
 )
 from src.visualization.charts import (
     GAIN,
@@ -410,6 +412,31 @@ st.markdown(
         font-variant-numeric: tabular-nums;
     }}
 
+    /* ---- anteprima titolo (aggiungi) ---- */
+    .ticker-preview {{
+        display: flex; align-items: center; gap: 12px;
+        background: rgba(247,166,0,0.06);
+        border: 1px solid rgba(247,166,0,0.22);
+        border-radius: 12px; padding: 12px 14px; margin: 4px 0 10px;
+        animation: fadeUpSubtle 0.25s ease-out both;
+    }}
+    .tp-main {{ flex: 1; min-width: 0; }}
+    .tp-name {{
+        font-weight: 700; font-size: 0.92rem; line-height: 1.2;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }}
+    .tp-meta {{
+        font-size: 0.7rem; color: var(--muted); text-transform: uppercase;
+        letter-spacing: 0.04em; margin-top: 1px;
+    }}
+    .tp-price {{
+        font-size: 0.9rem; font-weight: 700; margin-top: 4px;
+        font-variant-numeric: tabular-nums;
+    }}
+    .tp-chg {{ font-size: 0.8rem; font-weight: 600; margin-left: 6px; }}
+    .tp-chg.up {{ color: var(--gain); }}
+    .tp-chg.down {{ color: var(--loss); }}
+
     /* ---- sidebar ---- */
     [data-testid="stSidebar"] {{
         background: #0d1117; border-right: 1px solid var(--line);
@@ -450,6 +477,29 @@ def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
 @st.cache_data(ttl=3600, show_spinner="Scarico il cambio EUR/USD...")
 def cached_eurusd(period: str) -> pd.Series:
     return fetch_eurusd(period)
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def ticker_preview(ticker: str) -> dict | None:
+    """Nome, prezzo e variazione di seduta di un titolo, per l'anteprima.
+
+    Robusto: se la sorgente non risponde restituisce None senza rompere la UI.
+    """
+    from src.data.yahoo_client import get_ticker_info
+
+    try:
+        info = get_ticker_info(ticker)
+    except Exception:
+        return None
+    if not info or not info.get("shortName"):
+        return None
+    return {
+        "name": info.get("shortName") or info.get("longName") or "",
+        "sector": info.get("sector") or "",
+        "price": info.get("currentPrice") or info.get("regularMarketPrice"),
+        "currency": info.get("currency") or "USD",
+        "change": info.get("regularMarketChangePercent"),
+    }
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -515,57 +565,62 @@ with st.sidebar:
         '<div class="brand" style="font-size:.9rem">◆ PORTFOLIO <b>INTELLIGENCE</b></div>',
         unsafe_allow_html=True,
     )
-    sec("Il tuo portafoglio")
+    sec("Aggiungi un titolo")
 
-    with st.form("add_position", clear_on_submit=True, border=False):
-        new_ticker = st.selectbox(
-            "Titolo",
-            KNOWN_TICKERS,
-            index=None,
-            placeholder="Cerca un titolo (es. AAPL)...",
-            accept_new_options=True,
-            label_visibility="collapsed",
+    new_ticker = st.selectbox(
+        "Cerca titolo",
+        KNOWN_TICKERS,
+        index=None,
+        placeholder="Cerca per simbolo (es. AAPL)...",
+        accept_new_options=True,
+        label_visibility="collapsed",
+        key="add_ticker",
+    )
+
+    if new_ticker:
+        key = str(new_ticker).upper().strip()
+        color = PALETTE[abs(hash(key)) % len(PALETTE)]
+        st.markdown(
+            ticker_preview_html(key, color, ticker_preview(key)),
+            unsafe_allow_html=True,
         )
-        new_amount = st.number_input(
-            "Importo (€)",
-            min_value=100.0,
-            value=1000.0,
-            step=500.0,
-            label_visibility="collapsed",
-        )
-        if st.form_submit_button("Aggiungi", width="stretch", type="primary") and new_ticker:
-            key = str(new_ticker).upper().strip()
-            st.session_state.holdings[key] = st.session_state.holdings.get(key, 0.0) + float(
-                new_amount
+
+        col_amt, col_add = st.columns([3, 2], gap="small")
+        with col_amt:
+            new_amount = st.number_input(
+                "Importo",
+                min_value=100.0,
+                value=1000.0,
+                step=500.0,
+                label_visibility="collapsed",
+                key="add_amount",
             )
-            st.rerun()
+        with col_add:
+            if st.button("＋ Aggiungi", width="stretch", type="primary"):
+                st.session_state.holdings[key] = st.session_state.holdings.get(key, 0.0) + float(
+                    new_amount
+                )
+                st.session_state.add_ticker = None
+                st.rerun()
+    else:
+        st.caption("Cerca un titolo per vederne nome, prezzo e aggiungerlo.")
+
+    sec("Le tue posizioni")
 
     holdings = st.session_state.holdings
     total = sum(holdings.values())
     if holdings:
-        max_amount = max(holdings.values())
         sorted_tickers = sorted(holdings, key=holdings.get, reverse=True)
         known_names = st.session_state.get("names", {})
-        for _i, ticker in enumerate(sorted_tickers):
+        for ticker in sorted_tickers:
             amount = holdings[ticker]
             color = PALETTE[sorted(holdings).index(ticker) % len(PALETTE)]
             weight = amount / total if total else 0
             company = known_names.get(ticker, "")
-            name_html = f'<div class="pos-name">{company}</div>' if company else ""
             col_card, col_menu = st.columns([5, 1], gap="small")
             with col_card:
                 st.markdown(
-                    f"""<div class="pos-row">
-                      <div class="avatar" style="background:{color}">{ticker[:4]}</div>
-                      <div class="pos-main">
-                        <div class="pos-ticker">{ticker}
-                          <span class="pos-amt">· {eur(amount)}</span></div>
-                        {name_html}
-                        <div class="pos-weight-track"><div class="pos-weight-fill"
-                          style="width:{weight:.0%};background:{color}"></div></div>
-                      </div>
-                      <div class="pos-pct">{weight:.0%}</div>
-                    </div>""",
+                    position_card_html(ticker, amount, weight, color, company),
                     unsafe_allow_html=True,
                 )
             with col_menu, st.popover("···"):

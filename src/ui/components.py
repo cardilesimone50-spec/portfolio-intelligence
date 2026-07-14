@@ -20,6 +20,51 @@ def _status_color(score: float) -> str:
     return GAIN if score >= 67 else AMBER if score >= 34 else LOSS
 
 
+def position_card_html(
+    ticker: str, amount: float, weight: float, color: str, company: str = ""
+) -> str:
+    """Card compatta di una posizione. HTML flat: nessuna indentazione iniziale,
+    altrimenti il markdown di Streamlit lo tratterebbe come blocco di codice."""
+    name = f'<div class="pos-name">{company}</div>' if company else ""
+    return (
+        f'<div class="pos-row">'
+        f'<div class="avatar" style="background:{color}">{ticker[:4]}</div>'
+        f'<div class="pos-main">'
+        f'<div class="pos-ticker">{ticker}<span class="pos-amt">· {eur(amount)}'
+        f"</span></div>{name}"
+        f'<div class="pos-weight-track"><div class="pos-weight-fill" '
+        f'style="width:{weight:.0%};background:{color}"></div></div>'
+        f'</div><div class="pos-pct">{weight:.0%}</div></div>'
+    )
+
+
+def ticker_preview_html(ticker: str, color: str, preview: dict | None) -> str:
+    """Anteprima del titolo cercato (nome, settore, prezzo, variazione). HTML flat."""
+    avatar = f'<div class="avatar" style="background:{color}">{ticker[:4]}</div>'
+    if not preview:
+        return (
+            f'<div class="ticker-preview">{avatar}<div class="tp-main">'
+            f'<div class="tp-name">{ticker}</div>'
+            f'<div class="tp-meta">Titolo personalizzato</div></div></div>'
+        )
+    meta = ticker + (f" · {preview['sector']}" if preview.get("sector") else "")
+    price_html = ""
+    if preview.get("price") is not None:
+        sym = "$" if preview.get("currency") == "USD" else preview.get("currency", "")
+        chg = preview.get("change")
+        chg_html = ""
+        if chg is not None:
+            css = "up" if chg >= 0 else "down"
+            arrow = "▲" if chg >= 0 else "▼"
+            chg_html = f'<span class="tp-chg {css}">{arrow} {chg:+.2f}%</span>'
+        price_html = f'<div class="tp-price">{sym}{preview["price"]:,.2f} {chg_html}</div>'
+    return (
+        f'<div class="ticker-preview">{avatar}<div class="tp-main">'
+        f'<div class="tp-name">{preview["name"]}</div>'
+        f'<div class="tp-meta">{meta}</div>{price_html}</div></div>'
+    )
+
+
 def hero_html(
     health: int,
     value: str,
