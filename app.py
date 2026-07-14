@@ -629,6 +629,19 @@ with st.sidebar:
     )
     sec("Add a stock")
 
+    def _add_holding() -> None:
+        # runs as a callback (before widgets re-instantiate), so clearing the
+        # add_ticker widget key here is allowed by Streamlit
+        chosen = st.session_state.get("add_ticker")
+        if not chosen:
+            return
+        k = str(chosen).upper().strip()
+        amt = float(st.session_state.get("add_amount") or 0)
+        if amt <= 0:
+            return
+        st.session_state.holdings[k] = st.session_state.holdings.get(k, 0.0) + amt
+        st.session_state.add_ticker = None
+
     new_ticker = st.selectbox(
         "Search stock",
         KNOWN_TICKERS,
@@ -649,7 +662,7 @@ with st.sidebar:
 
         col_amt, col_add = st.columns([3, 2], gap="small")
         with col_amt:
-            new_amount = st.number_input(
+            st.number_input(
                 "Amount",
                 min_value=100.0,
                 value=1000.0,
@@ -658,12 +671,7 @@ with st.sidebar:
                 key="add_amount",
             )
         with col_add:
-            if st.button("＋ Add", width="stretch", type="primary"):
-                st.session_state.holdings[key] = st.session_state.holdings.get(key, 0.0) + float(
-                    new_amount
-                )
-                st.session_state.add_ticker = None
-                st.rerun()
+            st.button("＋ Add", width="stretch", type="primary", on_click=_add_holding)
     else:
         st.caption("Search a stock to see its name and price, then add it.")
 
