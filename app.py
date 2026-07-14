@@ -119,7 +119,7 @@ from src.visualization.pdf_report import build_report
 BENCHMARK = "QQQ"  # ETF sul Nasdaq-100
 TRADING_DAYS = 252
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
-AMBER = "#f7a600"
+AMBER = "#b57400"
 # soglie di volatilità annua per profilo di rischio (dichiarate nella UI)
 PROFILE_VOL = {"Prudente": 0.10, "Moderato": 0.18, "Aggressivo": 0.30}
 
@@ -137,9 +137,11 @@ st.markdown(
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
     :root {{
-        --panel: #12161e;
-        --line: rgba(255, 255, 255, 0.07);
-        --muted: #8b93a3;
+        --panel: #ffffff;
+        --panel-2: #f0f2f5;
+        --line: rgba(20, 25, 35, 0.10);
+        --muted: #6b7280;
+        --ink: #1a1d24;
         --accent: {AMBER};
         --gain: {GAIN};
         --loss: {LOSS};
@@ -165,7 +167,7 @@ st.markdown(
     }}
     .brand {{
         font-family: var(--font-display) !important;
-        font-size: 1.02rem; letter-spacing: 0.14em; color: #e6e8ee;
+        font-size: 1.02rem; letter-spacing: 0.14em; color: var(--ink);
         text-transform: uppercase; font-weight: 500;
     }}
     .brand b {{ color: var(--accent); font-weight: 700; }}
@@ -191,12 +193,12 @@ st.markdown(
     }}
     .st-key-navbar button[aria-checked="true"] p,
     .st-key-navbar button[kind="segmented_controlActive"] p {{
-        color: #ffffff !important;
+        color: var(--ink) !important;
     }}
     .st-key-navbar {{
         border-bottom: 1px solid var(--line);
         position: sticky; top: 0; z-index: 99;
-        background: rgba(11, 14, 19, 0.82);
+        background: rgba(247, 248, 250, 0.85);
         backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     }}
     /* sub-nav contestuale: chip discrete sotto la nav primaria */
@@ -222,7 +224,7 @@ st.markdown(
 
     /* ---- profondità e hover ---- */
     .panel, .hero-panel {{
-        box-shadow: 0 8px 26px rgba(0, 0, 0, 0.28);
+        box-shadow: 0 4px 16px rgba(20, 25, 35, 0.06);
         transition: transform 0.18s ease, border-color 0.18s ease;
     }}
     .panel:hover, .hero-panel:hover {{
@@ -230,13 +232,13 @@ st.markdown(
         border-color: rgba(247, 166, 0, 0.28);
     }}
     .pos-row {{ transition: background 0.15s ease; border-radius: 8px; }}
-    .pos-row:hover {{ background: rgba(255, 255, 255, 0.03); }}
+    .pos-row:hover {{ background: rgba(20, 25, 35, 0.03); }}
     .stButton button, .stDownloadButton button {{
         transition: transform 0.15s ease, box-shadow 0.15s ease;
     }}
     .stButton button:hover, .stDownloadButton button:hover {{
         transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 6px 16px rgba(20, 25, 35, 0.1);
     }}
 
     /* ---- KPI card con icona ---- */
@@ -245,7 +247,7 @@ st.markdown(
         flex: 1; min-width: 210px;
         background: var(--panel); border: 1px solid var(--line);
         border-radius: 14px; padding: 18px 20px;
-        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 4px 14px rgba(20, 25, 35, 0.05);
         transition: transform 0.18s ease, border-color 0.18s ease;
         animation: fadeUpSubtle 0.3s ease-out both;
     }}
@@ -273,7 +275,7 @@ st.markdown(
     /* ---- empty state ---- */
     .empty {{
         text-align: center; padding: 54px 30px;
-        border: 1.5px dashed rgba(255, 255, 255, 0.14);
+        border: 1.5px dashed rgba(20, 25, 35, 0.14);
         border-radius: 16px; margin: 20px 0;
     }}
     .empty-icon {{
@@ -351,7 +353,7 @@ st.markdown(
     .gauge {{
         width: 128px; height: 128px; border-radius: 50%; flex-shrink: 0;
         background: conic-gradient(var(--gcol) calc(var(--val) * 3.6deg),
-                                   rgba(255,255,255,0.07) 0);
+                                   rgba(20,25,35,0.08) 0);
         display: flex; align-items: center; justify-content: center;
     }}
     .gauge-inner {{
@@ -386,9 +388,9 @@ st.markdown(
         font-weight: 700; margin-bottom: 14px;
     }}
     .dna-row {{ display: flex; align-items: center; margin: 9px 0; gap: 10px; }}
-    .dna-name {{ width: 72px; font-size: 0.86rem; color: #c5cad6; }}
+    .dna-name {{ width: 72px; font-size: 0.86rem; color: #3a4150; }}
     .dna-track {{
-        flex: 1; background: rgba(255,255,255,0.07); border-radius: 4px; height: 6px;
+        flex: 1; background: rgba(20,25,35,0.08); border-radius: 4px; height: 6px;
     }}
     .dna-fill {{ height: 100%; border-radius: 4px; background: #3987e5; }}
     .dna-fill.risk {{ background: var(--accent); }}
@@ -404,12 +406,12 @@ st.markdown(
     .pos-row {{
         display: flex; align-items: center; gap: 11px;
         padding: 9px 2px;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+        border-bottom: 1px solid rgba(20,25,35,0.06);
     }}
     .avatar {{
         width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
-        font-size: 0.7rem; font-weight: 800; color: #0b0e13;
+        font-size: 0.7rem; font-weight: 800; color: #ffffff;
         letter-spacing: 0.02em;
     }}
     .pos-main {{ flex: 1; min-width: 0; }}
@@ -424,11 +426,11 @@ st.markdown(
     }}
     .pos-weight-track {{
         margin-top: 4px; height: 3px; border-radius: 2px;
-        background: rgba(255,255,255,0.08);
+        background: rgba(20,25,35,0.08);
     }}
     .pos-weight-fill {{ height: 100%; border-radius: 2px; }}
     .pos-pct {{
-        font-size: 0.82rem; font-weight: 700; color: #c5cad6;
+        font-size: 0.82rem; font-weight: 700; color: #3a4150;
         font-variant-numeric: tabular-nums;
     }}
 
@@ -459,14 +461,14 @@ st.markdown(
 
     /* ---- sidebar ---- */
     [data-testid="stSidebar"] {{
-        background: #0d1117; border-right: 1px solid var(--line);
+        background: var(--panel-2); border-right: 1px solid var(--line);
     }}
     [data-testid="stSidebar"] .sec {{ margin: 10px 0 6px; }}
     [data-testid="stSidebar"] hr {{ margin: 12px 0; }}
 
     /* ---- bottoni ed expander ---- */
     .stButton button, .stDownloadButton button {{
-        border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 8px; border: 1px solid rgba(20,25,35,0.12);
     }}
     [data-testid="stExpander"] {{
         border: 1px solid var(--line); border-radius: 10px; background: transparent;
@@ -477,7 +479,7 @@ st.markdown(
         border: none !important; background: transparent !important;
         color: var(--muted) !important; font-weight: 700;
     }}
-    [data-testid="stPopover"] > button:hover {{ color: #e6e8ee !important; }}
+    [data-testid="stPopover"] > button:hover {{ color: var(--ink) !important; }}
     </style>
     """,
     unsafe_allow_html=True,

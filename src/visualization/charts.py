@@ -4,17 +4,17 @@ import altair as alt
 import numpy as np
 import pandas as pd
 
-# Palette categorica validata per superficie scura (dataviz skill, dark mode)
-PALETTE = ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"]
-# Correlazione: blu = opposti, neutro scuro = zero, rosso = si muovono insieme
-DIVERGING = ["#3987e5", "#2a2d35", "#e66767"]
+# Palette categorica validata per superficie chiara (dataviz skill, light mode)
+PALETTE = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"]
+# Correlazione: blu = opposti, neutro chiaro = zero, rosso = si muovono insieme
+DIVERGING = ["#2a78d6", "#e5e7eb", "#e34948"]
 # Rendimenti: convenzione finanza — rosso = perdita, verde = guadagno
-LOSS = "#ea3943"
-GAIN = "#16c784"
-RETURNS_DIVERGING = [LOSS, "#2a2d35", GAIN]
-TEXT_COLOR = "#e8e8e3"
-ACCENT = "#f7a600"
-MUTED = "#5a6270"
+LOSS = "#dc2626"
+GAIN = "#0ea371"
+RETURNS_DIVERGING = [LOSS, "#e5e7eb", GAIN]
+TEXT_COLOR = "#1a1d24"
+ACCENT = "#b57400"
+MUTED = "#9ca3af"
 
 
 def allocation_bars(amounts: dict[str, float]) -> alt.Chart:
@@ -140,7 +140,7 @@ def radar_chart(scores: dict[str, float]) -> alt.Chart:
     grid = alt.layer(
         *[
             alt.Chart(ring(r))
-            .mark_line(color="#3a3d45", strokeWidth=1)
+            .mark_line(color="#e0e3e8", strokeWidth=1)
             .encode(x=alt.X("x:Q", axis=None), y=alt.Y("y:Q", axis=None), order="ordine:O")
             for r in (33, 66, 100)
         ]
@@ -392,7 +392,7 @@ def efficient_frontier_chart(frontier: pd.DataFrame, points: pd.DataFrame) -> al
     """
     line = (
         alt.Chart(frontier)
-        .mark_line(strokeWidth=2, color="#9b9a91")
+        .mark_line(strokeWidth=2, color="#9ca3af")
         .encode(
             x=alt.X(
                 "annual_volatility:Q", title="Volatilità annualizzata", axis=alt.Axis(format="%")

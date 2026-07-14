@@ -5,8 +5,8 @@ toolbarMode = "viewer"
 gatherUsageStats = false
 
 [theme]
-base = "dark"
-primaryColor = "#f7a600"
-backgroundColor = "#0b0e13"
-secondaryBackgroundColor = "#12161e"
-textColor = "#e6e8ee"
+base = "light"
+primaryColor = "#d68400"
+backgroundColor = "#f7f8fa"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#1a1d24"

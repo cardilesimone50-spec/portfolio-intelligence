@@ -207,43 +207,44 @@ LANDING_CSS = """
 .landing-hero {
     position: relative; overflow: hidden;
     background:
-        radial-gradient(900px 380px at 82% -10%, rgba(247,166,0,0.16), transparent 60%),
-        radial-gradient(700px 300px at 8% 110%, rgba(57,135,229,0.12), transparent 60%),
-        linear-gradient(165deg, #12161e 0%, #0c0f15 70%);
-    border: 1px solid rgba(255,255,255,0.08);
+        radial-gradient(900px 380px at 82% -10%, rgba(181,116,0,0.10), transparent 60%),
+        radial-gradient(700px 300px at 8% 110%, rgba(57,135,229,0.08), transparent 60%),
+        linear-gradient(165deg, #ffffff 0%, #eef1f5 70%);
+    border: 1px solid rgba(20,25,35,0.09);
     border-radius: 22px;
     padding: 74px 60px 66px;
     text-align: center;
+    box-shadow: 0 8px 30px rgba(20,25,35,0.05);
     animation: fadeUp .5s ease-out both;
 }
 .landing-title {
     font-family: 'Space Grotesk', 'Inter', sans-serif !important;
     font-size: 3rem; font-weight: 700; letter-spacing: -0.02em;
-    line-height: 1.12; margin: 0 auto 16px; max-width: 720px; color: #f2f3f7;
+    line-height: 1.12; margin: 0 auto 16px; max-width: 720px; color: #14171e;
 }
-.landing-title em { font-style: normal; color: #f7a600; }
+.landing-title em { font-style: normal; color: #b57400; }
 .landing-sub {
-    font-size: 1.08rem; color: #9aa2b1; max-width: 560px;
+    font-size: 1.08rem; color: #5a6270; max-width: 560px;
     margin: 0 auto 8px; line-height: 1.6;
 }
 .glass-row { display: flex; gap: 18px; margin-top: 22px; }
 .glass {
     flex: 1; text-align: center;
-    background: rgba(255,255,255,0.035);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.09);
+    background: #ffffff;
+    border: 1px solid rgba(20,25,35,0.09);
     border-radius: 16px; padding: 26px 18px;
+    box-shadow: 0 4px 14px rgba(20,25,35,0.04);
     animation: fadeUp .6s ease-out both;
 }
 .glass:nth-child(2) { animation-delay: .12s; }
 .glass:nth-child(3) { animation-delay: .24s; }
 .glass-num {
     font-family: 'Space Grotesk', 'Inter', sans-serif !important;
-    font-size: 2rem; font-weight: 700; color: #f7a600;
+    font-size: 2rem; font-weight: 700; color: #b57400;
     font-variant-numeric: tabular-nums;
 }
 .glass-label {
-    font-size: 0.78rem; color: #8b93a3; text-transform: uppercase;
+    font-size: 0.78rem; color: #6b7280; text-transform: uppercase;
     letter-spacing: 0.09em; font-weight: 600; margin-top: 4px;
 }
 @keyframes fadeUp {
