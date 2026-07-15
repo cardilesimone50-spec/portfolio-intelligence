@@ -3,4 +3,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .pytest_cache/
-/data/
+# dati locali ignorati, tranne lo snapshot prezzi Nasdaq-100 che va spedito
+# nel deploy (il cloud non può scaricarlo: yfinance è bloccato sugli IP cloud).
+# market.db resta ignorato: può contenere portafogli/analisi personali.
+/data/*
+!/data/nasdaq100_prices.csv
