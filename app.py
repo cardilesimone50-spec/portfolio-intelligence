@@ -3,6 +3,7 @@
 Avvio: streamlit run app.py
 """
 
+import os
 import random
 import time
 
@@ -120,6 +121,14 @@ from src.visualization.charts import (
     weight_vs_risk_bars,
 )
 from src.visualization.pdf_report import build_report
+
+# ponte secrets→ambiente: i secrets di Streamlit non diventano env var da soli.
+# Impostando DATABASE_URL nei secrets, lo store passa da SQLite a Postgres.
+try:
+    if "DATABASE_URL" in st.secrets:
+        os.environ.setdefault("DATABASE_URL", str(st.secrets["DATABASE_URL"]))
+except Exception:  # noqa: BLE001 — nessun secrets.toml in locale: si resta su SQLite
+    pass
 
 BENCHMARK = "QQQ"  # ETF sul Nasdaq-100
 TRADING_DAYS = 252
