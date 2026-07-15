@@ -37,6 +37,20 @@ def test_annualized_sharpe_subtracts_risk_free_rate():
     )
 
 
+def test_sharpe_numerator_uses_compound_return_not_arithmetic():
+    # +10% / -10% ripetuti: media aritmetica ~0, ma il composto perde denaro.
+    # Col vecchio numeratore aritmetico lo Sharpe era ~0; col CAGR è negativo.
+    returns = pd.DataFrame({"X": [0.10, -0.10] * 50})
+    pf = [{"ticker": "X", "weight": 1.0}]
+    assert annualized_sharpe(returns, pf) < 0
+
+
+def test_sortino_numerator_uses_compound_return_not_arithmetic():
+    returns = pd.DataFrame({"X": [0.10, -0.10] * 50})
+    pf = [{"ticker": "X", "weight": 1.0}]
+    assert sortino_ratio(returns, pf) < 0
+
+
 def test_annualized_geometric_return_compounds():
     daily = pd.Series([0.01] * 252)
     assert annualized_geometric_return(daily) == pytest.approx(1.01**252 - 1)

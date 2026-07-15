@@ -3,7 +3,7 @@
 import pandas as pd
 
 from src.portfolio import Portfolio
-from src.portfolio.returns import portfolio_daily_returns, portfolio_expected_return
+from src.portfolio.returns import portfolio_daily_returns
 from src.portfolio.risk import portfolio_volatility
 
 TRADING_DAYS = 252
@@ -12,10 +12,16 @@ TRADING_DAYS = 252
 def per_ticker_annualized_stats(
     returns: pd.DataFrame, trading_days: int = TRADING_DAYS
 ) -> pd.DataFrame:
-    """Rendimento e volatilità annualizzati per ciascun ticker, dai rendimenti giornalieri."""
+    """Rendimento annualizzato composto (CAGR) e volatilità annualizzata per ticker.
+
+    Il rendimento usa il composto geometrico, non la media aritmetica × 252: è
+    il numero onesto, che non sovrastima in presenza di volatilità.
+    """
     return pd.DataFrame(
         {
-            "annual_return": returns.mean() * trading_days,
+            "annual_return": returns.apply(
+                lambda col: annualized_geometric_return(col, trading_days)
+            ),
             "annual_volatility": returns.std() * trading_days**0.5,
         }
     )
@@ -41,8 +47,14 @@ def annualized_geometric_return(
 def annualized_sharpe(
     returns: pd.DataFrame, portfolio: Portfolio, risk_free_rate: float = 0.0
 ) -> float:
-    """Sharpe ratio annualizzato del portafoglio. risk_free_rate è annuale."""
-    annual_return = portfolio_expected_return(returns, portfolio) * TRADING_DAYS
+    """Sharpe ratio annualizzato del portafoglio. risk_free_rate è annuale.
+
+    Il numeratore usa il rendimento composto (CAGR), non la media aritmetica
+    × 252: è il rendimento che l'investitore incassa davvero e non viene
+    sovrastimato in presenza di volatilità.
+    """
+    daily = portfolio_daily_returns(returns, portfolio)
+    annual_return = annualized_geometric_return(daily)
     annual_volatility = portfolio_volatility(returns, portfolio) * TRADING_DAYS**0.5
     if annual_volatility == 0:
         return float("nan")
@@ -72,7 +84,7 @@ def sortino_ratio(
         return float("nan")
     downside = daily.clip(upper=0.0)
     downside_deviation = float((downside**2).mean() ** 0.5) * TRADING_DAYS**0.5
-    annual_return = float(daily.mean()) * TRADING_DAYS
+    annual_return = annualized_geometric_return(daily)
     if downside_deviation == 0:
         return float("inf") if annual_return > risk_free_rate else float("nan")
     return (annual_return - risk_free_rate) / downside_deviation

@@ -1,7 +1,10 @@
 import pandas as pd
 import pytest
 
-from src.analytics.performance import per_ticker_annualized_stats
+from src.analytics.performance import (
+    annualized_geometric_return,
+    per_ticker_annualized_stats,
+)
 from src.portfolio.returns import (
     compute_daily_returns,
     per_ticker_cumulative_return,
@@ -66,5 +69,7 @@ def test_per_ticker_annualized_stats_matches_manual_calc():
 
     assert list(stats.columns) == ["annual_return", "annual_volatility"]
     assert list(stats.index) == ["AAPL", "MSFT"]
-    assert stats.loc["AAPL", "annual_return"] == returns["AAPL"].mean() * 252
+    assert stats.loc["AAPL", "annual_return"] == pytest.approx(
+        annualized_geometric_return(returns["AAPL"], 252)
+    )
     assert stats.loc["AAPL", "annual_volatility"] == returns["AAPL"].std() * 252**0.5
