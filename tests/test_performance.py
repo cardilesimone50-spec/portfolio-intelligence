@@ -6,7 +6,10 @@ from src.analytics.performance import (
     annualized_geometric_return,
     annualized_sharpe,
     beta_alpha,
+    expected_shortfall,
     max_drawdown,
+    sharpe_from_daily,
+    sortino_from_daily,
     sortino_ratio,
     value_at_risk,
 )
@@ -101,6 +104,41 @@ def test_value_at_risk_is_the_5th_percentile():
 def test_value_at_risk_too_short_is_nan():
     result = value_at_risk(pd.Series([0.01, -0.01]))
     assert result != result  # NaN
+
+
+def test_expected_shortfall_is_mean_of_tail_beyond_var():
+    daily = pd.Series(np.linspace(-0.10, 0.09, 100))
+    var = value_at_risk(daily, confidence=0.95)
+    tail_mean = float(daily[daily <= var].mean())
+    assert expected_shortfall(daily, confidence=0.95) == pytest.approx(tail_mean)
+
+
+def test_expected_shortfall_never_better_than_var():
+    rng = np.random.default_rng(11)
+    daily = pd.Series(rng.normal(0.0005, 0.015, 500))
+    assert expected_shortfall(daily) <= value_at_risk(daily)
+
+
+def test_expected_shortfall_too_short_is_nan():
+    result = expected_shortfall(pd.Series([0.01, -0.01]))
+    assert result != result  # NaN
+
+
+def test_series_helpers_match_single_stock_portfolio():
+    # per un portafoglio 100% su un titolo, le versioni per-serie devono
+    # coincidere con quelle di portafoglio
+    rng = np.random.default_rng(12)
+    daily = pd.Series(rng.normal(0.0005, 0.012, 300))
+    prices = pd.DataFrame({"X": 100 * (1 + daily).cumprod()})
+    returns = compute_daily_returns(prices)
+    pf = [{"ticker": "X", "weight": 1.0}]
+    series = returns["X"]
+    assert sharpe_from_daily(series, 0.02) == pytest.approx(
+        annualized_sharpe(returns, pf, risk_free_rate=0.02)
+    )
+    assert sortino_from_daily(series, 0.02) == pytest.approx(
+        sortino_ratio(returns, pf, risk_free_rate=0.02)
+    )
 
 
 def test_beta_of_benchmark_with_itself_is_one():

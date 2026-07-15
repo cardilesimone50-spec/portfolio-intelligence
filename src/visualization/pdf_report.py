@@ -286,8 +286,8 @@ def _weight_risk_drawing(
     row_h, legend_h = 8 * mm, 6 * mm
     height = row_h * len(top_weights) + legend_h
     drawing = Drawing(width, height)
-    left = 18 * mm
-    plot_w = width - left - 22 * mm
+    left = 14 * mm
+    plot_w = width - left - 14 * mm
     biggest = max(float(top_weights.max()), float(contributions.max()) if len(contributions) else 0)
 
     for i, (ticker, weight) in enumerate(top_weights.items()):
@@ -329,6 +329,37 @@ def _weight_risk_drawing(
     return drawing
 
 
+def _sector_drawing(
+    sector_weights: pd.Series, width: float = 84 * mm, max_rows: int = 7
+) -> Drawing:
+    """Allocazione per settore, barre orizzontali ordinate per peso."""
+    top = sector_weights.sort_values(ascending=False).head(max_rows)
+    other = float(sector_weights.sum() - top.sum())
+    if other > 0.001:
+        top = pd.concat([top, pd.Series({"Other sectors": other})])
+    row_h = 7 * mm
+    height = row_h * len(top)
+    drawing = Drawing(width, height)
+    left = 34 * mm
+    plot_w = width - left - 12 * mm
+    biggest = max(float(top.max()), 0.01)
+    for i, (sector, weight) in enumerate(top.items()):
+        base_y = height - row_h * (i + 1) + 2 * mm
+        drawing.add(
+            String(left - 2 * mm, base_y + 0.4 * mm, str(sector)[:24], fontName="Helvetica",
+                   fontSize=7, fillColor=_MUTED, textAnchor="end")
+        )
+        drawing.add(
+            Rect(left, base_y, plot_w * float(weight) / biggest, 2.8 * mm,
+                 fillColor=_ACCENT if i == 0 else _ACCENT_SOFT, strokeColor=None)
+        )
+        drawing.add(
+            String(left + plot_w * float(weight) / biggest + 1.5 * mm, base_y + 0.4 * mm,
+                   f"{weight:.0%}", fontName="Helvetica-Bold", fontSize=6.5, fillColor=_INK)
+        )
+    return drawing
+
+
 def _breakdown_drawing(breakdown: dict[str, float], width: float = _CONTENT_W) -> Drawing:
     """Le sei componenti dell'Health Score come barre 0-100."""
     row_h = 6.5 * mm
@@ -367,7 +398,7 @@ def build_report(
     period: str,
     cum_return: float,
     health_score: int,
-    metric_rows: list[tuple[str, str, str]],
+    metric_rows: list[tuple],
     insights: list[str],
     suggestions: list[str],
     names: dict[str, str] | None = None,
@@ -377,6 +408,7 @@ def build_report(
     benchmark: str = "QQQ",
     currency_note: str = "amounts in EUR, currency effect included",
     executive: str | None = None,
+    suitability: dict | None = None,
     annual_return: float | None = None,
     pf_value: pd.Series | None = None,
     bench_value: pd.Series | None = None,
@@ -384,14 +416,19 @@ def build_report(
     contributions: pd.Series | None = None,
     breakdown: dict[str, float] | None = None,
     per_ticker_returns: pd.Series | None = None,
+    sector_weights: pd.Series | None = None,
     scenario: dict | None = None,
+    coverage_notes: list[str] | None = None,
     risk_free: float | None = None,
 ) -> bytes:
     """Costruisce il PDF di 3 pagine e lo restituisce come bytes.
 
     I dati opzionali arricchiscono grafici e sezioni; se mancano, la relativa
     sezione mostra una nota invece di rompere il layout (sempre 3 pagine).
+    Le righe di `metric_rows` sono (metrica, portafoglio, lettura) oppure
+    (metrica, portafoglio, benchmark, lettura) per il confronto col mercato.
     `scenario` = {"label": str, "direct": float, "total": float} (frazioni).
+    `suitability` = {"ok": bool, "text": str} — esito del check di adeguatezza.
     """
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -458,6 +495,11 @@ def build_report(
         meta_bits.append(f"prepared by {advisor}")
     if risk_profile and risk_profile != "Not set":
         meta_bits.append(f"{risk_profile.lower()} profile")
+    if pf_value is not None and len(pf_value.dropna()) >= 2:
+        window = pf_value.dropna().index
+        meta_bits.append(
+            f"observation window {_date_label(window[0])} – {_date_label(window[-1])}"
+        )
     meta_bits += [f"generated on {now}", currency_note]
 
     page1: list = [
@@ -502,6 +544,26 @@ def build_report(
         page1.append(Paragraph(_clean(executive), body))
     else:
         page1.append(Paragraph("Summary not available for this analysis.", small))
+    if suitability:
+        ok = bool(suitability.get("ok"))
+        box = Table(
+            [["", Paragraph(
+                f"<b>Suitability check — {'within' if ok else 'OUTSIDE'} the declared "
+                f"profile.</b> {_clean(suitability.get('text', ''))}", body)]],
+            colWidths=[1.2 * mm, _CONTENT_W - 1.2 * mm],
+        )
+        box.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, 0), _GREEN if ok else _RED),
+                    ("BACKGROUND", (1, 0), (1, 0), _ROW),
+                    ("TOPPADDING", (1, 0), (1, 0), 4),
+                    ("BOTTOMPADDING", (1, 0), (1, 0), 4),
+                    ("LEFTPADDING", (1, 0), (1, 0), 6),
+                ]
+            )
+        )
+        page1 += [Spacer(1, 5), box]
     page1.append(Spacer(1, 10))
 
     page1 += [_section(f"Capital over time ({period}) vs {benchmark}"), Spacer(1, 5)]
@@ -561,15 +623,29 @@ def build_report(
         )
     )
     page1.append(composition)
+    if coverage_notes:
+        page1.append(
+            Paragraph(
+                "Data coverage: " + " · ".join(_clean(note) for note in coverage_notes),
+                caption,
+            )
+        )
 
     # ------------------------------------------------------------ pagina 2
     page2: list = page_header("Risk & performance analytics")
 
-    page2 += [_section("Metrics and how to read them"), Spacer(1, 5)]
-    metric_table_rows = [["Metric", "Value", "Reading"]]
-    for name, value, interpretation in metric_rows:
-        metric_table_rows.append([name, value, Paragraph(_clean(interpretation), reading)])
-    metrics_table = Table(metric_table_rows, colWidths=[42 * mm, 30 * mm, 102 * mm])
+    page2 += [_section(f"Metrics, portfolio vs {benchmark}, and how to read them"), Spacer(1, 5)]
+    metric_table_rows = [["Metric", "Portfolio", benchmark, "Reading"]]
+    for row in metric_rows:
+        if len(row) == 4:
+            name, value, bench_cell, interpretation = row
+        else:
+            name, value, interpretation = row
+            bench_cell = "—"
+        metric_table_rows.append(
+            [name, value, bench_cell, Paragraph(_clean(interpretation), reading)]
+        )
+    metrics_table = Table(metric_table_rows, colWidths=[40 * mm, 23 * mm, 23 * mm, 88 * mm])
     metrics_table.setStyle(
         TableStyle(
             [
@@ -577,11 +653,12 @@ def build_report(
                 ("FONTSIZE", (0, 0), (-1, 0), 7.5),
                 ("TEXTCOLOR", (0, 0), (-1, 0), _MUTED),
                 ("LINEBELOW", (0, 0), (-1, 0), 0.75, _ACCENT),
-                ("FONTSIZE", (0, 1), (1, -1), 9),
+                ("FONTSIZE", (0, 1), (2, -1), 9),
                 ("TEXTCOLOR", (0, 1), (0, -1), _MUTED),
                 ("FONTNAME", (1, 1), (1, -1), "Helvetica-Bold"),
                 ("TEXTCOLOR", (1, 1), (1, -1), _INK),
-                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ("TEXTCOLOR", (2, 1), (2, -1), _MUTED),
+                ("ALIGN", (1, 0), (2, -1), "RIGHT"),
                 ("VALIGN", (0, 1), (-1, -1), "MIDDLE"),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _ROW]),
                 ("TOPPADDING", (0, 0), (-1, -1), 3),
@@ -641,16 +718,53 @@ def build_report(
     # ------------------------------------------------------------ pagina 3
     page3: list = page_header("Diversification, scenarios & recommendations")
 
-    page3 += [_section("Where the risk sits: weight vs risk contribution"), Spacer(1, 5)]
+    half_w3 = (_CONTENT_W - 6 * mm) / 2
+    div_cells: list = []
     if contributions is not None and len(contributions) and len(weights):
-        page3.append(_weight_risk_drawing(weights, contributions))
-        page3.append(
-            Paragraph(
-                "Risk share = contribution to portfolio variance (covariances included). "
-                "A holding whose risk share far exceeds its weight dominates the swings.",
-                caption,
+        div_cells.append(
+            [
+                _section_mini("Weight vs risk contribution"),
+                _weight_risk_drawing(weights, contributions, width=half_w3, max_rows=6),
+                Paragraph(
+                    "Risk share = contribution to portfolio variance (covariances "
+                    "included). A holding whose risk share far exceeds its weight "
+                    "dominates the swings.",
+                    caption,
+                ),
+            ]
+        )
+    if sector_weights is not None and len(sector_weights):
+        div_cells.append(
+            [
+                _section_mini("Allocation by sector"),
+                _sector_drawing(sector_weights, width=half_w3),
+                Paragraph(
+                    "Sectors from Yahoo Finance company profiles, weighted by capital.",
+                    caption,
+                ),
+            ]
+        )
+    if div_cells:
+        while len(div_cells) < 2:
+            div_cells.append(["", Spacer(1, 1), ""])
+        div_row = Table(
+            [
+                [cell[0] for cell in div_cells],
+                [cell[1] for cell in div_cells],
+                [cell[2] for cell in div_cells],
+            ],
+            colWidths=[half_w3 + 3 * mm] * 2,
+        )
+        div_row.setStyle(
+            TableStyle(
+                [
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]
             )
         )
+        page3.append(div_row)
     else:
         page3.append(Paragraph("Risk decomposition not available.", small))
     page3.append(Spacer(1, 8))
@@ -734,12 +848,20 @@ def build_report(
         f"Sharpe/Sortino: excess return over the risk-free rate"
         + (f" ({risk_free:.2%}, 3-month US T-bill ^IRX)" if risk_free is not None else "")
         + "; Sortino penalizes downside deviation only.",
-        "VaR 95%: historical 5th percentile of daily returns — no normality assumed.",
+        "VaR 95%: historical 5th percentile of daily returns — no normality assumed; "
+        "expected shortfall = average of the tail beyond it.",
         f"Beta/alpha: OLS regression of daily portfolio returns on {benchmark}.",
         "Risk contributions: share of portfolio variance per holding, covariances included.",
         "All figures are computed from the observed period and are estimates, "
         "not forecasts. This document is not financial advice.",
     ]
+    if pf_value is not None and 2 <= len(pf_value.dropna()) < 200:
+        method_bits.insert(
+            0,
+            "CAUTION: the observation window is shorter than one year — annualized "
+            "figures (CAGR, volatility, Sharpe/Sortino) extrapolate from few months "
+            "and should be read as indicative only.",
+        )
     page3 += [_section("Methodology & assumptions"), Spacer(1, 5)]
     for bit in method_bits:
         page3.append(Paragraph(f"–&nbsp;&nbsp;{_clean(bit)}", small))

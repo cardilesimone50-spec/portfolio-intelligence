@@ -51,7 +51,10 @@ from src.analytics.performance import (
     annualized_geometric_return,
     annualized_sharpe,
     beta_alpha,
+    expected_shortfall,
     max_drawdown,
+    sharpe_from_daily,
+    sortino_from_daily,
     sortino_ratio,
     value_at_risk,
 )
@@ -1392,43 +1395,117 @@ elif view == "Check-up":
             if _db_for_search is not None
             else None
         )
+        # controparte benchmark per ogni metrica confrontabile ("ho battuto il mercato?")
+        bench_value_report = (1 + c["bench_daily"]).cumprod()
+        bench_cum = float(bench_value_report.iloc[-1] - 1)
+        bench_cagr = annualized_geometric_return(c["bench_daily"])
+        bench_vol = float(c["bench_daily"].std()) * TRADING_DAYS**0.5
+        bench_sharpe = sharpe_from_daily(c["bench_daily"], risk_free_rate=risk_free)
+        bench_sortino = sortino_from_daily(c["bench_daily"], risk_free_rate=risk_free)
+        bench_dd = max_drawdown(bench_value_report)
+        bench_var = value_at_risk(c["bench_daily"])
+        pf_es = expected_shortfall(c["pf_daily"])
+        bench_es = expected_shortfall(c["bench_daily"])
         metric_rows = [
+            (
+                f"Return ({period})",
+                f"{c['cum_return']:+.1%}",
+                f"{bench_cum:+.1%}",
+                "Total change over the observation window, dividends not reinvested.",
+            ),
             (
                 "Annualized return (CAGR)",
                 f"{c['annual_ret']:+.1%}",
+                f"{bench_cagr:+.1%}",
                 "Compound annual growth actually earned over the period — geometric, "
                 "so volatility does not inflate it.",
             ),
             (
                 "Annual volatility",
                 f"{c['annual_vol']:.1%}",
+                f"{bench_vol:.1%}",
                 interpret_volatility(c["annual_vol"], universe_vols_report),
             ),
-            ("Sharpe ratio", f"{report_sharpe:.2f}", interpret_sharpe(report_sharpe)),
+            (
+                "Sharpe ratio",
+                f"{report_sharpe:.2f}",
+                f"{bench_sharpe:.2f}",
+                interpret_sharpe(report_sharpe),
+            ),
             (
                 "Sortino ratio",
                 f"{report_sortino:.2f}",
+                f"{bench_sortino:.2f}",
                 interpret_sortino(report_sortino, report_sharpe),
             ),
-            ("Max drawdown", f"{c['drawdown']:.1%}", interpret_drawdown(c["drawdown"])),
+            (
+                "Max drawdown",
+                f"{c['drawdown']:.1%}",
+                f"{bench_dd:.1%}",
+                interpret_drawdown(c["drawdown"]),
+            ),
             (
                 "VaR 95% (1 day)",
                 f"{c['var_95']:.1%}",
+                f"{bench_var:.1%}",
                 f"On 95% of days you did not lose more than {eur(total * c['var_95'])} "
                 "(historical percentile, no normality assumed).",
             ),
-            (f"Beta vs {BENCHMARK}", f"{c['beta']:.2f}", interpret_beta(c["beta"], BENCHMARK)),
+            (
+                "Expected shortfall 95%",
+                f"{pf_es:.1%}",
+                f"{bench_es:.1%}",
+                f"Average loss on the worst 5% of days ({eur(total * pf_es)}): what a bad "
+                "day costs when it goes beyond the VaR threshold.",
+            ),
+            (
+                f"Beta vs {BENCHMARK}",
+                f"{c['beta']:.2f}",
+                "—",
+                interpret_beta(c["beta"], BENCHMARK),
+            ),
             (
                 f"Alpha vs {BENCHMARK}",
                 f"{c['alpha']:+.1%}/yr",
+                "—",
                 "Annual excess return not explained by benchmark moves (OLS on daily data).",
             ),
             (
                 "Average correlation",
                 f"{c['avg_corr']:.2f}",
+                "—",
                 interpret_correlation(c["avg_corr"]),
             ),
         ]
+        # adeguatezza: volatilità osservata contro la soglia del profilo dichiarato
+        report_suitability = None
+        if risk_profile in PROFILE_VOL:
+            profile_band = PROFILE_VOL[risk_profile]
+            report_suitability = {
+                "ok": c["annual_vol"] <= profile_band,
+                "text": f"Observed annual volatility {c['annual_vol']:.1%} vs the "
+                f"{profile_band:.0%} threshold declared for a {risk_profile.lower()} "
+                "profile.",
+            }
+        # allocazione settoriale pesata per capitale (dai profili Yahoo Finance)
+        report_sectors = None
+        if "sector" in c["fund"].columns:
+            sector_by_ticker = (
+                c["fund"]["sector"].reindex(list(amounts)).fillna("Not classified")
+            )
+            report_sectors = (
+                (pd.Series(amounts, dtype=float) / total).groupby(sector_by_ticker).sum()
+            )
+        # copertura dati: titoli con storico più corto della finestra selezionata
+        window_start = c["prices"].index[0]
+        report_coverage = []
+        for t in sorted(amounts):
+            first_price = c["prices"][t].first_valid_index()
+            if first_price is not None and (first_price - window_start).days > 7:
+                report_coverage.append(
+                    f"{t} priced only from {pd.Timestamp(first_price):%d/%m/%Y} — its "
+                    "metrics use the shorter overlap"
+                )
         top_ticker_report = max(amounts, key=amounts.get)
         try:
             shock_report = simulate_shock(c["returns"], portfolio, top_ticker_report, -0.20)
@@ -1463,14 +1540,17 @@ elif view == "Check-up":
                     else "amounts in original currencies"
                 ),
                 executive=exec_text,
+                suitability=report_suitability,
                 annual_return=c["annual_ret"],
                 pf_value=c["pf_value"],
-                bench_value=(1 + c["bench_daily"]).cumprod(),
+                bench_value=bench_value_report,
                 monthly=monthly_returns(c["pf_daily"], 12),
                 contributions=c["contributions"],
                 breakdown=c["breakdown"],
                 per_ticker_returns=cum_by_ticker,
+                sector_weights=report_sectors,
                 scenario=report_scenario,
+                coverage_notes=report_coverage,
                 risk_free=risk_free,
             ),
             file_name=f"portfolio_report_{pd.Timestamp.now():%Y%m%d}.pdf",

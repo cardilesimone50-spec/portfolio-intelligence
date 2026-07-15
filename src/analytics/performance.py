@@ -79,12 +79,28 @@ def sortino_ratio(
     troncati a zero), come da definizione standard: mediare solo sui giorni
     negativi la sovrastimerebbe.
     """
-    daily = portfolio_daily_returns(returns, portfolio)
-    if len(daily) == 0:
+    return sortino_from_daily(portfolio_daily_returns(returns, portfolio), risk_free_rate)
+
+
+def sharpe_from_daily(daily_returns: pd.Series, risk_free_rate: float = 0.0) -> float:
+    """Sharpe annualizzato da una serie di rendimenti giornalieri (es. benchmark)."""
+    valid = daily_returns.dropna()
+    if len(valid) < 2:
         return float("nan")
-    downside = daily.clip(upper=0.0)
+    annual_volatility = float(valid.std()) * TRADING_DAYS**0.5
+    if annual_volatility == 0:
+        return float("nan")
+    return (annualized_geometric_return(valid) - risk_free_rate) / annual_volatility
+
+
+def sortino_from_daily(daily_returns: pd.Series, risk_free_rate: float = 0.0) -> float:
+    """Sortino annualizzato da una serie di rendimenti giornalieri (es. benchmark)."""
+    valid = daily_returns.dropna()
+    if len(valid) == 0:
+        return float("nan")
+    downside = valid.clip(upper=0.0)
     downside_deviation = float((downside**2).mean() ** 0.5) * TRADING_DAYS**0.5
-    annual_return = annualized_geometric_return(daily)
+    annual_return = annualized_geometric_return(valid)
     if downside_deviation == 0:
         return float("inf") if annual_return > risk_free_rate else float("nan")
     return (annual_return - risk_free_rate) / downside_deviation
@@ -97,6 +113,23 @@ def value_at_risk(daily_returns: pd.Series, confidence: float = 0.95) -> float:
     if len(valid) < 20:
         return float("nan")
     return float(valid.quantile(1 - confidence))
+
+
+def expected_shortfall(daily_returns: pd.Series, confidence: float = 0.95) -> float:
+    """Expected Shortfall (CVaR) storico: perdita MEDIA nei giorni oltre il VaR.
+
+    Il VaR dice la soglia che non superi nel `confidence`% dei giorni; l'ES
+    dice quanto perdi in media quando la superi. È una misura di rischio
+    coerente (subadditiva), sempre ≤ del VaR corrispondente.
+    """
+    valid = daily_returns.dropna()
+    if len(valid) < 20:
+        return float("nan")
+    var = valid.quantile(1 - confidence)
+    tail = valid[valid <= var]
+    if len(tail) == 0:
+        return float(var)
+    return float(tail.mean())
 
 
 def beta_alpha(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -> tuple[float, float]:
