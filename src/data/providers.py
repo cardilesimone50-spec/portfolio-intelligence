@@ -3,8 +3,11 @@
 Ordine di preferenza (il primo che risponde vince):
 1. EODHD — dati con licenza commerciale, attivo se è presente EODHD_API_KEY.
    È la sorgente pensata per l'uso in produzione/bancario.
-2. Yahoo Finance (yfinance) — comodo ma API non ufficiale, non rivendibile.
-3. Stooq — CSV pubblico, fallback gratuito quando gli altri falliscono.
+2. Yahoo chart (HTTP diretto v8) — gratuito, senza chiave, robusto: usa un
+   endpoint diverso dalla libreria yfinance (che il cloud spesso blocca) e ne
+   controlliamo header, retry e rotazione degli host.
+3. Yahoo Finance (libreria yfinance) — comoda ma spesso bloccata sugli IP cloud.
+4. Stooq — CSV pubblico, ultimo fallback.
 
 Ogni provider espone `fetch(tickers, period) -> DataFrame` (colonne = ticker,
 indice = date) e alza `ProviderError` se non riesce a servire la richiesta.
@@ -13,6 +16,7 @@ La catena prova i provider in ordine e restituisce il primo risultato utile.
 
 import io
 import os
+import time
 from datetime import date, timedelta
 from typing import Protocol
 
@@ -27,7 +31,9 @@ _PERIOD_DAYS = {
     "5y": 1830,
     "max": 7300,
 }
-_HEADERS = {"User-Agent": "Mozilla/5.0 (portfolio-intelligence)"}
+# UA minimale: sorprendentemente il WAF di Yahoo blocca (429) le UA "browser"
+# elaborate ma lascia passare questa. Non complicare senza riverificare i 429.
+_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 
 class ProviderError(Exception):
@@ -61,6 +67,74 @@ class YahooProvider:
         if data.empty or data.isna().all().all():
             raise ProviderError("Yahoo: no data")
         return data
+
+
+class YahooChartProvider:
+    """Yahoo chart v8 via HTTP diretto: gratis, senza chiave, resiliente.
+
+    Non usa la libreria yfinance (crumb/cookie, spesso bloccata dal cloud): fa
+    una GET su /v8/finance/chart/<ticker>, ruota query1/query2 e ritenta con
+    backoff sui 429/errori di rete. Usa il prezzo adjusted quando disponibile.
+    """
+
+    name = "Yahoo (chart)"
+    _HOSTS = ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]
+
+    def __init__(self, retries: int = 3, backoff: float = 0.6):
+        self._retries = retries
+        self._backoff = backoff
+
+    def _result(self, ticker: str, period: str) -> dict:
+        rng = period if period in _PERIOD_DAYS else "1y"
+        params = {"range": rng, "interval": "1d"}
+        last_error: Exception | None = None
+        for attempt in range(self._retries):
+            host = self._HOSTS[attempt % len(self._HOSTS)]
+            try:
+                resp = requests.get(
+                    f"{host}/v8/finance/chart/{ticker}",
+                    params=params,
+                    headers=_HEADERS,
+                    timeout=15,
+                )
+                if resp.status_code == 429:
+                    last_error = ProviderError("rate limited (429)")
+                    time.sleep(self._backoff * (attempt + 1))
+                    continue
+                resp.raise_for_status()
+                result = (resp.json().get("chart") or {}).get("result")
+                if not result:
+                    raise ProviderError(f"no result for {ticker}")
+                return result[0]
+            except (requests.RequestException, ValueError, ProviderError) as exc:
+                last_error = exc
+                time.sleep(self._backoff * (attempt + 1))
+        raise ProviderError(f"Yahoo chart {ticker}: {last_error}")
+
+    def _series(self, ticker: str, period: str) -> pd.Series:
+        result = self._result(ticker, period)
+        timestamps = result.get("timestamp") or []
+        indicators = result.get("indicators") or {}
+        adjusted = (indicators.get("adjclose") or [{}])[0].get("adjclose")
+        close = (indicators.get("quote") or [{}])[0].get("close")
+        values = adjusted or close
+        if not timestamps or not values:
+            raise ProviderError(f"Yahoo chart: empty series for {ticker}")
+        index = pd.to_datetime(timestamps, unit="s").normalize()
+        return pd.Series(values, index=index, name=ticker).dropna()
+
+    def fetch(self, tickers: list[str], period: str) -> pd.DataFrame:
+        columns = {}
+        for ticker in tickers:
+            try:
+                series = self._series(ticker, period)
+            except ProviderError:
+                continue
+            if not series.empty:
+                columns[ticker] = series
+        if not columns:
+            raise ProviderError("Yahoo chart: no ticker available")
+        return pd.DataFrame(columns).sort_index()
 
 
 class StooqProvider:
@@ -175,11 +249,16 @@ class ProviderChain:
 
 
 def build_default_chain() -> ProviderChain:
-    """Catena letta dall'ambiente: EODHD (se c'è la key) → Yahoo → Stooq."""
+    """Catena: EODHD (se c'è la key) → Yahoo chart HTTP → yfinance → Stooq.
+
+    Yahoo chart (HTTP diretto) è primo tra i gratuiti perché è quello che
+    regge meglio sugli IP cloud, dove la libreria yfinance viene spesso bloccata.
+    """
     providers: list[PriceProvider] = []
     api_key = os.getenv("EODHD_API_KEY")
     if api_key:
         providers.append(EODHDProvider(api_key))
+    providers.append(YahooChartProvider())
     providers.append(YahooProvider())
     providers.append(StooqProvider())
     return ProviderChain(providers)

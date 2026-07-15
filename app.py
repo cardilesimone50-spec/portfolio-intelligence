@@ -59,6 +59,7 @@ from src.data import yahoo_client
 from src.data.cache import load_nasdaq100_prices
 from src.data.fx import convert_to_eur, fetch_eurusd
 from src.data.importers import parse_positions
+from src.data.rates import fetch_risk_free_rate
 from src.data.store import (
     list_portfolios,
     load_analyses,
@@ -545,6 +546,12 @@ def cached_eurusd(period: str) -> pd.Series:
     return fetch_eurusd(period)
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_risk_free() -> float:
+    """Baseline risk-free (T-bill 3M USA, ^IRX) come frazione annua, con fallback."""
+    return fetch_risk_free_rate()
+
+
 @st.cache_data(ttl=1800, show_spinner=False)
 def ticker_preview(ticker: str) -> dict | None:
     """Nome, prezzo e variazione di seduta di un titolo, per l'anteprima.
@@ -988,17 +995,21 @@ with st.sidebar:
             "include EUR/USD swings too — the real risk for a European "
             "investor.",
         )
+        rf_baseline_pct = min(10.0, max(0.0, round(cached_risk_free() * 100, 2)))
         risk_free = (
             st.number_input(
                 "Annual risk-free rate (%)",
                 min_value=0.0,
                 max_value=10.0,
-                value=3.0,
+                value=rf_baseline_pct,
                 step=0.25,
-                help="Risk-free return used in Sharpe, Sortino and optimization.",
+                help="Baseline = current US 3-month T-bill (^IRX), fetched live and "
+                "editable. Used in Sharpe, Sortino and optimization. Using 0 would "
+                "overstate these ratios.",
             )
             / 100
         )
+        st.caption(f"Baseline ^IRX (3M T-bill): {rf_baseline_pct:.2f}%")
         risk_profile = st.selectbox(
             "Risk profile",
             ["Not set", "Conservative", "Moderate", "Aggressive"],

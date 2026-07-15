@@ -24,7 +24,22 @@ def is_usd_listing(ticker: str) -> bool:
 
 
 def fetch_eurusd(period: str = "1y") -> pd.Series:
-    """Serie storica EURUSD (dollari per 1 euro) da Yahoo Finance."""
+    """Serie storica EURUSD (dollari per 1 euro).
+
+    Primario: endpoint Yahoo chart via HTTP (robusto anche sugli IP cloud, dove
+    la libreria yfinance viene spesso bloccata). Fallback: la libreria yfinance.
+    """
+    # primario: catena provider (Yahoo chart HTTP)
+    try:
+        from src.data.providers import YahooChartProvider
+
+        series = YahooChartProvider().fetch([EURUSD_TICKER], period)[EURUSD_TICKER].dropna()
+        if not series.empty:
+            return series
+    except Exception:  # noqa: BLE001 — qualsiasi problema: si prova il fallback
+        pass
+
+    # fallback: libreria yfinance
     try:
         data = yf.download(EURUSD_TICKER, period=period, auto_adjust=True, progress=False)["Close"]
     except requests.exceptions.RequestException as exc:
