@@ -173,9 +173,11 @@ def kpi_row_html(cards: list[dict]) -> str:
 DISCLAIMER = (
     "Information tool only, not financial advice. The analyses describe "
     "measurable characteristics of the portfolio based on historical data and "
-    "do not constitute personalized investment recommendations or forecasts. "
-    "No solicitation to buy or sell financial instruments. Decisions remain "
-    "with the user or their advisor."
+    "do not constitute personalized investment recommendations, investment "
+    "research or forecasts. Past performance is not a reliable indicator of "
+    "future results. Figures are gross of costs, fees and taxes; data from "
+    "Yahoo Finance, accuracy not guaranteed. No solicitation to buy or sell "
+    "financial instruments. Decisions remain with the user or their advisor."
 )
 
 

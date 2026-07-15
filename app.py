@@ -1411,7 +1411,8 @@ elif view == "Check-up":
                 f"Return ({period})",
                 f"{c['cum_return']:+.1%}",
                 f"{bench_cum:+.1%}",
-                "Total change over the observation window, dividends not reinvested.",
+                "Total change over the observation window, computed on adjusted "
+                "prices (dividends and splits included).",
             ),
             (
                 "Annualized return (CAGR)",

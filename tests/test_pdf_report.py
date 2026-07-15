@@ -84,7 +84,8 @@ def test_report_has_exactly_three_pages_with_advisor_sections():
     assert "HOLDINGS" in page1
     assert "prepared by advisor@example.com" in page1
     assert "observation window" in page1
-    assert "Suitability check" in page1
+    assert "Risk profile check" in page1
+    assert "MiFID II suitability" in page1  # il software non rivendica l'adeguatezza
     assert "Data coverage" in page1
     assert "Sharpe ratio" in page2
     assert "Expected shortfall" in page2
@@ -93,7 +94,13 @@ def test_report_has_exactly_three_pages_with_advisor_sections():
     assert "Technology" in page3
     assert "STRESS SCENARIO" in page3
     assert "METHODOLOGY" in page3
-    assert "RECOMMENDATIONS" in page3
+    assert "OBSERVATIONS & TALKING POINTS" in page3
+    # avvertenze obbligatorie nel footer di OGNI pagina + note legali in pagina 3
+    for page in (page1, page2, page3):
+        assert "Past performance is not a reliable indicator" in page
+        assert "Ref." in page
+    assert "gross of transaction costs" in page3
+    assert "not intended for public distribution" in page3
     # il markdown ** non deve finire nel PDF
     assert "**" not in page3
 
