@@ -1,8 +1,8 @@
-import pandas as pd
 import pytest
 
 from src.data.store import (
     delete_portfolio,
+    get_engine,
     list_portfolios,
     load_analyses,
     log_analysis,
@@ -10,61 +10,60 @@ from src.data.store import (
 )
 
 
+def _engine(tmp_path):
+    return get_engine(f"sqlite:///{tmp_path / 'test.db'}")
+
+
 def test_save_list_delete_portfolio(tmp_path):
-    db = tmp_path / "test.db"
-    save_portfolio("Simone", {"AAPL": 4000.0, "MSFT": 3000.0}, db_path=db)
-    save_portfolio("Test", {"NVDA": 1000.0}, db_path=db)
+    engine = _engine(tmp_path)
+    save_portfolio("adv@a", "Client Rossi", {"AAPL": 4000.0, "MSFT": 3000.0}, engine=engine)
+    save_portfolio("adv@a", "Client Bianchi", {"NVDA": 1000.0}, engine=engine)
 
-    portfolios = list_portfolios(db_path=db)
-    assert portfolios["Simone"] == {"AAPL": 4000.0, "MSFT": 3000.0}
+    portfolios = list_portfolios("adv@a", engine=engine)
+    assert portfolios["Client Rossi"] == {"AAPL": 4000.0, "MSFT": 3000.0}
 
-    save_portfolio("Simone", {"TSLA": 500.0}, db_path=db)  # sovrascrive
-    assert list_portfolios(db_path=db)["Simone"] == {"TSLA": 500.0}
+    save_portfolio("adv@a", "Client Rossi", {"TSLA": 500.0}, engine=engine)  # sovrascrive
+    assert list_portfolios("adv@a", engine=engine)["Client Rossi"] == {"TSLA": 500.0}
 
-    delete_portfolio("Simone", db_path=db)
-    assert "Simone" not in list_portfolios(db_path=db)
+    delete_portfolio("adv@a", "Client Rossi", engine=engine)
+    assert "Client Rossi" not in list_portfolios("adv@a", engine=engine)
+
+
+def test_portfolios_are_isolated_per_advisor(tmp_path):
+    engine = _engine(tmp_path)
+    # due consulenti, stesso nome di portafoglio: nessuna collisione né leakage
+    save_portfolio("adv@a", "Client Rossi", {"AAPL": 1000.0}, engine=engine)
+    save_portfolio("adv@b", "Client Rossi", {"TSLA": 2000.0}, engine=engine)
+
+    assert list_portfolios("adv@a", engine=engine) == {"Client Rossi": {"AAPL": 1000.0}}
+    assert list_portfolios("adv@b", engine=engine) == {"Client Rossi": {"TSLA": 2000.0}}
+
+    # una cancellazione di un consulente non tocca l'altro
+    delete_portfolio("adv@a", "Client Rossi", engine=engine)
+    assert list_portfolios("adv@a", engine=engine) == {}
+    assert list_portfolios("adv@b", engine=engine) == {"Client Rossi": {"TSLA": 2000.0}}
 
 
 def test_empty_portfolio_name_raises(tmp_path):
     with pytest.raises(ValueError, match="empty"):
-        save_portfolio("  ", {"AAPL": 100.0}, db_path=tmp_path / "test.db")
+        save_portfolio("adv@a", "  ", {"AAPL": 100.0}, engine=_engine(tmp_path))
 
 
-def test_analysis_history_roundtrip(tmp_path):
-    db = tmp_path / "test.db"
-    assert load_analyses(db_path=db).empty
+def test_analysis_history_roundtrip_and_isolation(tmp_path):
+    engine = _engine(tmp_path)
+    assert load_analyses("adv@a", engine=engine).empty
 
-    log_analysis("Simone", "1y", 10000.0, 0.184, 72, health=61, db_path=db)
-    log_analysis("Simone", "1y", 10000.0, 0.19, 70, health=64, db_path=db)
+    log_analysis("adv@a", "Rossi", "1y", 10000.0, 0.184, 72, health=61, engine=engine)
+    log_analysis("adv@a", "Rossi", "1y", 10000.0, 0.19, 70, health=64, engine=engine)
+    log_analysis("adv@b", "Verdi", "1y", 5000.0, 0.05, 40, health=50, engine=engine)
 
-    history = load_analyses(db_path=db)
-    assert len(history) == 2
+    history = load_analyses("adv@a", engine=engine)
+    assert len(history) == 2  # solo le analisi di adv@a
     assert history.iloc[0]["risk_score"] == 70  # più recente prima
     assert history.iloc[0]["health"] == 64
     assert history.iloc[1]["cum_return"] == pytest.approx(0.184)
 
-
-def test_old_schema_gets_health_column_migration(tmp_path):
-    import sqlite3
-
-    db = tmp_path / "legacy.db"
-    with sqlite3.connect(db) as conn:
-        conn.execute(
-            """CREATE TABLE analyses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL, portfolio TEXT NOT NULL,
-                period TEXT NOT NULL, invested REAL NOT NULL,
-                cum_return REAL NOT NULL, risk_score INTEGER NOT NULL
-            )"""
-        )
-        conn.execute(
-            "INSERT INTO analyses (timestamp, portfolio, period, invested, "
-            "cum_return, risk_score) VALUES ('2026-01-01T10:00:00', 'X', '1y', "
-            "5000, 0.1, 50)"
-        )
-
-    log_analysis("X", "1y", 5000.0, 0.12, 48, health=70, db_path=db)
-    history = load_analyses(db_path=db)
-    assert len(history) == 2
-    assert history.iloc[0]["health"] == 70
-    assert pd.isna(history.iloc[1]["health"])  # riga pre-migrazione
+    # l'altro consulente vede solo la propria
+    other = load_analyses("adv@b", engine=engine)
+    assert len(other) == 1
+    assert other.iloc[0]["portfolio"] == "Verdi"

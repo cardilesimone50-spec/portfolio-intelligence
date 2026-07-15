@@ -99,6 +99,7 @@ from src.ui.components import (
     sec,
     ticker_preview_html,
 )
+from src.ui.identity import auth_configured, current_advisor, is_authenticated
 from src.visualization.charts import (
     GAIN,
     LOSS,
@@ -852,11 +853,28 @@ if st.session_state.stage != "app":
 
     st.stop()
 
+# consulente corrente (tenant): portafogli e analisi sono isolati per advisor
+advisor = current_advisor()
+
 with st.sidebar:
     st.markdown(
         '<div class="brand" style="font-size:.9rem">◆ SMARTEE<b>FINANCE</b></div>',
         unsafe_allow_html=True,
     )
+
+    # identità consulente + login/logout (B2B multi-tenant)
+    if auth_configured():
+        if is_authenticated():
+            st.caption(f"Advisor: **{advisor}**")
+            if st.button("Log out", width="stretch"):
+                st.logout()
+        else:
+            st.caption("Sign in to load your client book.")
+            if st.button("Log in", type="primary", width="stretch"):
+                st.login()
+    else:
+        st.caption(f"Advisor: **{advisor}** · demo mode")
+
     sec("Add a stock")
 
     def _add_holding() -> None:
@@ -970,11 +988,11 @@ with st.sidebar:
                 except ValueError as exc:
                     st.error(f"Import failed: {exc}")
 
-    saved = list_portfolios()
+    saved = list_portfolios(advisor)
     with st.expander("Saved portfolios"):
         portfolio_name = st.text_input("Name", value="My portfolio")
         if st.button("Save current composition", width="stretch") and holdings:
-            save_portfolio(portfolio_name, holdings)
+            save_portfolio(advisor, portfolio_name, holdings)
             st.toast(f'Portfolio "{portfolio_name}" saved')
         if saved:
             selected_saved = st.selectbox(
@@ -1392,6 +1410,7 @@ elif view == "Check-up":
     with col_log:
         if st.button("Save to history", width="stretch"):
             log_analysis(
+                advisor,
                 portfolio_name,
                 period,
                 total,
@@ -1401,7 +1420,7 @@ elif view == "Check-up":
             )
             st.toast("Analysis saved")
     with col_hist:
-        history = load_analyses()
+        history = load_analyses(advisor)
         if not history.empty:
             with st.expander(f"Analysis history ({len(history)})"):
                 trend = history.dropna(subset=["health"])
@@ -2083,7 +2102,7 @@ elif view == "Clients":
             else "No problems flagged by the monitored rules.",
         }
 
-    book = list_portfolios()
+    book = list_portfolios(advisor)
     if not book:
         empty_state(
             "No clients in the book",
