@@ -58,7 +58,10 @@ def test_build_report_produces_valid_pdf():
         period="1y",
         cum_return=0.184,
         health_score=72,
-        metrics={"Sharpe ratio": "1.01", "VaR 95%": "-197 €"},
+        metric_rows=[
+            ("Sharpe ratio", "1.01", "Above the historical norm."),
+            ("VaR 95%", "-197 €", "Historical percentile of daily returns."),
+        ],
         insights=["**AAPL** e **MSFT** dominano il rischio."],
         suggestions=["Diversifica su più settori."],
     )
