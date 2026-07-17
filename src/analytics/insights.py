@@ -6,6 +6,7 @@ Le soglie dei punteggi (0-100) sono euristiche dichiarate nei singoli score.
 
 import pandas as pd
 
+from src.i18n import t
 from src.portfolio import Portfolio, weights_series
 
 TRADING_DAYS = 252
@@ -111,14 +112,14 @@ def dna_label(dna: dict[str, float]) -> str:
         return ""
     growth, value, risk = dna.get("Growth", 0), dna.get("Value", 0), dna.get("Risk", 0)
     if growth >= 70 and risk >= 60:
-        return "Aggressive growth profile"
+        return t("dna.aggressive_growth")
     if growth >= 70:
-        return "Growth profile"
+        return t("dna.growth")
     if value >= 60:
-        return "Value profile"
+        return t("dna.value")
     if risk <= 35:
-        return "Defensive profile"
-    return "Balanced profile"
+        return t("dna.defensive")
+    return t("dna.balanced")
 
 
 def stock_scores(row: pd.Series, annual_volatility: float) -> dict[str, float]:
@@ -238,53 +239,40 @@ def executive_summary(
     benchmark: str,
 ) -> str:
     """Sintesi da analista in un paragrafo, composta solo dalle metriche calcolate."""
-    parts = [f"Over the period ({period}) the portfolio returned {cumulative_return:+.1%}."]
+    parts = [t("exec.ret", period=period, ret=f"{cumulative_return:+.1%}")]
 
     if avg_correlation == avg_correlation:
+        corr = f"{avg_correlation:.2f}"
         if avg_correlation > 0.6:
-            parts.append(
-                "Diversification is weak: the holdings move very similarly "
-                f"(average correlation {avg_correlation:.2f})."
-            )
+            parts.append(t("exec.corr_weak", corr=corr))
         elif avg_correlation < 0.3:
-            parts.append(
-                f"The portfolio is well diversified (average correlation {avg_correlation:.2f})."
-            )
+            parts.append(t("exec.corr_good", corr=corr))
         else:
-            parts.append(f"Diversification is average (correlation {avg_correlation:.2f}).")
+            parts.append(t("exec.corr_avg", corr=corr))
 
     if len(contributions) >= 2 and contributions.iloc[0] > max(0.40, 1.5 / len(contributions)):
         parts.append(
-            f"Risk is concentrated: {contributions.index[0]} alone drives "
-            f"{contributions.iloc[0]:.0%} of total variability."
+            t(
+                "exec.risk_conc",
+                ticker=contributions.index[0],
+                share=f"{contributions.iloc[0]:.0%}",
+            )
         )
 
     if usd_weight >= 0.7:
-        parts.append(
-            f"US-dollar exposure is high ({usd_weight:.0%} of capital): "
-            "the euro result also depends on the EUR/USD rate."
-        )
+        parts.append(t("exec.usd", share=f"{usd_weight:.0%}"))
 
     if drawdown == drawdown:
         if drawdown < -0.25:
-            parts.append(
-                "Historical downside risk is above average: over the period the "
-                f"portfolio fell as much as {-drawdown:.0%} from its peak."
-            )
+            parts.append(t("exec.dd_high", dd=f"{-drawdown:.0%}"))
         elif drawdown > -0.10:
-            parts.append(f"Drops from the peak stayed contained (max {-drawdown:.0%}).")
+            parts.append(t("exec.dd_low", dd=f"{-drawdown:.0%}"))
 
     if beta == beta:
         if beta > 1.15:
-            parts.append(
-                f"With a beta of {beta:.2f} versus {benchmark}, the portfolio "
-                "amplifies market moves."
-            )
+            parts.append(t("exec.beta_high", beta=f"{beta:.2f}", benchmark=benchmark))
         elif beta < 0.85:
-            parts.append(
-                f"With a beta of {beta:.2f} versus {benchmark}, the portfolio "
-                "is more defensive than the market."
-            )
+            parts.append(t("exec.beta_low", beta=f"{beta:.2f}", benchmark=benchmark))
 
     return " ".join(parts)
 
@@ -302,18 +290,18 @@ def find_problems(
 
     if len(weights) > 1 and weights.iloc[0] > 0.25:
         problems.append(
-            f"**{weights.index[0]}** is **{weights.iloc[0]:.0%}** of the "
-            "portfolio: high concentration risk."
+            t("prob.concentration", ticker=weights.index[0], weight=f"{weights.iloc[0]:.0%}")
         )
     if len(contributions) >= 2 and contributions.iloc[0] > max(0.40, 1.5 / len(contributions)):
         problems.append(
-            f"**{contributions.index[0]}** drives **{contributions.iloc[0]:.0%} of total risk**."
+            t(
+                "prob.risk_driver",
+                ticker=contributions.index[0],
+                share=f"{contributions.iloc[0]:.0%}",
+            )
         )
     if avg_correlation == avg_correlation and avg_correlation > 0.6:
-        problems.append(
-            f"Average correlation **{avg_correlation:.0%}**: the holdings move "
-            "together, the portfolio rides a single engine."
-        )
+        problems.append(t("prob.correlation", corr=f"{avg_correlation:.0%}"))
     if "dividend_yield" in fundamentals.columns:
         dy = fundamentals["dividend_yield"]
         mask = dy.notna()
@@ -323,12 +311,9 @@ def find_problems(
                 / weights.reindex(fundamentals.index)[mask].sum()
             )
             if weighted_yield < 1.0:  # in punti percentuali
-                problems.append(
-                    f"Dividend yield **{weighted_yield:.1f}%**, below the "
-                    "market average: the portfolio generates little income."
-                )
+                problems.append(t("prob.dividend", dy=f"{weighted_yield:.1f}"))
     if radar.get("Volatility", 0) > 70:
-        problems.append("Elevated volatility versus a balanced portfolio.")
+        problems.append(t("prob.volatility"))
     return problems
 
 
@@ -344,10 +329,7 @@ def find_opportunities(
         held_sectors = set(fundamentals["sector"].dropna())
         missing = [s for s in DEFENSIVE_SECTORS if s not in held_sectors]
         if missing:
-            opportunities.append(
-                f"Uncovered defensive sectors (**{', '.join(missing)}**): "
-                "adding them would reduce reliance on the tech cycle."
-            )
+            opportunities.append(t("opp.defensive_sectors", sectors=", ".join(missing)))
 
     if {"pe", "ps"}.issubset(fundamentals.columns):
         cheap = fundamentals[
@@ -355,15 +337,16 @@ def find_opportunities(
         ]
         for ticker in cheap.index[:2]:
             opportunities.append(
-                f"Among the holdings, **{ticker}** has the lowest multiples "
-                f"(P/E {cheap.loc[ticker, 'pe']:.0f}, P/S "
-                f"{cheap.loc[ticker, 'ps']:.1f})."
+                t(
+                    "opp.cheap",
+                    ticker=ticker,
+                    pe=f"{cheap.loc[ticker, 'pe']:.0f}",
+                    ps=f"{cheap.loc[ticker, 'ps']:.1f}",
+                )
             )
 
     if not opportunities:
-        opportunities.append(
-            "No obvious gaps against the monitored rules (defensive sectors, valuations)."
-        )
+        opportunities.append(t("opp.none"))
     return opportunities
 
 
@@ -380,31 +363,15 @@ def generate_suggestions(
     """
     suggestions = []
     if radar.get("Concentration", 0) > 60 and len(contributions):
-        suggestions.append(
-            f"Concentration is high: **{contributions.index[0]}** dominates "
-            "risk. A common prudential guideline treats a single-stock weight "
-            "above 25% as critical."
-        )
+        suggestions.append(t("sugg.concentration", ticker=contributions.index[0]))
     if radar.get("Correlation", 0) > 60:
-        suggestions.append(
-            "The holdings tend to move together: instruments from less-correlated "
-            "sectors or regions generally reduce overall variability."
-        )
+        suggestions.append(t("sugg.correlation"))
     if radar.get("Volatility", 0) > 70:
-        suggestions.append(
-            "Volatility is high: in general, lower-beta components dampen the "
-            "amplitude of a portfolio's swings."
-        )
+        suggestions.append(t("sugg.volatility"))
     if dna.get("Value", 100) < 30:
-        suggestions.append(
-            "The portfolio's average multiples are high (elevated P/E and P/S): "
-            "the price embeds significant growth expectations."
-        )
+        suggestions.append(t("sugg.multiples"))
     if not suggestions:
-        suggestions.append(
-            "The portfolio looks balanced against the monitored rules: "
-            "concentration, correlation, volatility and multiples."
-        )
+        suggestions.append(t("sugg.balanced"))
     return suggestions
 
 
@@ -417,36 +384,23 @@ def generate_insights(
     beta: float,
     benchmark: str,
 ) -> list[str]:
-    """Frasi di analisi in italiano, tutte derivate dai numeri calcolati."""
-    insights = [
-        f"The portfolio returned **{cumulative_return:+.1%}** over the period ({period_label})."
-    ]
+    """Frasi di analisi, tutte derivate dai numeri calcolati (lingua da i18n)."""
+    insights = [t("ins.ret", ret=f"{cumulative_return:+.1%}", period=period_label)]
     if len(contributions) >= 2:
         top2 = contributions.head(2)
         insights.append(
-            f"**{top2.index[0]}** and **{top2.index[1]}** account for "
-            f"**{top2.sum():.0%} of the portfolio's total risk**."
+            t("ins.top2", t1=top2.index[0], t2=top2.index[1], share=f"{top2.sum():.0%}")
         )
     if avg_correlation == avg_correlation:
         if avg_correlation > 0.6:
-            insights.append(
-                f"Your holdings are tightly linked (average correlation "
-                f"**{avg_correlation:.2f}**): diversification is weak."
-            )
+            insights.append(t("ins.corr_high", corr=f"{avg_correlation:.2f}"))
         elif avg_correlation < 0.3:
-            insights.append(
-                f"Good diversification: average correlation **{avg_correlation:.2f}**."
-            )
+            insights.append(t("ins.corr_good", corr=f"{avg_correlation:.2f}"))
     if drawdown == drawdown and drawdown < -0.15:
-        insights.append(
-            f"Over the period the portfolio suffered a maximum drop of "
-            f"**{drawdown:.0%}** from its peak."
-        )
+        insights.append(t("ins.drawdown", dd=f"{drawdown:.0%}"))
     if beta == beta:
         if beta > 1.15:
-            insights.append(f"Beta **{beta:.2f}** vs {benchmark}: you amplify market moves.")
+            insights.append(t("ins.beta_high", beta=f"{beta:.2f}", benchmark=benchmark))
         elif beta < 0.85:
-            insights.append(
-                f"Beta **{beta:.2f}** vs {benchmark}: you are more defensive than the market."
-            )
+            insights.append(t("ins.beta_low", beta=f"{beta:.2f}", benchmark=benchmark))
     return insights

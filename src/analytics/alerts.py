@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from src.i18n import t
 from src.portfolio import Portfolio, weights_series
 
 
@@ -22,18 +23,18 @@ def evaluate_alerts(
         threshold = max(0.40, 1.5 * fair_share)
         if contributions.iloc[0] > threshold:
             alerts.append(
-                f"**{contributions.index[0]}** now drives "
-                f"**{contributions.iloc[0]:.0%} of the portfolio's total risk**."
+                t(
+                    "alert.risk_driver",
+                    ticker=contributions.index[0],
+                    share=f"{contributions.iloc[0]:.0%}",
+                )
             )
 
     if avg_correlation == avg_correlation and avg_correlation > 0.75:
-        alerts.append(
-            f"Average correlation rose to **{avg_correlation:.2f}**: "
-            "the portfolio moves like a single stock."
-        )
+        alerts.append(t("alert.correlation", corr=f"{avg_correlation:.2f}"))
 
     if drawdown == drawdown and drawdown < -0.30:
-        alerts.append(f"Deep drawdown: **{drawdown:.0%}** from the peak over the period.")
+        alerts.append(t("alert.drawdown", dd=f"{drawdown:.0%}"))
 
     # last available session move
     weights = weights_series(portfolio)
@@ -43,9 +44,12 @@ def evaluate_alerts(
         contribution_today = last_day * weights
         worst = contribution_today.idxmin()
         alerts.append(
-            f"Last session: portfolio **{day_move:+.1%}**. "
-            f"Main contributor: **{worst}** "
-            f"({float(contribution_today[worst]):+.1%} of the total)."
+            t(
+                "alert.last_session",
+                move=f"{day_move:+.1%}",
+                ticker=str(worst),
+                contrib=f"{float(contribution_today[worst]):+.1%}",
+            )
         )
 
     return alerts

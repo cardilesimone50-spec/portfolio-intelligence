@@ -67,3 +67,11 @@ def test_analysis_history_roundtrip_and_isolation(tmp_path):
     other = load_analyses("adv@b", engine=engine)
     assert len(other) == 1
     assert other.iloc[0]["portfolio"] == "Verdi"
+
+
+def test_positions_with_cost_basis_roundtrip(tmp_path):
+    engine = _engine(tmp_path)
+    rich = {"AAPL": {"qty": 10.0, "price": 150.5}, "OLD": 500.0}  # nuovo + legacy misti
+    save_portfolio("adv@a", "Con carico", rich, engine=engine)
+    loaded = list_portfolios("adv@a", engine=engine)["Con carico"]
+    assert loaded == rich

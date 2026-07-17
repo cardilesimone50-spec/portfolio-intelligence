@@ -170,9 +170,13 @@ def known_tickers(engine: Engine | None = None) -> list[str]:
 
 
 def save_portfolio(
-    advisor: str, name: str, positions: dict[str, float], engine: Engine | None = None
+    advisor: str, name: str, positions: dict, engine: Engine | None = None
 ) -> None:
-    """Salva (o sovrascrive) un portafoglio del consulente: {ticker: importo}."""
+    """Salva (o sovrascrive) un portafoglio del consulente.
+
+    `positions` è {ticker: {"qty": q, "price": p}} (formato con prezzo di
+    carico) oppure il legacy {ticker: importo}: il JSON li conserva entrambi.
+    """
     if not name.strip():
         raise ValueError("The portfolio name cannot be empty")
     engine = engine or get_engine()
@@ -194,8 +198,8 @@ def save_portfolio(
         )
 
 
-def list_portfolios(advisor: str, engine: Engine | None = None) -> dict[str, dict[str, float]]:
-    """Portafogli salvati del consulente: {nome: {ticker: importo}}."""
+def list_portfolios(advisor: str, engine: Engine | None = None) -> dict[str, dict]:
+    """Portafogli salvati del consulente: {nome: {ticker: posizione}} (nuovo o legacy)."""
     engine = engine or get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
