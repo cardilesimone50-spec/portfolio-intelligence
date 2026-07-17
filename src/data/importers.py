@@ -32,7 +32,22 @@ _AMOUNT_COLUMNS = {
     "total",
 }
 _QUANTITY_COLUMNS = {"quantità", "quantity", "shares", "no. of shares", "qta", "pezzi"}
-_PRICE_COLUMNS = {"prezzo", "price", "chiusura", "close", "prezzo medio", "price / share"}
+_PRICE_COLUMNS = {"prezzo", "price", "chiusura", "close", "price / share"}
+# prezzo di CARICO (costo medio): con la quantità permette il P&L reale
+_COST_PRICE_COLUMNS = {
+    "prezzo medio",
+    "prezzo medio di carico",
+    "prezzo di carico",
+    "prezzo carico",
+    "pmc",
+    "avg price",
+    "average price",
+    "average cost",
+    "avg cost",
+    "cost basis",
+    "book cost",
+    "purchase price",
+}
 
 
 def _to_number(value) -> float:
@@ -46,12 +61,14 @@ def _to_number(value) -> float:
     return float(text)
 
 
-def parse_positions(content: bytes, filename: str) -> dict[str, float]:
-    """Estrae {ticker: importo} da un CSV o Excel.
+def parse_positions(content: bytes, filename: str) -> dict:
+    """Estrae le posizioni da un CSV o Excel.
 
-    Riconosce le colonne per nome (case-insensitive): una tra ticker/symbol/
-    titolo/... e una tra importo/amount/controvalore/... I duplicati vengono
-    sommati; righe con importo non positivo o non numerico vengono scartate.
+    Riconosce le colonne per nome (case-insensitive). Se il file ha quantità e
+    prezzo di CARICO (es. Fineco "Prezzo medio di carico"), restituisce
+    {ticker: {"qty": q, "price": p}} — da cui l'app calcola il P&L reale.
+    Altrimenti ripiega su {ticker: importo} (controvalore, o quantità × prezzo
+    corrente). I duplicati vengono aggregati; righe non numeriche scartate.
     """
     name = filename.lower()
     if name.endswith((".xlsx", ".xls")):
@@ -76,8 +93,9 @@ def parse_positions(content: bytes, filename: str) -> dict[str, float]:
         amount_col = next((columns[k] for k in columns if k in _AMOUNT_COLUMNS), None)
         quantity_col = next((columns[k] for k in columns if k in _QUANTITY_COLUMNS), None)
         price_col = next((columns[k] for k in columns if k in _PRICE_COLUMNS), None)
+        cost_col = next((columns[k] for k in columns if k in _COST_PRICE_COLUMNS), None)
         last_columns = list(df.columns)
-        if ticker_col and (amount_col or (quantity_col and price_col)):
+        if ticker_col and (amount_col or (quantity_col and (price_col or cost_col))):
             break
     else:
         raise ValueError(
@@ -86,12 +104,26 @@ def parse_positions(content: bytes, filename: str) -> dict[str, float]:
             "'value') or quantity + price."
         )
 
-    positions: dict[str, float] = {}
+    with_cost = quantity_col is not None and cost_col is not None
+    positions: dict = {}
     for _, row in df.iterrows():
         ticker = str(row[ticker_col]).strip().upper()
         if not ticker or ticker == "NAN":
             continue
         try:
+            if with_cost:
+                qty = _to_number(row[quantity_col])
+                cost = _to_number(row[cost_col])
+                if qty <= 0 or cost <= 0:
+                    continue
+                # duplicati: quantità sommate, prezzo di carico medio ponderato
+                prev = positions.get(ticker)
+                if prev is not None:
+                    total_qty = prev["qty"] + qty
+                    cost = (prev["qty"] * prev["price"] + qty * cost) / total_qty
+                    qty = total_qty
+                positions[ticker] = {"qty": qty, "price": cost}
+                continue
             if amount_col is not None:
                 amount = _to_number(row[amount_col])
             else:

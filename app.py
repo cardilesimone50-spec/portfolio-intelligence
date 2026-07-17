@@ -14,6 +14,7 @@ from src.analytics.pipeline import analyze_portfolio
 from src.data import yahoo_client
 from src.data.fx import convert_to_eur
 from src.i18n import set_language, t
+from src.portfolio.positions import normalize_portfolio, position_table, totals
 from src.ui.components import compliance_footer, empty_state
 from src.ui.identity import current_advisor
 from src.ui.theme import inject_theme
@@ -49,8 +50,8 @@ st.set_page_config(
 )
 inject_theme()
 
-if "holdings" not in st.session_state:
-    st.session_state.holdings = {}
+if "positions" not in st.session_state:
+    st.session_state.positions = {}
 
 # lingua dell'interfaccia: scelta persistita in sessione, default inglese
 set_language(st.session_state.get("language", "en"))
@@ -62,24 +63,46 @@ gate.render_gate()  # se il gate è attivo, disegna lo stage e chiama st.stop()
 advisor = current_advisor()
 settings = render_sidebar(advisor)
 
-amounts = dict(st.session_state.holdings)
-total = sum(amounts.values())
-portfolio = (
-    [{"ticker": t, "weight": amount / total} for t, amount in amounts.items()] if total else []
-)
+positions = normalize_portfolio(st.session_state.positions)
 
 # ================================================================ SHARED COMPUTATIONS
+# posizioni → prezzi → valori attuali e P&L → pesi → pipeline di analisi
 computed: dict | None = None
 compute_error: str | None = None
-if portfolio:
+amounts: dict[str, float] = {}
+total = 0.0
+portfolio: list = []
+pos_table = None
+pnl_totals = None
+if positions:
     try:
-        tickers = tuple(sorted(amounts))
-        prices = cached_prices(tickers, settings.period)
+        tickers = tuple(sorted(positions))
+        prices_native = cached_prices(tickers, settings.period)
         bench_prices = cached_prices((BENCHMARK,), settings.period)
         if settings.in_eur:
             eurusd = cached_eurusd(settings.period)
-            prices = convert_to_eur(prices, eurusd)
+            prices = convert_to_eur(prices_native, eurusd)
             bench_prices = convert_to_eur(bench_prices, eurusd)
+        else:
+            prices = prices_native
+        # fattore FX per ticker all'ultima data: converte carico e valore
+        # alla valuta di visualizzazione senza toccare il P&L percentuale
+        last_native = prices_native.ffill().iloc[-1]
+        last_display = prices.ffill().iloc[-1]
+        fx_factor = (last_display / last_native).fillna(1.0)
+        pos_table = position_table(positions, last_native, fx_factor)
+        pnl_totals = totals(pos_table)
+        amounts = {
+            ticker: float(value)
+            for ticker, value in pos_table["value"].items()
+            if value == value and value > 0
+        }
+        total = sum(amounts.values())
+        portfolio = (
+            [{"ticker": t_, "weight": amount / total} for t_, amount in amounts.items()]
+            if total
+            else []
+        )
         fund = cached_fundamentals(tickers)
         computed = analyze_portfolio(prices, bench_prices, portfolio, fund, BENCHMARK)
         if "name" in fund.columns:
@@ -173,6 +196,8 @@ ctx = ViewContext(
     risk_profile=settings.risk_profile,
     advisor=advisor,
     names=st.session_state.get("names", {}),
+    pos=pos_table,
+    pnl_totals=pnl_totals,
 )
 
 if view in NEEDS_PORTFOLIO and computed is None:

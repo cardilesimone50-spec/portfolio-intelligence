@@ -434,6 +434,10 @@ def build_report(
     scenario: dict | None = None,
     coverage_notes: list[str] | None = None,
     risk_free: float | None = None,
+    invested: float | None = None,
+    pnl: float | None = None,
+    pnl_pct: float | None = None,
+    per_ticker_pnl: pd.Series | None = None,
     lang: str = "en",
 ) -> bytes:
     """Costruisce il PDF di 3 pagine e lo restituisce come bytes.
@@ -506,7 +510,7 @@ def build_report(
             Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", wordmark),
             HRFlowable(width="100%", thickness=1, color=_ACCENT, spaceAfter=6),
             Paragraph(topic, h2),
-            Paragraph(f"{portfolio_name} · {now}", subtitle),
+            Paragraph(_clean(f"{portfolio_name} · {now}"), subtitle),
         ]
 
     def bullets(items: list[str], cap: int) -> list:
@@ -538,35 +542,46 @@ def build_report(
         Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", wordmark),
         HRFlowable(width="100%", thickness=2, color=_ACCENT, spaceAfter=10),
         Paragraph(T("pdf.title"), h1),
-        Paragraph(" · ".join(meta_bits), subtitle),
+        Paragraph(_clean(" · ".join(meta_bits)), subtitle),
     ]
 
+    has_pnl = pnl is not None and pnl == pnl
+    gain_color = _GREEN if has_pnl and pnl >= 0 else _RED
+    gain_value = "—"
+    gain_label = T("pdf.kpi_gain")
+    if has_pnl:
+        gain_value = ("+" if pnl >= 0 else "") + _eur(pnl)
+        if pnl_pct is not None and pnl_pct == pnl_pct:
+            gain_label += f" ({pnl_pct:+.1%})"
     kpi_labels = [
         T("pdf.kpi_health"),
         T("pdf.kpi_value"),
+        gain_label,
         T("pdf.kpi_return", period=period.upper()),
         T("pdf.kpi_cagr"),
         T("pdf.kpi_invested"),
     ]
     kpi_values = [
         f"{health_score}/100",
-        _eur(total * (1 + cum_return)),
+        _eur(total),
+        gain_value,
         f"{cum_return:+.1%}",
         f"{annual_return:+.1%}" if annual_return is not None else "—",
-        _eur(total),
+        _eur(invested) if invested is not None else _eur(total),
     ]
-    kpi = Table([kpi_labels, kpi_values], colWidths=[_CONTENT_W / 5] * 5)
+    kpi = Table([kpi_labels, kpi_values], colWidths=[_CONTENT_W / 6] * 6)
     kpi.setStyle(
         TableStyle(
             [
                 ("TEXTCOLOR", (0, 0), (-1, 0), _MUTED),
-                ("FONTSIZE", (0, 0), (-1, 0), 6.5),
+                ("FONTSIZE", (0, 0), (-1, 0), 6),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 1), (-1, 1), 13.5),
+                ("FONTSIZE", (0, 1), (-1, 1), 11.5),
                 ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
                 ("TEXTCOLOR", (0, 1), (-1, 1), _INK),
                 ("TEXTCOLOR", (0, 1), (0, 1), health_color),
-                ("TEXTCOLOR", (2, 1), (2, 1), return_color),
+                ("TEXTCOLOR", (2, 1), (2, 1), gain_color),
+                ("TEXTCOLOR", (3, 1), (3, 1), return_color),
                 ("TOPPADDING", (0, 1), (-1, 1), 5),
                 ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
                 ("LINEBELOW", (0, 1), (-1, 1), 0.5, _LINE),
@@ -629,17 +644,22 @@ def build_report(
     sorted_pos = sorted(positions.items(), key=lambda kv: -kv[1])
     shown, rest = sorted_pos[:12], sorted_pos[12:]
     rows = [[
-        T("pdf.h_ticker"), T("pdf.h_company"), T("pdf.h_amount"), T("pdf.h_weight"),
-        T("pdf.h_return", period=period), T("pdf.h_risk"),
+        T("pdf.h_ticker"), T("pdf.h_company"), T("pdf.h_value"), T("pdf.h_pnl"),
+        T("pdf.h_weight"), T("pdf.h_return", period=period), T("pdf.h_risk"),
     ]]
     for ticker, amount in shown:
         ret = per_ticker_returns.get(ticker) if per_ticker_returns is not None else None
         risk = contributions.get(ticker) if contributions is not None else None
+        row_pnl = per_ticker_pnl.get(ticker) if per_ticker_pnl is not None else None
+        pnl_cell = "—"
+        if row_pnl is not None and row_pnl == row_pnl:
+            pnl_cell = ("+" if row_pnl >= 0 else "") + _eur(row_pnl)
         rows.append(
             [
                 ticker,
-                names.get(ticker, "")[:34],
+                names.get(ticker, "")[:26],
                 _eur(amount),
+                pnl_cell,
                 f"{amount / total:.1%}",
                 f"{ret:+.1%}" if ret is not None and ret == ret else "—",
                 f"{risk:.1%}" if risk is not None and risk == risk else "—",
@@ -648,10 +668,12 @@ def build_report(
     if rest:
         rest_total = sum(amount for _, amount in rest)
         rows.append(
-            [f"+{len(rest)}", T("pdf.other_holdings"), _eur(rest_total),
+            [f"+{len(rest)}", T("pdf.other_holdings"), _eur(rest_total), "",
              f"{rest_total / total:.1%}", "", ""]
         )
-    composition = Table(rows, colWidths=[18 * mm, 62 * mm, 28 * mm, 18 * mm, 26 * mm, 22 * mm])
+    composition = Table(
+        rows, colWidths=[16 * mm, 48 * mm, 25 * mm, 23 * mm, 16 * mm, 24 * mm, 22 * mm]
+    )
     composition.setStyle(
         TableStyle(
             [
@@ -893,6 +915,7 @@ def build_report(
     rf_note = T("pdf.notice_rf", rate=f"{risk_free:.2%}") if risk_free is not None else ""
     notice_bits = [
         T("pdf.notice_data", period=period),
+        *([T("pdf.notice_pnl")] if has_pnl else []),
         T("pdf.notice_costs"),
         T("pdf.notice_returns", rf=rf_note),
         T("pdf.notice_var", benchmark=benchmark),

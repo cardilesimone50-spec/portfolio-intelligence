@@ -6,6 +6,7 @@ import streamlit as st
 
 from src.data.importers import parse_positions
 from src.i18n import t
+from src.portfolio.positions import merge_lot, normalize_portfolio
 from src.data.store import list_portfolios, save_portfolio
 from src.ui.components import empty_state, eur, position_card_html, sec, ticker_preview_html
 from src.ui.identity import auth_configured, is_authenticated
@@ -29,10 +30,11 @@ def _add_holding() -> None:
     if not chosen:
         return
     k = str(chosen).upper().strip()
-    amt = float(st.session_state.get("add_amount") or 0)
-    if amt <= 0:
+    qty = float(st.session_state.get(f"add_qty_{k}") or 0)
+    price = float(st.session_state.get(f"add_price_{k}") or 0)
+    if qty <= 0 or price <= 0:
         return
-    st.session_state.holdings[k] = st.session_state.holdings.get(k, 0.0) + amt
+    st.session_state.positions[k] = merge_lot(st.session_state.positions.get(k), qty, price)
     st.session_state.add_ticker = None
 
 
@@ -74,63 +76,96 @@ def render_sidebar(advisor: str) -> SidebarSettings:
         if new_ticker:
             key = str(new_ticker).upper().strip()
             color = PALETTE[abs(hash(key)) % len(PALETTE)]
+            preview = ticker_preview(key)
             st.markdown(
-                ticker_preview_html(key, color, ticker_preview(key)),
+                ticker_preview_html(key, color, preview),
                 unsafe_allow_html=True,
             )
 
-            col_amt, col_add = st.columns([3, 2], gap="small")
-            with col_amt:
+            default_price = float(preview["price"]) if preview and preview.get("price") else 100.0
+            col_qty, col_price = st.columns(2, gap="small")
+            with col_qty:
                 st.number_input(
-                    "Amount",
-                    min_value=100.0,
-                    value=1000.0,
-                    step=500.0,
-                    label_visibility="collapsed",
-                    key="add_amount",
+                    t("pos.qty"),
+                    min_value=0.0001,
+                    value=10.0,
+                    step=1.0,
+                    key=f"add_qty_{key}",
                 )
-            with col_add:
-                st.button(t("gate.add"), width="stretch", type="primary", on_click=_add_holding)
+            with col_price:
+                st.number_input(
+                    t("pos.buy_price"),
+                    min_value=0.0001,
+                    value=default_price,
+                    step=1.0,
+                    key=f"add_price_{key}",
+                    help=t("pos.current_price") + f": {default_price:,.2f}",
+                )
+            st.button(t("gate.add"), width="stretch", type="primary", on_click=_add_holding)
         else:
             st.caption(t("side.search_hint"))
 
         sec(t("side.your_holdings"))
 
-        holdings = st.session_state.holdings
-        total = sum(holdings.values())
-        if holdings:
-            sorted_tickers = sorted(holdings, key=holdings.get, reverse=True)
+        positions = st.session_state.positions
+        costs = {
+            ticker: (pos["qty"] * pos["price"] if "qty" in pos else pos.get("amount", 0.0))
+            for ticker, pos in positions.items()
+        }
+        total = sum(costs.values())
+        if positions:
+            sorted_tickers = sorted(costs, key=costs.get, reverse=True)
             known_names = st.session_state.get("names", {})
             for ticker in sorted_tickers:
-                amount = holdings[ticker]
-                color = PALETTE[sorted(holdings).index(ticker) % len(PALETTE)]
-                weight = amount / total if total else 0
+                pos = positions[ticker]
+                color = PALETTE[sorted(costs).index(ticker) % len(PALETTE)]
+                weight = costs[ticker] / total if total else 0
                 company = known_names.get(ticker, "")
+                label = (
+                    f"{pos['qty']:g} × {pos['price']:,.2f}"
+                    if "qty" in pos
+                    else eur(pos.get("amount", 0.0))
+                )
                 col_card, col_menu = st.columns([5, 1], gap="small")
                 with col_card:
                     st.markdown(
-                        position_card_html(ticker, amount, weight, color, company),
+                        position_card_html(
+                            ticker, costs[ticker], weight, color, company, amount_label=label
+                        ),
                         unsafe_allow_html=True,
                     )
                 with col_menu, st.popover("···"):
-                    updated = st.number_input(
-                        t("side.amount"),
+                    current = pos if "qty" in pos else {"qty": 0.0, "price": 0.0}
+                    new_qty = st.number_input(
+                        t("pos.qty"),
                         min_value=0.0,
-                        value=float(amount),
-                        step=500.0,
-                        key=f"edit_{ticker}",
+                        value=float(current["qty"]),
+                        step=1.0,
+                        key=f"edit_qty_{ticker}",
                     )
+                    new_price = st.number_input(
+                        t("pos.buy_price"),
+                        min_value=0.0,
+                        value=float(current["price"]),
+                        step=1.0,
+                        key=f"edit_price_{ticker}",
+                    )
+                    if "qty" not in pos:
+                        st.caption(t("pos.cost_unknown"))
                     col_ok, col_del = st.columns(2)
                     if col_ok.button(t("side.save"), key=f"save_{ticker}", width="stretch"):
-                        if updated > 0:
-                            st.session_state.holdings[ticker] = float(updated)
-                        else:
-                            st.session_state.holdings.pop(ticker, None)
+                        if new_qty > 0 and new_price > 0:
+                            st.session_state.positions[ticker] = {
+                                "qty": float(new_qty),
+                                "price": float(new_price),
+                            }
+                        elif new_qty == 0:
+                            st.session_state.positions.pop(ticker, None)
                         st.rerun()
                     if col_del.button(t("side.remove"), key=f"del_{ticker}", width="stretch"):
-                        st.session_state.holdings.pop(ticker, None)
+                        st.session_state.positions.pop(ticker, None)
                         st.rerun()
-            st.caption(t("gate.total", total=eur(total), n=len(holdings)))
+            st.caption(t("pos.total_cost", total=f"{total:,.0f}", n=len(positions)))
         else:
             empty_state(t("side.empty_title"), t("side.empty_hint"), icon="folder")
 
@@ -144,11 +179,11 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                 file_id = f"{uploaded.name}-{uploaded.size}"
                 if st.session_state.get("last_upload") != file_id:
                     try:
-                        st.session_state.holdings = parse_positions(
-                            uploaded.getvalue(), uploaded.name
+                        st.session_state.positions = normalize_portfolio(
+                            parse_positions(uploaded.getvalue(), uploaded.name)
                         )
                         st.session_state.last_upload = file_id
-                        st.toast(t("side.imported", n=len(st.session_state.holdings)))
+                        st.toast(t("side.imported", n=len(st.session_state.positions)))
                         st.rerun()
                     except ValueError as exc:
                         st.error(t("side.import_failed", err=exc))
@@ -156,8 +191,8 @@ def render_sidebar(advisor: str) -> SidebarSettings:
         saved = list_portfolios(advisor)
         with st.expander(t("side.saved_portfolios")):
             portfolio_name = st.text_input(t("side.name"), value="My portfolio")
-            if st.button(t("side.save_composition"), width="stretch") and holdings:
-                save_portfolio(advisor, portfolio_name, holdings)
+            if st.button(t("side.save_composition"), width="stretch") and positions:
+                save_portfolio(advisor, portfolio_name, positions)
                 st.toast(t("side.saved_toast", name=portfolio_name))
             if saved:
                 selected_saved = st.selectbox(
@@ -165,7 +200,7 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                     placeholder=t("side.load_placeholder"),
                 )
                 if selected_saved and st.button(t("side.load_btn"), width="stretch"):
-                    st.session_state.holdings = dict(saved[selected_saved])
+                    st.session_state.positions = normalize_portfolio(saved[selected_saved])
                     st.rerun()
 
         with st.expander(t("side.settings")):

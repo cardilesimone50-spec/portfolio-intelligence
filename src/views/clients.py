@@ -14,6 +14,8 @@ from src.analytics.insights import (
 from src.analytics.performance import max_drawdown
 from src.data.fx import convert_to_eur
 from src.data.store import list_portfolios
+from src.i18n import t
+from src.portfolio.positions import normalize_portfolio, position_table, totals
 from src.portfolio.returns import compute_daily_returns, portfolio_daily_returns
 from src.portfolio.risk import average_pairwise_correlation, portfolio_volatility
 from src.ui.components import empty_state, eur, sec
@@ -30,12 +32,21 @@ from src.visualization.charts import GAIN, LOSS
 
 @st.cache_data(ttl=900, show_spinner=False)
 def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict:
-    amounts_c = dict(items)
+    positions_c = normalize_portfolio(dict(items))
+    prices_native = cached_prices(tuple(sorted(positions_c)), period_key)
+    if eur_flag:
+        prices_c = convert_to_eur(prices_native, cached_eurusd(period_key))
+    else:
+        prices_c = prices_native
+    last_native = prices_native.ffill().iloc[-1]
+    fx_factor = (prices_c.ffill().iloc[-1] / last_native).fillna(1.0)
+    table_c = position_table(positions_c, last_native, fx_factor)
+    agg_c = totals(table_c)
+    amounts_c = {
+        ticker: float(v) for ticker, v in table_c["value"].items() if v == v and v > 0
+    }
     total_c = sum(amounts_c.values())
     pf_c = [{"ticker": t, "weight": a / total_c} for t, a in amounts_c.items()]
-    prices_c = cached_prices(tuple(sorted(amounts_c)), period_key)
-    if eur_flag:
-        prices_c = convert_to_eur(prices_c, cached_eurusd(period_key))
     returns_c = compute_daily_returns(prices_c)
     daily_c = portfolio_daily_returns(returns_c, pf_c)
     value_c = (1 + daily_c).cumprod()
@@ -51,13 +62,14 @@ def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict
     problems_c = find_problems(pf_c, fund_c, contributions_c, corr_c, radar_c)
     return {
         "health": portfolio_health_score(breakdown_c),
-        "value": total_c * float(value_c.iloc[-1]),
-        "invested": total_c,
+        "value": total_c,  # valore attuale reale: quantità × ultimo prezzo
+        "invested": agg_c["cost"],
         "cum": float(value_c.iloc[-1] - 1),
+        "pnl_pct": agg_c["pnl_pct"],
         "vol": vol_c,
         "problem": problems_c[0].replace("**", "")
         if problems_c
-        else "No problems flagged by the monitored rules.",
+        else t("chk.no_problems"),
     }
 
 
@@ -93,7 +105,9 @@ def render(ctx: ViewContext) -> None:
                 failures.append(f"{client_name}: {exc}")
                 continue
             color = GAIN if a["health"] >= 67 else AMBER if a["health"] >= 34 else LOSS
-            chg_css = "up" if a["cum"] >= 0 else "down"
+            # badge: P&L dal carico se noto, altrimenti il rendimento del periodo
+            shown_chg = a["pnl_pct"] if a["pnl_pct"] == a["pnl_pct"] else a["cum"]
+            chg_css = "up" if shown_chg >= 0 else "down"
             rows_html += f"""
             <div class="kpi" style="display:flex;align-items:center;
                  gap:16px;margin-bottom:10px;min-width:100%">
@@ -109,7 +123,7 @@ def render(ctx: ViewContext) -> None:
                 <div style="font-weight:700;font-variant-numeric:tabular-nums">
                      {eur(a["value"])}
                      <span class="chg {chg_css}" style="font-size:.8rem">
-                     {a["cum"]:+.1%}</span></div>
+                     {shown_chg:+.1%}</span></div>
               </div>
               <div style="flex:1" class="kpi-sub">{a["problem"]}</div>
               <div style="font-family:var(--font-display);font-size:1.5rem;

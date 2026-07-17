@@ -53,3 +53,18 @@ def test_unrecognized_columns_raise():
 def test_unsupported_extension_raises():
     with pytest.raises(ValueError, match="Unsupported format"):
         parse_positions(b"", "portafoglio.pdf")
+
+
+def test_parse_quantity_and_cost_price_returns_positions_with_pnl_basis():
+    content = "ticker,quantità,prezzo medio di carico,controvalore\nAAPL,10,\"150,50\",2000\n".encode()
+    positions = parse_positions(content, "fineco.csv")
+    # con quantità + prezzo di carico il controvalore viene ignorato:
+    # vince il formato ricco che permette il P&L reale
+    assert positions == {"AAPL": {"qty": 10.0, "price": 150.5}}
+
+
+def test_duplicate_lots_average_the_cost_price():
+    content = b"ticker,quantity,avg price\nAAPL,10,100\nAAPL,10,200\n"
+    positions = parse_positions(content, "lots.csv")
+    assert positions["AAPL"]["qty"] == 20.0
+    assert positions["AAPL"]["price"] == 150.0

@@ -61,15 +61,18 @@ def render(ctx: ViewContext) -> None:
     period, risk_free, risk_profile = ctx.period, ctx.risk_free, ctx.risk_profile
     advisor, portfolio_name, in_eur = ctx.advisor, ctx.portfolio_name, ctx.in_eur
 
+    pnl_totals = ctx.pnl_totals or {}
     col_hero, col_equity = st.columns([1, 1.4], gap="large")
     with col_hero:
         st.markdown(
             hero_html(
                 c["health"],
-                eur(total * (1 + c["cum_return"])),
+                eur(total),  # valore attuale reale: Σ quantità × ultimo prezzo
                 c["cum_return"],
                 period,
                 today_move=float(c["pf_daily"].iloc[-1]),
+                gain=pnl_totals.get("pnl"),
+                gain_pct=pnl_totals.get("pnl_pct"),
             ),
             unsafe_allow_html=True,
         )
@@ -106,38 +109,48 @@ def render(ctx: ViewContext) -> None:
     sec(t("chk.holdings"))
     cum_by_ticker = per_ticker_cumulative_return(c["prices"])
     normalized_pos = c["prices"] / c["prices"].apply(lambda s: s.dropna().iloc[0])
-    last_session = c["returns"].iloc[-1]
     fund_names = c["fund"]["name"] if "name" in c["fund"].columns else pd.Series(dtype=str)
+    pos = ctx.pos if ctx.pos is not None else pd.DataFrame()
     position_rows = [
         {
-            "Ticker": t,
-            "Company": fund_names.get(t, ""),
-            "Amount": amounts[t],
-            "Weight": amounts[t] / total,
-            "Today": float(last_session[t]) if t in last_session.index else None,
-            "Return": cum_by_ticker.get(t),
-            "Trend": normalized_pos[t].dropna().tolist()[-130:],
+            "Ticker": ticker,
+            "Company": fund_names.get(ticker, ""),
+            "Qty": float(pos["qty"].get(ticker)) if len(pos) else None,
+            "Buy": float(pos["buy_price"].get(ticker)) if len(pos) else None,
+            "Current": float(pos["current_price"].get(ticker)) if len(pos) else None,
+            "Value": amounts[ticker],
+            "PnL": float(pos["pnl"].get(ticker)) if len(pos) else None,
+            "PnLPct": float(pos["pnl_pct"].get(ticker)) if len(pos) else None,
+            "Weight": amounts[ticker] / total,
+            "Return": cum_by_ticker.get(ticker),
+            "Trend": normalized_pos[ticker].dropna().tolist()[-130:],
         }
-        for t in sorted(amounts, key=amounts.get, reverse=True)
+        for ticker in sorted(amounts, key=amounts.get, reverse=True)
     ]
     st.dataframe(
         pd.DataFrame(position_rows),
         column_config={
             "Ticker": st.column_config.TextColumn(t("chk.col_ticker")),
             "Company": st.column_config.TextColumn(t("chk.col_company")),
-            "Amount": st.column_config.NumberColumn(t("chk.col_amount"), format="%.0f €"),
+            "Qty": st.column_config.NumberColumn(t("pos.qty"), format="%.4g"),
+            "Buy": st.column_config.NumberColumn(t("pos.buy_price"), format="%.2f"),
+            "Current": st.column_config.NumberColumn(t("pos.current_price"), format="%.2f"),
+            "Value": st.column_config.NumberColumn(t("pos.value"), format="%.0f €"),
+            "PnL": st.column_config.NumberColumn(t("pos.pnl"), format="%.0f €"),
+            "PnLPct": st.column_config.NumberColumn(t("pos.pnl") + " %", format="percent"),
             "Weight": st.column_config.NumberColumn(t("chk.col_weight"), format="percent"),
-            "Today": st.column_config.NumberColumn(t("chk.col_today"), format="percent"),
             "Return": st.column_config.NumberColumn(
                 t("chk.col_return", period=period), format="percent"
             ),
             "Trend": st.column_config.AreaChartColumn(
-                t("chk.col_trend", period=period), width="medium"
+                t("chk.col_trend", period=period), width="small"
             ),
         },
         hide_index=True,
         width="stretch",
     )
+    if pnl_totals and not pnl_totals.get("cost_known", True):
+        st.caption(t("pos.cost_unknown"))
 
     sec(t("chk.top_problems"))
     problems = find_problems(portfolio, c["fund"], c["contributions"], c["avg_corr"], c["radar"])
@@ -430,6 +443,10 @@ def render(ctx: ViewContext) -> None:
                 scenario=report_scenario,
                 coverage_notes=report_coverage,
                 risk_free=risk_free,
+                invested=pnl_totals.get("cost"),
+                pnl=pnl_totals.get("pnl"),
+                pnl_pct=pnl_totals.get("pnl_pct"),
+                per_ticker_pnl=ctx.pos["pnl"] if ctx.pos is not None else None,
                 lang=st.session_state.get("language", "en"),
             ),
             file_name=f"portfolio_report_{pd.Timestamp.now():%Y%m%d}.pdf",

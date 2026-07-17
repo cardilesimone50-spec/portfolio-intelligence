@@ -649,7 +649,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "pdf.generated": ("generated on {now}", "generato il {now}"),
     "pdf.kpi_health": ("HEALTH SCORE", "HEALTH SCORE"),
-    "pdf.kpi_value": ("ESTIMATED VALUE", "VALORE STIMATO"),
+    "pdf.kpi_value": ("CURRENT VALUE", "VALORE ATTUALE"),
     "pdf.kpi_return": ("RETURN ({period})", "RENDIMENTO ({period})"),
     "pdf.kpi_cagr": ("CAGR", "CAGR"),
     "pdf.kpi_invested": ("INVESTED", "INVESTITO"),
@@ -897,8 +897,46 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "ricerca, offerta né sollecitazione.",
     ),
     "pdf.page": ("Page {n} of 3", "Pagina {n} di 3"),
+    # ---------------------------------------------------------------- positions / P&L
+    "pos.qty": ("Quantity", "Quantità"),
+    "pos.buy_price": ("Purchase price", "Prezzo di carico"),
+    "pos.current_price": ("Current price", "Prezzo attuale"),
+    "pos.value": ("Value", "Valore"),
+    "pos.pnl": ("P&L", "P&L"),
+    "pos.total_cost": (
+        "Invested (cost basis): **{total}** · {n} stocks",
+        "Investito (carico): **{total}** · {n} titoli",
+    ),
+    "pos.cost_unknown": (
+        "Purchase price not available for some positions (saved or imported "
+        "without cost data): their P&L is not shown. Edit the position to add it.",
+        "Prezzo di carico non disponibile per alcune posizioni (salvate o "
+        "importate senza dato di costo): il loro P&L non viene mostrato. "
+        "Modifica la posizione per inserirlo.",
+    ),
+    "hero.gain_line": (
+        "P&L {amount} ({pct}) since purchase",
+        "P&L {amount} ({pct}) dal carico",
+    ),
+    "chk.kpi_invested": ("Invested (cost basis)", "Investito (carico)"),
+    "chk.kpi_gain": ("Total gain", "Guadagno totale"),
+    "pdf.kpi_gain": ("GAIN", "GUADAGNO"),
+    "pdf.h_value": ("Value", "Valore"),
+    "pdf.h_pnl": ("P&L", "P&L"),
+    "pdf.notice_pnl": (
+        "P&L per position = quantity × (current price − average purchase "
+        "price), both converted at today's exchange rate: it isolates the "
+        "price move of the instrument. Dividends received and transaction "
+        "costs are not included. Positions without purchase-price data show "
+        "no P&L.",
+        "P&L per posizione = quantità × (prezzo attuale − prezzo medio di "
+        "carico), entrambi convertiti al cambio odierno: isola il movimento "
+        "di prezzo dello strumento. Dividendi incassati e costi di "
+        "transazione non sono inclusi. Le posizioni senza prezzo di carico "
+        "non mostrano P&L.",
+    ),
     # ---------------------------------------------------------------- components
-    "hero.value": ("Estimated value", "Valore stimato"),
+    "hero.value": ("Portfolio value", "Valore del portafoglio"),
     "hero.last_session": ("Last session", "Ultima seduta"),
     "hero.score_built": ("HOW THE SCORE IS BUILT", "COME NASCE IL PUNTEGGIO"),
     "hero.dna_title": ("PORTFOLIO DNA", "DNA DEL PORTAFOGLIO"),

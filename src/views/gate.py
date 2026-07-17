@@ -9,6 +9,7 @@ import time
 import streamlit as st
 
 from src.i18n import t
+from src.portfolio.positions import merge_lot
 from src.ui.components import (
     eur,
     position_card_html,
@@ -111,7 +112,7 @@ def _go_loading() -> None:
 
 
 def _load_sample() -> None:
-    st.session_state.holdings = dict(SAMPLE_PORTFOLIO)
+    st.session_state.positions = {t_: dict(p) for t_, p in SAMPLE_PORTFOLIO.items()}
 
 
 def _gate_add() -> None:
@@ -119,10 +120,11 @@ def _gate_add() -> None:
     if not chosen:
         return
     k = str(chosen).upper().strip()
-    amt = float(st.session_state.get("gate_amount") or 0)
-    if amt <= 0:
+    qty = float(st.session_state.get(f"gate_qty_{k}") or 0)
+    price = float(st.session_state.get(f"gate_price_{k}") or 0)
+    if qty <= 0 or price <= 0:
         return
-    st.session_state.holdings[k] = st.session_state.holdings.get(k, 0.0) + amt
+    st.session_state.positions[k] = merge_lot(st.session_state.positions.get(k), qty, price)
     st.session_state.gate_ticker = None
 
 
@@ -170,45 +172,68 @@ def render_gate() -> None:
             if new_ticker:
                 key = str(new_ticker).upper().strip()
                 color = PALETTE[abs(hash(key)) % len(PALETTE)]
+                preview = ticker_preview(key)
                 st.markdown(
-                    ticker_preview_html(key, color, ticker_preview(key)),
+                    ticker_preview_html(key, color, preview),
                     unsafe_allow_html=True,
                 )
-                col_amt, col_add = st.columns([3, 2], gap="small")
-                with col_amt:
+                default_price = float(preview["price"]) if preview and preview.get("price") else 100.0
+                col_qty, col_price, col_add = st.columns([2, 2, 2], gap="small")
+                with col_qty:
                     st.number_input(
-                        "Amount",
-                        min_value=100.0,
-                        value=1000.0,
-                        step=500.0,
-                        label_visibility="collapsed",
-                        key="gate_amount",
+                        t("pos.qty"),
+                        min_value=0.0001,
+                        value=10.0,
+                        step=1.0,
+                        key=f"gate_qty_{key}",
+                    )
+                with col_price:
+                    st.number_input(
+                        t("pos.buy_price"),
+                        min_value=0.0001,
+                        value=default_price,
+                        step=1.0,
+                        key=f"gate_price_{key}",
+                        help=t("pos.current_price") + f": {default_price:,.2f}",
                     )
                 with col_add:
+                    st.markdown("<div style='height:1.75rem'></div>", unsafe_allow_html=True)
                     st.button(
                         t("gate.add"), width="stretch", type="primary", on_click=_gate_add
                     )
 
-            gate_holdings = st.session_state.holdings
-            if gate_holdings:
+            gate_positions = st.session_state.positions
+            if gate_positions:
                 sec(t("gate.your_holdings"))
-                gate_total = sum(gate_holdings.values())
-                for ticker in sorted(gate_holdings, key=gate_holdings.get, reverse=True):
-                    amount = gate_holdings[ticker]
-                    color = PALETTE[sorted(gate_holdings).index(ticker) % len(PALETTE)]
-                    weight = amount / gate_total if gate_total else 0
+                costs = {
+                    ticker: (pos["qty"] * pos["price"] if "qty" in pos else pos.get("amount", 0.0))
+                    for ticker, pos in gate_positions.items()
+                }
+                gate_total = sum(costs.values())
+                for ticker in sorted(costs, key=costs.get, reverse=True):
+                    pos = gate_positions[ticker]
+                    color = PALETTE[sorted(costs).index(ticker) % len(PALETTE)]
+                    weight = costs[ticker] / gate_total if gate_total else 0
                     company = st.session_state.get("names", {}).get(ticker, "")
+                    label = (
+                        f"{pos['qty']:g} × {pos['price']:,.2f}"
+                        if "qty" in pos
+                        else eur(pos.get("amount", 0.0))
+                    )
                     col_card, col_del = st.columns([6, 1], gap="small")
                     with col_card:
                         st.markdown(
-                            position_card_html(ticker, amount, weight, color, company),
+                            position_card_html(
+                                ticker, costs[ticker], weight, color, company,
+                                amount_label=label,
+                            ),
                             unsafe_allow_html=True,
                         )
                     with col_del:
                         if st.button("✕", key=f"gate_del_{ticker}", width="stretch"):
-                            st.session_state.holdings.pop(ticker, None)
+                            st.session_state.positions.pop(ticker, None)
                             st.rerun()
-                st.caption(t("gate.total", total=eur(gate_total), n=len(gate_holdings)))
+                st.caption(t("pos.total_cost", total=f"{gate_total:,.0f}", n=len(gate_positions)))
             else:
                 st.caption(t("gate.search_hint"))
                 st.button(t("gate.sample"), on_click=_load_sample, width="stretch")
@@ -219,7 +244,7 @@ def render_gate() -> None:
                 type="primary",
                 width="stretch",
                 on_click=_go_loading,
-                disabled=not st.session_state.holdings,
+                disabled=not st.session_state.positions,
             )
 
     # ---- stage 3: gear + investing quote, then the platform opens --------

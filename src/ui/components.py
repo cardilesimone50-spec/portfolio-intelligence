@@ -29,20 +29,32 @@ def _status_color(score: float) -> str:
 
 
 def position_card_html(
-    ticker: str, amount: float, weight: float, color: str, company: str = ""
+    ticker: str,
+    amount: float,
+    weight: float,
+    color: str,
+    company: str = "",
+    amount_label: str | None = None,
+    right_label: str | None = None,
 ) -> str:
     """Card compatta di una posizione. HTML flat: nessuna indentazione iniziale,
-    altrimenti il markdown di Streamlit lo tratterebbe come blocco di codice."""
+    altrimenti il markdown di Streamlit lo tratterebbe come blocco di codice.
+
+    `amount_label` sostituisce la formattazione EUR (es. carico in USD);
+    `right_label` sostituisce la percentuale a destra (es. P&L colorato).
+    """
     name = f'<div class="pos-name">{company}</div>' if company else ""
+    shown_amount = amount_label if amount_label is not None else eur(amount)
+    right = right_label if right_label is not None else f"{weight:.0%}"
     return (
         f'<div class="pos-row">'
         f'<div class="avatar" style="background:{color}">{ticker[:4]}</div>'
         f'<div class="pos-main">'
-        f'<div class="pos-ticker">{ticker}<span class="pos-amt">· {eur(amount)}'
+        f'<div class="pos-ticker">{ticker}<span class="pos-amt">· {shown_amount}'
         f"</span></div>{name}"
         f'<div class="pos-weight-track"><div class="pos-weight-fill" '
         f'style="width:{weight:.0%};background:{color}"></div></div>'
-        f'</div><div class="pos-pct">{weight:.0%}</div></div>'
+        f'</div><div class="pos-pct">{right}</div></div>'
     )
 
 
@@ -79,9 +91,20 @@ def hero_html(
     change: float,
     period: str,
     today_move: float | None = None,
+    gain: float | None = None,
+    gain_pct: float | None = None,
 ) -> str:
     gauge_color = _status_color(health)
     arrow, css = ("▲", "up") if change >= 0 else ("▼", "down")
+    gain_html = ""
+    if gain is not None and gain == gain:
+        css_g = "up" if gain >= 0 else "down"
+        pct = f"{gain_pct:+.1%}" if gain_pct is not None and gain_pct == gain_pct else "—"
+        gain_html = (
+            f'<div class="chg {css_g}" style="font-size:.95rem;margin-top:2px">'
+            f"{t('hero.gain_line', amount=eur(gain) if gain < 0 else '+' + eur(gain), pct=pct)}"
+            "</div>"
+        )
     today_html = ""
     if today_move is not None and today_move == today_move:
         arrow_t, css_t = ("▲", "up") if today_move >= 0 else ("▼", "down")
@@ -99,6 +122,7 @@ def hero_html(
         <div class="label">{t("hero.value")}</div>
         <div class="big">{value}</div>
         <div class="chg {css}">{arrow} {change:+.1%} · {period}</div>
+        {gain_html}
         {today_html}
       </div>
     </div>"""
