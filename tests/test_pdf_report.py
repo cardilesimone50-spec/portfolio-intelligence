@@ -105,6 +105,36 @@ def test_report_has_exactly_three_pages_with_advisor_sections():
     assert "**" not in page3
 
 
+def test_report_in_italian_translates_sections_and_legal_footer():
+    pf_value = _synthetic_series()
+    data = build_report(
+        portfolio_name="Portafoglio test",
+        positions={"AAPL": 5000.0, "MSFT": 3000.0},
+        period="1y",
+        cum_return=0.10,
+        health_score=70,
+        metric_rows=[("Sharpe ratio", "0.85", "0.70", "In linea con l'azionario.")],
+        insights=["Rischio concentrato su **AAPL**."],
+        suggestions=["Valutare una riduzione del peso."],
+        risk_profile="Moderate",
+        suitability={"ok": True, "text": "Volatilità 15% contro soglia 18%."},
+        pf_value=pf_value,
+        sector_weights=pd.Series({"Technology": 1.0}),
+        lang="it",
+    )
+    with pdfplumber.open(BytesIO(data)) as pdf:
+        assert len(pdf.pages) == 3
+        page1 = pdf.pages[0].extract_text()
+        page3 = pdf.pages[2].extract_text()
+    assert "SINTESI ESECUTIVA" in page1
+    assert "POSIZIONI" in page1
+    assert "profilo moderato" in page1
+    assert "Verifica del profilo di rischio" in page1
+    assert "METODOLOGIA, ASSUNZIONI E AVVERTENZE" in page3
+    assert "I rendimenti passati non sono un indicatore affidabile" in page1
+    assert "consulenza in materia di investimenti" in page3
+
+
 def test_report_flags_sub_year_window_in_methodology():
     short_value = _synthetic_series(days=60)
     data = build_report(

@@ -2,10 +2,17 @@
 
 import streamlit as st
 
+from src.i18n import t
 from src.visualization.charts import GAIN, LOSS
 
 AMBER = "#d97706"  # status mid-band (gauge/health)
 ACCENT = "#1E40AF"  # brand primary
+
+
+def _comp_name(name: str) -> str:
+    """Nome componente tradotto; se non in catalogo, resta com'è."""
+    translated = t(f"comp.{name}")
+    return name if translated.startswith("comp.") else translated
 
 
 def eur(value: float) -> str:
@@ -80,7 +87,7 @@ def hero_html(
         arrow_t, css_t = ("▲", "up") if today_move >= 0 else ("▼", "down")
         today_html = (
             f'<div class="chg {css_t}" style="font-size:.85rem;margin-top:2px">'
-            f"Last session {arrow_t} {today_move:+.2%}</div>"
+            f"{t('hero.last_session')} {arrow_t} {today_move:+.2%}</div>"
         )
     return f"""
     <div class="hero-panel" style="--val:{health}; --gcol:{gauge_color}">
@@ -89,7 +96,7 @@ def hero_html(
         <span class="gauge-sub">HEALTH /100</span>
       </div></div>
       <div class="hero-meta">
-        <div class="label">Estimated value</div>
+        <div class="label">{t("hero.value")}</div>
         <div class="big">{value}</div>
         <div class="chg {css}">{arrow} {change:+.1%} · {period}</div>
         {today_html}
@@ -97,12 +104,13 @@ def hero_html(
     </div>"""
 
 
-def dna_card_html(dna: dict[str, float], label: str, title: str = "PORTFOLIO DNA") -> str:
+def dna_card_html(dna: dict[str, float], label: str, title: str | None = None) -> str:
+    title = title or t("hero.dna_title")
     rows = ""
     for name, score in dna.items():
         css = "risk" if name == "Risk" else ""
         rows += (
-            f'<div class="dna-row"><div class="dna-name">{name}</div>'
+            f'<div class="dna-row"><div class="dna-name">{_comp_name(name)}</div>'
             f'<div class="dna-track"><div class="dna-fill {css}" '
             f'style="width:{score:.0f}%"></div></div>'
             f'<div class="dna-value">{score:.0f}</div></div>'
@@ -121,12 +129,12 @@ def breakdown_html(breakdown: dict[str, float]) -> str:
             continue
         color = _status_color(score)
         rows += (
-            f'<div class="dna-row"><div class="dna-name" style="width:110px">{name}'
+            f'<div class="dna-row"><div class="dna-name" style="width:110px">{_comp_name(name)}'
             f'</div><div class="dna-track"><div class="dna-fill" '
             f'style="width:{score:.0f}%;background:{color}"></div></div>'
             f'<div class="dna-value" style="color:{color}">{score:.0f}</div></div>'
         )
-    return f'<div class="panel"><div class="dna-title">HOW THE SCORE IS BUILT</div>{rows}</div>'
+    return f'<div class="panel"><div class="dna-title">{t("hero.score_built")}</div>{rows}</div>'
 
 
 _ICONS = {
@@ -170,21 +178,10 @@ def kpi_row_html(cards: list[dict]) -> str:
     return html + "</div>"
 
 
-DISCLAIMER = (
-    "Information tool only, not financial advice. The analyses describe "
-    "measurable characteristics of the portfolio based on historical data and "
-    "do not constitute personalized investment recommendations, investment "
-    "research or forecasts. Past performance is not a reliable indicator of "
-    "future results. Figures are gross of costs, fees and taxes; data from "
-    "Yahoo Finance, accuracy not guaranteed. No solicitation to buy or sell "
-    "financial instruments. Decisions remain with the user or their advisor."
-)
-
-
 def compliance_footer() -> None:
     """Informativa MiFID persistente, visibile in ogni schermata."""
     st.markdown(
-        f'<div class="compliance">{DISCLAIMER}</div>',
+        f'<div class="compliance">{t("app.disclaimer")}</div>',
         unsafe_allow_html=True,
     )
 
