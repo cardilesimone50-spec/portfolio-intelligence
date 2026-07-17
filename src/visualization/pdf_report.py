@@ -13,9 +13,7 @@ from datetime import datetime
 from io import BytesIO
 
 import pandas as pd
-
-from src.i18n import t_in
-from reportlab.graphics.shapes import Drawing, Line, PolyLine, Polygon, Rect, String
+from reportlab.graphics.shapes import Drawing, Line, Polygon, PolyLine, Rect, String
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -30,6 +28,8 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+from src.i18n import t_in
 
 _ACCENT = colors.HexColor("#1E40AF")
 _INK = colors.HexColor("#14171e")
@@ -224,12 +224,12 @@ def _underwater_drawing(
     xs = [left + plot_w * i / max(1, n - 1) for i in range(n)]
     top_y = y_at(0)
     poly = [xs[0], top_y]
-    for x, value in zip(xs, dd.to_numpy(dtype=float)):
+    for x, value in zip(xs, dd.to_numpy(dtype=float), strict=True):
         poly += [x, y_at(value)]
     poly += [xs[-1], top_y]
     drawing.add(Polygon(poly, fillColor=_RED_SOFT, strokeColor=None))
     line_pts: list[float] = []
-    for x, value in zip(xs, dd.to_numpy(dtype=float)):
+    for x, value in zip(xs, dd.to_numpy(dtype=float), strict=True):
         line_pts += [x, y_at(value)]
     drawing.add(PolyLine(line_pts, strokeColor=_RED, strokeWidth=0.9))
     drawing.add(Line(left, top_y, left + plot_w, top_y, strokeColor=_LINE, strokeWidth=0.5))

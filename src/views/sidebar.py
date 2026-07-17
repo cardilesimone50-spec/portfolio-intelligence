@@ -5,9 +5,9 @@ from dataclasses import dataclass
 import streamlit as st
 
 from src.data.importers import parse_positions
+from src.data.store import list_portfolios, save_portfolio
 from src.i18n import t
 from src.portfolio.positions import merge_lot, normalize_portfolio
-from src.data.store import list_portfolios, save_portfolio
 from src.ui.components import empty_state, eur, position_card_html, sec, ticker_preview_html
 from src.ui.identity import auth_configured, is_authenticated
 from src.views.common import cached_risk_free, known_tickers, language_selector, ticker_preview
