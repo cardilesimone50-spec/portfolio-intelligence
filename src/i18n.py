@@ -935,6 +935,112 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "transazione non sono inclusi. Le posizioni senza prezzo di carico "
         "non mostrano P&L.",
     ),
+    # ---------------------------------------------------------------- date & IRR
+    "pos.buy_date": ("Purchase date", "Data di acquisto"),
+    "pos.days": ("Days held", "Giorni"),
+    "pos.ann": ("IRR / yr", "IRR annuo"),
+    "hero.irr": (" · IRR {irr}/yr", " · IRR {irr}/anno"),
+    "m.irr": ("Money-weighted return (IRR)", "Rendimento money-weighted (IRR)"),
+    "r.irr": (
+        "Annual rate implied by YOUR actual cash flows (each lot at its "
+        "purchase date, current value today): the return you really earned.",
+        "Tasso annuo implicito nei TUOI flussi reali (ogni lotto alla sua data "
+        "di acquisto, valore attuale oggi): il rendimento che hai davvero ottenuto.",
+    ),
+    # ---------------------------------------------------------------- options overlay
+    "nav.options": ("Options", "Opzioni"),
+    "opt.title": (
+        "Protect gains & generate income (options overlay)",
+        "Proteggi i guadagni e genera rendita (overlay di opzioni)",
+    ),
+    "opt.intro": (
+        "No strategy guarantees profit. What options CAN do on a portfolio you "
+        "already hold: lock in unrealized gains (protective put / collar) or "
+        "monetize upside you are willing to give up (covered call). Figures "
+        "below are theoretical Black-Scholes estimates on realized volatility.",
+        "Nessuna strategia garantisce profitto. Ciò che le opzioni POSSONO "
+        "fare su un portafoglio che possiedi già: bloccare i guadagni non "
+        "realizzati (put protettiva / collar) o monetizzare l'upside a cui sei "
+        "disposto a rinunciare (covered call). Le cifre sotto sono stime "
+        "teoriche Black-Scholes sulla volatilità realizzata.",
+    ),
+    "opt.pick": ("Position", "Posizione"),
+    "opt.horizon": ("Horizon", "Orizzonte"),
+    "opt.put_strike": ("Protection level (% of price)", "Livello di protezione (% del prezzo)"),
+    "opt.call_strike": ("Call strike (% of price)", "Strike call (% del prezzo)"),
+    "opt.vol_used": (
+        "Inputs: realized annual volatility {vol} over the selected period, "
+        "risk-free {rf}, current price {spot}.",
+        "Input: volatilità annua realizzata {vol} nel periodo selezionato, "
+        "risk-free {rf}, prezzo attuale {spot}.",
+    ),
+    "opt.protect_title": ("Protect the gain — protective put", "Proteggi il guadagno — put protettiva"),
+    "opt.protect_text": (
+        "Buying a put with strike {strike} ({days} days) costs ≈ **{premium}** "
+        "per share ({pct} of the position value). Whatever happens, until "
+        "expiry you can sell at {strike}: net of the premium, the minimum exit "
+        "is **{floor}** per share.",
+        "Comprare una put con strike {strike} ({days} giorni) costa ≈ "
+        "**{premium}** per azione ({pct} del valore della posizione). Qualunque "
+        "cosa accada, fino alla scadenza puoi vendere a {strike}: al netto del "
+        "premio, l'uscita minima è **{floor}** per azione.",
+    ),
+    "opt.locked_gain": (
+        "With your average cost of {cost}, this locks a MINIMUM P&L of "
+        "**{pnl}** per share — **{total}** on the whole position — no matter "
+        "what the market does before expiry.",
+        "Con il tuo carico medio di {cost}, questo blocca un P&L MINIMO di "
+        "**{pnl}** per azione — **{total}** sull'intera posizione — qualunque "
+        "cosa faccia il mercato fino alla scadenza.",
+    ),
+    "opt.locked_loss": (
+        "With your average cost of {cost}, the floor sits at {pnl} per share "
+        "versus your cost: the put limits the loss, it does not create a gain.",
+        "Con il tuo carico medio di {cost}, il pavimento è a {pnl} per azione "
+        "rispetto al carico: la put limita la perdita, non crea un guadagno.",
+    ),
+    "opt.income_title": ("Income — covered call", "Rendita — covered call"),
+    "opt.income_text": (
+        "Selling a call at {strike} ({days} days) collects ≈ **{premium}** per "
+        "share: **{yld}** on the position over the period. Above {strike} the "
+        "shares are called away — you give up further upside.",
+        "Vendere una call a {strike} ({days} giorni) incassa ≈ **{premium}** "
+        "per azione: **{yld}** sulla posizione nel periodo. Sopra {strike} le "
+        "azioni vengono ritirate — rinunci all'upside oltre quel livello.",
+    ),
+    "opt.collar_title": ("Zero-cost collar", "Collar a costo zero"),
+    "opt.collar_text": (
+        "Selling a call at **{cap}** finances the {floor} put almost exactly "
+        "(net premium ≈ {net}): a price corridor [{floor} – {cap}] at ~zero "
+        "cost. Floor and cap are both binding until expiry.",
+        "Vendere una call a **{cap}** finanzia quasi esattamente la put a "
+        "{floor} (premio netto ≈ {net}): un corridoio di prezzo [{floor} – "
+        "{cap}] a costo ~zero. Pavimento e tetto valgono fino alla scadenza.",
+    ),
+    "opt.disclaimer": (
+        "Theoretical Black-Scholes estimates on realized volatility: no "
+        "implied-volatility surface, dividends ignored, European exercise. "
+        "Actual market prices and availability differ. Listed options control "
+        "100 shares per contract — sizes may not match your position. Options "
+        "are complex instruments subject to the MiFID II appropriateness "
+        "assessment; this panel is a scenario tool, not investment advice or a "
+        "recommendation. No strategy guarantees profit.",
+        "Stime teoriche Black-Scholes sulla volatilità realizzata: nessuna "
+        "superficie di volatilità implicita, dividendi ignorati, esercizio "
+        "europeo. Prezzi e disponibilità reali di mercato differiscono. Le "
+        "opzioni quotate controllano 100 azioni per contratto — le taglie "
+        "possono non combaciare con la tua posizione. Le opzioni sono "
+        "strumenti complessi soggetti alla valutazione di appropriatezza "
+        "MiFID II; questo pannello è uno strumento di scenario, non consulenza "
+        "né raccomandazione. Nessuna strategia garantisce profitto.",
+    ),
+    "opt.no_positions": (
+        "This panel needs at least one position with a known purchase price. "
+        "Add quantity and purchase price in the sidebar.",
+        "Questo pannello richiede almeno una posizione con prezzo di carico "
+        "noto. Aggiungi quantità e prezzo di carico dalla barra laterale.",
+    ),
+    "opt.days_label": ("{days} days", "{days} giorni"),
     # ---------------------------------------------------------------- components
     "hero.value": ("Portfolio value", "Valore del portafoglio"),
     "hero.last_session": ("Last session", "Ultima seduta"),

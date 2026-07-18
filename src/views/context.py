@@ -29,3 +29,4 @@ class ViewContext:
     names: dict[str, str] = field(default_factory=dict)
     pos: pd.DataFrame | None = None
     pnl_totals: dict | None = None
+    irr: float | None = None

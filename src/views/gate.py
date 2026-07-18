@@ -5,11 +5,12 @@ Finché lo stage non è "app", la piattaforma è bloccata (sidebar nascosta).
 
 import random
 import time
+from datetime import date
 
 import streamlit as st
 
 from src.i18n import t
-from src.portfolio.positions import merge_lot
+from src.portfolio.positions import add_lot, aggregate
 from src.ui.components import (
     eur,
     position_card_html,
@@ -122,9 +123,12 @@ def _gate_add() -> None:
     k = str(chosen).upper().strip()
     qty = float(st.session_state.get(f"gate_qty_{k}") or 0)
     price = float(st.session_state.get(f"gate_price_{k}") or 0)
+    when = st.session_state.get(f"gate_date_{k}")
     if qty <= 0 or price <= 0:
         return
-    st.session_state.positions[k] = merge_lot(st.session_state.positions.get(k), qty, price)
+    st.session_state.positions[k] = add_lot(
+        st.session_state.positions.get(k), qty, price, when
+    )
     st.session_state.gate_ticker = None
 
 
@@ -178,7 +182,7 @@ def render_gate() -> None:
                     unsafe_allow_html=True,
                 )
                 default_price = float(preview["price"]) if preview and preview.get("price") else 100.0
-                col_qty, col_price, col_add = st.columns([2, 2, 2], gap="small")
+                col_qty, col_price, col_date = st.columns([2, 2, 2], gap="small")
                 with col_qty:
                     st.number_input(
                         t("pos.qty"),
@@ -196,29 +200,39 @@ def render_gate() -> None:
                         key=f"gate_price_{key}",
                         help=t("pos.current_price") + f": {default_price:,.2f}",
                     )
-                with col_add:
-                    st.markdown("<div style='height:1.75rem'></div>", unsafe_allow_html=True)
-                    st.button(
-                        t("gate.add"), width="stretch", type="primary", on_click=_gate_add
+                with col_date:
+                    st.date_input(
+                        t("pos.buy_date"),
+                        value=date.today(),
+                        max_value=date.today(),
+                        key=f"gate_date_{key}",
                     )
+                st.button(
+                    t("gate.add"), width="stretch", type="primary", on_click=_gate_add
+                )
 
             gate_positions = st.session_state.positions
             if gate_positions:
                 sec(t("gate.your_holdings"))
+                aggs = {ticker: aggregate(pos) for ticker, pos in gate_positions.items()}
                 costs = {
-                    ticker: (pos["qty"] * pos["price"] if "qty" in pos else pos.get("amount", 0.0))
-                    for ticker, pos in gate_positions.items()
+                    ticker: (
+                        agg["qty"] * agg["price"]
+                        if agg is not None
+                        else gate_positions[ticker].get("amount", 0.0)
+                    )
+                    for ticker, agg in aggs.items()
                 }
                 gate_total = sum(costs.values())
                 for ticker in sorted(costs, key=costs.get, reverse=True):
-                    pos = gate_positions[ticker]
+                    agg = aggs[ticker]
                     color = PALETTE[sorted(costs).index(ticker) % len(PALETTE)]
                     weight = costs[ticker] / gate_total if gate_total else 0
                     company = st.session_state.get("names", {}).get(ticker, "")
                     label = (
-                        f"{pos['qty']:g} × {pos['price']:,.2f}"
-                        if "qty" in pos
-                        else eur(pos.get("amount", 0.0))
+                        f"{agg['qty']:g} × {agg['price']:,.2f}"
+                        if agg is not None
+                        else eur(costs[ticker])
                     )
                     col_card, col_del = st.columns([6, 1], gap="small")
                     with col_card:
