@@ -6,11 +6,58 @@ strumento di scenario per il confronto col consulente, non una raccomandazione.
 
 import streamlit as st
 
-from src.analytics.options import covered_call, protective_put, zero_cost_collar
+from src.analytics.options import bs_price, covered_call, protective_put, zero_cost_collar
+from src.data.options_chain import mid_price, nearest_strike_row
 from src.i18n import t
 from src.ui.components import eur, sec
-from src.views.common import TRADING_DAYS
+from src.views.common import TRADING_DAYS, cached_option_chain
 from src.views.context import ViewContext
+
+
+def _market_check(chain: dict | None, kind: str, target_strike: float,
+                  spot: float, sigma: float, rate: float) -> None:
+    """Stima Black-Scholes contro la quotazione reale, a parità di contratto."""
+    st.markdown(f"**{t('opt.market_title')}**")
+    row = nearest_strike_row(chain["table"], target_strike) if chain else None
+    mid = mid_price(row) if row is not None else None
+    if chain is None or row is None or mid is None:
+        st.caption(t("opt.market_unavailable"))
+        return
+    market_days = max(1, int(chain["days"]))
+    estimate = bs_price(kind, spot, float(row["strike"]), market_days / 365.0, sigma, rate)
+    diff = (mid - estimate) / estimate if estimate else float("nan")
+    iv = float(row.get("impliedVolatility") or float("nan"))
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric(t("opt.mkt_estimate"), f"{estimate:,.2f}")
+    m2.metric(t("opt.mkt_market"), f"{mid:,.2f}", delta=f"{diff:+.1%}", delta_color="off")
+    m3.metric(
+        t("opt.mkt_iv"),
+        f"{iv:.0%}" if iv == iv else "—",
+        delta=f"RV {sigma:.0%}",
+        delta_color="off",
+    )
+    oi = row.get("openInterest")
+    st.caption(
+        t(
+            "opt.mkt_details",
+            strike=f"{float(row['strike']):,.2f}",
+            expiry=chain["expiry"],
+            days=market_days,
+            bid=f"{float(row.get('bid') or 0):,.2f}",
+            ask=f"{float(row.get('ask') or 0):,.2f}",
+            last=f"{float(row.get('lastPrice') or 0):,.2f}",
+            oi=f"{int(oi):,}" if oi == oi and oi is not None else "—",
+        )
+    )
+    if iv == iv:
+        if iv > sigma * 1.1:
+            verdict = t("opt.iv_higher")
+        elif iv < sigma * 0.9:
+            verdict = t("opt.iv_lower")
+        else:
+            verdict = t("opt.iv_inline")
+        st.caption(t("opt.iv_note", iv=f"{iv:.0%}", rv=f"{sigma:.0%}", verdict=verdict))
 
 
 def render(ctx: ViewContext) -> None:
@@ -62,6 +109,8 @@ def render(ctx: ViewContext) -> None:
     collar = zero_cost_collar(
         spot, sigma, rate, put_strike_pct=put_pct, days=days, cost_basis=cost
     )
+    put_chain = cached_option_chain(ticker, "put", days)
+    call_chain = cached_option_chain(ticker, "call", days)
 
     # ---- put protettiva --------------------------------------------------
     sec(t("opt.protect_title"))
@@ -96,6 +145,7 @@ def render(ctx: ViewContext) -> None:
                 total=("+" if locked_total >= 0 else "") + eur(locked_total),
             )
         )
+    _market_check(put_chain, "put", put["strike"], spot, sigma, rate)
 
     # ---- covered call ----------------------------------------------------
     sec(t("opt.income_title"))
@@ -112,6 +162,7 @@ def render(ctx: ViewContext) -> None:
         + eur(call["premium"] * qty * fx)
         + ")"
     )
+    _market_check(call_chain, "call", call["strike"], spot, sigma, rate)
 
     # ---- collar a costo zero --------------------------------------------
     sec(t("opt.collar_title"))

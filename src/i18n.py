@@ -1041,6 +1041,44 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "noto. Aggiungi quantità e prezzo di carico dalla barra laterale.",
     ),
     "opt.days_label": ("{days} days", "{days} giorni"),
+    "opt.market_title": ("Market check — real quotes", "Verifica di mercato — quotazioni reali"),
+    "opt.mkt_estimate": ("Estimate (BS)", "Stima (BS)"),
+    "opt.mkt_market": ("Market (mid)", "Mercato (mid)"),
+    "opt.mkt_iv": ("Implied volatility", "Volatilità implicita"),
+    "opt.mkt_details": (
+        "Real contract: strike {strike}, expiry {expiry} ({days} days) · bid "
+        "{bid} / ask {ask} · last trade {last} · open interest {oi}. The "
+        "theoretical estimate above is recomputed at the SAME strike and "
+        "expiry, so the comparison is apples to apples.",
+        "Contratto reale: strike {strike}, scadenza {expiry} ({days} giorni) · "
+        "denaro {bid} / lettera {ask} · ultimo scambio {last} · open interest "
+        "{oi}. La stima teorica qui sopra è ricalcolata sugli STESSI strike e "
+        "scadenza: il confronto è mele con mele.",
+    ),
+    "opt.iv_note": (
+        "The market prices {iv} implied volatility vs {rv} realized over the "
+        "selected period: {verdict}",
+        "Il mercato prezza una volatilità implicita del {iv} contro il {rv} "
+        "realizzato nel periodo selezionato: {verdict}",
+    ),
+    "opt.iv_higher": (
+        "options are trading rich versus recent history.",
+        "le opzioni quotano care rispetto alla storia recente.",
+    ),
+    "opt.iv_lower": (
+        "options are trading cheap versus recent history.",
+        "le opzioni quotano a sconto rispetto alla storia recente.",
+    ),
+    "opt.iv_inline": (
+        "the market broadly agrees with recent history.",
+        "il mercato è sostanzialmente allineato alla storia recente.",
+    ),
+    "opt.market_unavailable": (
+        "Live option quotes not available right now (Yahoo options endpoint): "
+        "showing theoretical estimates only.",
+        "Quotazioni opzioni non disponibili in questo momento (endpoint "
+        "opzioni di Yahoo): solo stime teoriche.",
+    ),
     # ---------------------------------------------------------------- components
     "hero.value": ("Portfolio value", "Valore del portafoglio"),
     "hero.last_session": ("Last session", "Ultima seduta"),

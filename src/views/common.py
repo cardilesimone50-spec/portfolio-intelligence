@@ -111,6 +111,14 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
     return prices
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def cached_option_chain(ticker: str, kind: str, target_days: int) -> dict | None:
+    """Chain di opzioni reale (best-effort, cache 10 minuti); None se non disponibile."""
+    from src.data.options_chain import fetch_option_chain
+
+    return fetch_option_chain(ticker, kind, target_days)
+
+
 def language_selector(key: str) -> None:
     """Selettore EN/IT: persiste in session_state['language'] e rerun al cambio.
 
