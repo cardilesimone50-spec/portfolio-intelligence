@@ -14,7 +14,12 @@ from src.analytics.pipeline import analyze_portfolio
 from src.data import yahoo_client
 from src.data.fx import convert_to_eur
 from src.i18n import set_language, t
-from src.portfolio.positions import normalize_portfolio, position_table, totals
+from src.portfolio.positions import (
+    normalize_portfolio,
+    portfolio_xirr,
+    position_table,
+    totals,
+)
 from src.ui.components import compliance_footer, empty_state
 from src.ui.identity import current_advisor
 from src.ui.theme import inject_theme
@@ -28,6 +33,7 @@ from src.views import (
     market,
     metrics,
     optimize,
+    options_overlay,
     visual,
 )
 from src.views.common import BENCHMARK, cached_eurusd, cached_fundamentals, cached_prices
@@ -74,6 +80,7 @@ total = 0.0
 portfolio: list = []
 pos_table = None
 pnl_totals = None
+irr: float | None = None
 if positions:
     try:
         tickers = tuple(sorted(positions))
@@ -92,6 +99,7 @@ if positions:
         fx_factor = (last_display / last_native).fillna(1.0)
         pos_table = position_table(positions, last_native, fx_factor)
         pnl_totals = totals(pos_table)
+        irr = portfolio_xirr(positions, last_native, fx_factor)
         amounts = {
             ticker: float(value)
             for ticker, value in pos_table["value"].items()
@@ -134,7 +142,11 @@ MACRO_LABELS = {
 }
 SUBNAV = {
     "Analysis": [(t("nav.metrics"), "Analisi"), (t("nav.charts"), "Visual")],
-    "Strategies": [(t("nav.optimization"), "Ottimizza"), (t("nav.backtest"), "Backtest")],
+    "Strategies": [
+        (t("nav.optimization"), "Ottimizza"),
+        (t("nav.backtest"), "Backtest"),
+        (t("nav.options"), "Opzioni"),
+    ],
     "Market": [
         (t("nav.nasdaq"), "Mercato"),
         (t("nav.correlations"), "Correlazioni"),
@@ -176,13 +188,14 @@ VIEWS = {
     "Analisi": metrics.render,
     "Visual": visual.render,
     "Ottimizza": optimize.render,
+    "Opzioni": options_overlay.render,
     "Backtest": backtest.render,
     "Mercato": market.render,
     "Correlazioni": correlations.render,
     "Fondamentali": fundamentals.render,
     "Clients": clients.render,
 }
-NEEDS_PORTFOLIO = {"Check-up", "Analisi", "Visual", "Ottimizza"}
+NEEDS_PORTFOLIO = {"Check-up", "Analisi", "Visual", "Ottimizza", "Opzioni"}
 
 ctx = ViewContext(
     computed=computed,
@@ -198,6 +211,7 @@ ctx = ViewContext(
     names=st.session_state.get("names", {}),
     pos=pos_table,
     pnl_totals=pnl_totals,
+    irr=irr,
 )
 
 if view in NEEDS_PORTFOLIO and computed is None:

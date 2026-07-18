@@ -93,6 +93,7 @@ def hero_html(
     today_move: float | None = None,
     gain: float | None = None,
     gain_pct: float | None = None,
+    irr: float | None = None,
 ) -> str:
     gauge_color = _status_color(health)
     arrow, css = ("▲", "up") if change >= 0 else ("▼", "down")
@@ -100,10 +101,13 @@ def hero_html(
     if gain is not None and gain == gain:
         css_g = "up" if gain >= 0 else "down"
         pct = f"{gain_pct:+.1%}" if gain_pct is not None and gain_pct == gain_pct else "—"
+        irr_text = (
+            t("hero.irr", irr=f"{irr:+.1%}") if irr is not None and irr == irr else ""
+        )
         gain_html = (
             f'<div class="chg {css_g}" style="font-size:.95rem;margin-top:2px">'
             f"{t('hero.gain_line', amount=eur(gain) if gain < 0 else '+' + eur(gain), pct=pct)}"
-            "</div>"
+            f"{irr_text}</div>"
         )
     today_html = ""
     if today_move is not None and today_move == today_move:

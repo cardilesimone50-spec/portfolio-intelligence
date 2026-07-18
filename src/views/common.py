@@ -17,11 +17,16 @@ TRADING_DAYS = 252
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
 # annual volatility thresholds per risk profile (declared in the UI)
 PROFILE_VOL = {"Conservative": 0.10, "Moderate": 0.18, "Aggressive": 0.30}
-# portafoglio di esempio: quantità e prezzo medio di carico (per il P&L demo)
+# portafoglio di esempio: quantità, prezzo E data di carico (P&L + IRR demo)
 SAMPLE_PORTFOLIO = {
-    "AAPL": {"qty": 20.0, "price": 150.0},
-    "MSFT": {"qty": 8.0, "price": 320.0},
-    "NVDA": {"qty": 30.0, "price": 60.0},
+    "AAPL": {"lots": [{"qty": 20.0, "price": 150.0, "date": "2024-11-15"}]},
+    "MSFT": {"lots": [{"qty": 8.0, "price": 320.0, "date": "2025-02-10"}]},
+    "NVDA": {
+        "lots": [
+            {"qty": 20.0, "price": 48.0, "date": "2024-09-05"},
+            {"qty": 10.0, "price": 84.0, "date": "2025-04-22"},
+        ]
+    },
 }
 
 _FALLBACK_TICKERS = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "COST", "NFLX"]
@@ -104,6 +109,14 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
                 update_nasdaq100()
             st.rerun()
     return prices
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def cached_option_chain(ticker: str, kind: str, target_days: int) -> dict | None:
+    """Chain di opzioni reale (best-effort, cache 10 minuti); None se non disponibile."""
+    from src.data.options_chain import fetch_option_chain
+
+    return fetch_option_chain(ticker, kind, target_days)
 
 
 def language_selector(key: str) -> None:

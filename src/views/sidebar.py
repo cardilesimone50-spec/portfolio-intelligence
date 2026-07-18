@@ -1,13 +1,14 @@
 """Sidebar: identità advisor, gestione posizioni, import, portafogli, settings."""
 
 from dataclasses import dataclass
+from datetime import date
 
 import streamlit as st
 
 from src.data.importers import parse_positions
 from src.data.store import list_portfolios, save_portfolio
 from src.i18n import t
-from src.portfolio.positions import merge_lot, normalize_portfolio
+from src.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from src.ui.components import empty_state, eur, position_card_html, sec, ticker_preview_html
 from src.ui.identity import auth_configured, is_authenticated
 from src.views.common import cached_risk_free, known_tickers, language_selector, ticker_preview
@@ -32,9 +33,12 @@ def _add_holding() -> None:
     k = str(chosen).upper().strip()
     qty = float(st.session_state.get(f"add_qty_{k}") or 0)
     price = float(st.session_state.get(f"add_price_{k}") or 0)
+    when = st.session_state.get(f"add_date_{k}")
     if qty <= 0 or price <= 0:
         return
-    st.session_state.positions[k] = merge_lot(st.session_state.positions.get(k), qty, price)
+    st.session_state.positions[k] = add_lot(
+        st.session_state.positions.get(k), qty, price, when
+    )
     st.session_state.add_ticker = None
 
 
@@ -101,6 +105,12 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                     key=f"add_price_{key}",
                     help=t("pos.current_price") + f": {default_price:,.2f}",
                 )
+            st.date_input(
+                t("pos.buy_date"),
+                value=date.today(),
+                max_value=date.today(),
+                key=f"add_date_{key}",
+            )
             st.button(t("gate.add"), width="stretch", type="primary", on_click=_add_holding)
         else:
             st.caption(t("side.search_hint"))
@@ -108,23 +118,28 @@ def render_sidebar(advisor: str) -> SidebarSettings:
         sec(t("side.your_holdings"))
 
         positions = st.session_state.positions
+        aggs = {ticker: aggregate(pos) for ticker, pos in positions.items()}
         costs = {
-            ticker: (pos["qty"] * pos["price"] if "qty" in pos else pos.get("amount", 0.0))
-            for ticker, pos in positions.items()
+            ticker: (
+                agg["qty"] * agg["price"]
+                if agg is not None
+                else positions[ticker].get("amount", 0.0)
+            )
+            for ticker, agg in aggs.items()
         }
         total = sum(costs.values())
         if positions:
             sorted_tickers = sorted(costs, key=costs.get, reverse=True)
             known_names = st.session_state.get("names", {})
             for ticker in sorted_tickers:
-                pos = positions[ticker]
+                agg = aggs[ticker]
                 color = PALETTE[sorted(costs).index(ticker) % len(PALETTE)]
                 weight = costs[ticker] / total if total else 0
                 company = known_names.get(ticker, "")
                 label = (
-                    f"{pos['qty']:g} × {pos['price']:,.2f}"
-                    if "qty" in pos
-                    else eur(pos.get("amount", 0.0))
+                    f"{agg['qty']:g} × {agg['price']:,.2f}"
+                    if agg is not None
+                    else eur(costs[ticker])
                 )
                 col_card, col_menu = st.columns([5, 1], gap="small")
                 with col_card:
@@ -135,7 +150,8 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                         unsafe_allow_html=True,
                     )
                 with col_menu, st.popover("···"):
-                    current = pos if "qty" in pos else {"qty": 0.0, "price": 0.0}
+                    current = agg if agg is not None else {"qty": 0.0, "price": 0.0,
+                                                           "first_date": None}
                     new_qty = st.number_input(
                         t("pos.qty"),
                         min_value=0.0,
@@ -150,14 +166,31 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                         step=1.0,
                         key=f"edit_price_{ticker}",
                     )
-                    if "qty" not in pos:
+                    default_date = (
+                        date.fromisoformat(current["first_date"])
+                        if current.get("first_date")
+                        else date.today()
+                    )
+                    new_date = st.date_input(
+                        t("pos.buy_date"),
+                        value=default_date,
+                        max_value=date.today(),
+                        key=f"edit_date_{ticker}",
+                    )
+                    if agg is None:
                         st.caption(t("pos.cost_unknown"))
                     col_ok, col_del = st.columns(2)
                     if col_ok.button(t("side.save"), key=f"save_{ticker}", width="stretch"):
                         if new_qty > 0 and new_price > 0:
+                            # l'edit sostituisce i lotti con un lotto aggregato
                             st.session_state.positions[ticker] = {
-                                "qty": float(new_qty),
-                                "price": float(new_price),
+                                "lots": [
+                                    {
+                                        "qty": float(new_qty),
+                                        "price": float(new_price),
+                                        "date": new_date.isoformat() if new_date else None,
+                                    }
+                                ]
                             }
                         elif new_qty == 0:
                             st.session_state.positions.pop(ticker, None)

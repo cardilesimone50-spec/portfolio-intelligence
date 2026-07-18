@@ -73,6 +73,7 @@ def render(ctx: ViewContext) -> None:
                 today_move=float(c["pf_daily"].iloc[-1]),
                 gain=pnl_totals.get("pnl"),
                 gain_pct=pnl_totals.get("pnl_pct"),
+                irr=ctx.irr,
             ),
             unsafe_allow_html=True,
         )
@@ -117,27 +118,42 @@ def render(ctx: ViewContext) -> None:
             "Company": fund_names.get(ticker, ""),
             "Qty": float(pos["qty"].get(ticker)) if len(pos) else None,
             "Buy": float(pos["buy_price"].get(ticker)) if len(pos) else None,
+            "Date": (
+                pos["buy_date"].get(ticker).date()
+                if len(pos) and pd.notna(pos["buy_date"].get(ticker))
+                else None
+            ),
             "Current": float(pos["current_price"].get(ticker)) if len(pos) else None,
             "Value": amounts[ticker],
             "PnL": float(pos["pnl"].get(ticker)) if len(pos) else None,
             "PnLPct": float(pos["pnl_pct"].get(ticker)) if len(pos) else None,
+            "Ann": float(pos["ann_pct"].get(ticker)) if len(pos) else None,
             "Weight": amounts[ticker] / total,
             "Return": cum_by_ticker.get(ticker),
             "Trend": normalized_pos[ticker].dropna().tolist()[-130:],
         }
         for ticker in sorted(amounts, key=amounts.get, reverse=True)
     ]
+    positions_df = pd.DataFrame(position_rows)
+
+    def _pnl_color(value) -> str:
+        if value is None or value != value:
+            return ""
+        return "color: #0ea371; font-weight: 600" if value >= 0 else "color: #dc2626; font-weight: 600"
+
     st.dataframe(
-        pd.DataFrame(position_rows),
+        positions_df.style.map(_pnl_color, subset=["PnL", "PnLPct", "Ann"]),
         column_config={
             "Ticker": st.column_config.TextColumn(t("chk.col_ticker")),
             "Company": st.column_config.TextColumn(t("chk.col_company")),
             "Qty": st.column_config.NumberColumn(t("pos.qty"), format="%.4g"),
             "Buy": st.column_config.NumberColumn(t("pos.buy_price"), format="%.2f"),
+            "Date": st.column_config.DateColumn(t("pos.buy_date"), format="DD/MM/YYYY"),
             "Current": st.column_config.NumberColumn(t("pos.current_price"), format="%.2f"),
             "Value": st.column_config.NumberColumn(t("pos.value"), format="%.0f €"),
             "PnL": st.column_config.NumberColumn(t("pos.pnl"), format="%.0f €"),
             "PnLPct": st.column_config.NumberColumn(t("pos.pnl") + " %", format="percent"),
+            "Ann": st.column_config.NumberColumn(t("pos.ann"), format="percent"),
             "Weight": st.column_config.NumberColumn(t("chk.col_weight"), format="percent"),
             "Return": st.column_config.NumberColumn(
                 t("chk.col_return", period=period), format="percent"
@@ -307,6 +323,11 @@ def render(ctx: ViewContext) -> None:
                 f"{c['annual_ret']:+.1%}",
                 f"{bench_cagr:+.1%}",
                 t("r.cagr"),
+            ),
+            *(
+                [(t("m.irr"), f"{ctx.irr:+.1%}", "—", t("r.irr"))]
+                if ctx.irr is not None
+                else []
             ),
             (
                 t("m.vol"),
