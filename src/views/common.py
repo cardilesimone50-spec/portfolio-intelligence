@@ -111,6 +111,17 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
     return prices
 
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def cached_price_on(ticker: str, iso_date: str) -> float | None:
+    """Chiusura rettificata di `ticker` alla data: prima il DB locale, poi Yahoo."""
+    from src.data.price_lookup import fetch_price_on, price_on_frame
+
+    price = price_on_frame(load_market_db(), ticker, iso_date)
+    if price is not None:
+        return price
+    return fetch_price_on(ticker, iso_date)
+
+
 @st.cache_data(ttl=600, show_spinner=False)
 def cached_option_chain(ticker: str, kind: str, target_days: int) -> dict | None:
     """Chain di opzioni reale (best-effort, cache 10 minuti); None se non disponibile."""

@@ -11,7 +11,13 @@ from src.i18n import t
 from src.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from src.ui.components import empty_state, eur, position_card_html, sec, ticker_preview_html
 from src.ui.identity import auth_configured, is_authenticated
-from src.views.common import cached_risk_free, known_tickers, language_selector, ticker_preview
+from src.views.common import (
+    cached_price_on,
+    cached_risk_free,
+    known_tickers,
+    language_selector,
+    ticker_preview,
+)
 from src.visualization.charts import PALETTE
 
 
@@ -32,9 +38,13 @@ def _add_holding() -> None:
         return
     k = str(chosen).upper().strip()
     qty = float(st.session_state.get(f"add_qty_{k}") or 0)
-    price = float(st.session_state.get(f"add_price_{k}") or 0)
     when = st.session_state.get(f"add_date_{k}")
+    iso = when.isoformat() if when else ""
+    price = float(st.session_state.get(f"add_price_{k}_{iso}") or 0)
+    if price <= 0 and when:
+        price = float(cached_price_on(k, iso) or 0)
     if qty <= 0 or price <= 0:
+        st.toast(t("pos.price_lookup_failed", ticker=k, date=iso))
         return
     st.session_state.positions[k] = add_lot(
         st.session_state.positions.get(k), qty, price, when
@@ -86,8 +96,8 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                 unsafe_allow_html=True,
             )
 
-            default_price = float(preview["price"]) if preview and preview.get("price") else 100.0
-            col_qty, col_price = st.columns(2, gap="small")
+            current_price = float(preview["price"]) if preview and preview.get("price") else None
+            col_qty, col_date = st.columns(2, gap="small")
             with col_qty:
                 st.number_input(
                     t("pos.qty"),
@@ -96,20 +106,27 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                     step=1.0,
                     key=f"add_qty_{key}",
                 )
-            with col_price:
-                st.number_input(
-                    t("pos.buy_price"),
-                    min_value=0.0001,
-                    value=default_price,
-                    step=1.0,
-                    key=f"add_price_{key}",
-                    help=t("pos.current_price") + f": {default_price:,.2f}",
+            with col_date:
+                buy_date = st.date_input(
+                    t("pos.buy_date"),
+                    value=date.today(),
+                    max_value=date.today(),
+                    key=f"add_date_{key}",
                 )
-            st.date_input(
-                t("pos.buy_date"),
-                value=date.today(),
-                max_value=date.today(),
-                key=f"add_date_{key}",
+            # prezzo ricavato dalla data (chiusura storica), modificabile a mano
+            iso = buy_date.isoformat() if buy_date else ""
+            looked_up = cached_price_on(key, iso) if iso else None
+            default_price = looked_up or current_price or 100.0
+            st.number_input(
+                t("pos.buy_price"),
+                min_value=0.0001,
+                value=float(default_price),
+                step=1.0,
+                key=f"add_price_{key}_{iso}",
+                help=t(
+                    "pos.price_auto_help",
+                    current=f"{current_price:,.2f}" if current_price else "—",
+                ),
             )
             st.button(t("gate.add"), width="stretch", type="primary", on_click=_add_holding)
         else:

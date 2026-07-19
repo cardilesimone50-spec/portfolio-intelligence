@@ -937,6 +937,20 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     # ---------------------------------------------------------------- date & IRR
     "pos.buy_date": ("Purchase date", "Data di acquisto"),
+    "pos.price_auto_help": (
+        "Auto-filled with the adjusted close of the purchase date (price "
+        "database) — override it if you know your exact fill. Current price: "
+        "{current}.",
+        "Compilato da solo con la chiusura rettificata della data di acquisto "
+        "(database prezzi) — correggilo se conosci il tuo eseguito esatto. "
+        "Prezzo attuale: {current}.",
+    ),
+    "pos.price_lookup_failed": (
+        "No historical price found for {ticker} on {date}: enter the purchase "
+        "price manually.",
+        "Nessun prezzo storico trovato per {ticker} al {date}: inserisci il "
+        "prezzo di carico a mano.",
+    ),
     "pos.days": ("Days held", "Giorni"),
     "pos.ann": ("IRR / yr", "IRR annuo"),
     "hero.irr": (" · IRR {irr}/yr", " · IRR {irr}/anno"),
