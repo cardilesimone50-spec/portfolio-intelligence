@@ -937,6 +937,20 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     # ---------------------------------------------------------------- date & IRR
     "pos.buy_date": ("Purchase date", "Data di acquisto"),
+    "pos.price_auto_help": (
+        "Auto-filled with the adjusted close of the purchase date (price "
+        "database) — override it if you know your exact fill. Current price: "
+        "{current}.",
+        "Compilato da solo con la chiusura rettificata della data di acquisto "
+        "(database prezzi) — correggilo se conosci il tuo eseguito esatto. "
+        "Prezzo attuale: {current}.",
+    ),
+    "pos.price_lookup_failed": (
+        "No historical price found for {ticker} on {date}: enter the purchase "
+        "price manually.",
+        "Nessun prezzo storico trovato per {ticker} al {date}: inserisci il "
+        "prezzo di carico a mano.",
+    ),
     "pos.days": ("Days held", "Giorni"),
     "pos.ann": ("IRR / yr", "IRR annuo"),
     "hero.irr": (" · IRR {irr}/yr", " · IRR {irr}/anno"),
@@ -1073,6 +1087,34 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "the market broadly agrees with recent history.",
         "il mercato è sostanzialmente allineato alla storia recente.",
     ),
+    "opt.compare_put_title": (
+        "Compare the real protection contracts",
+        "Confronta i contratti di protezione reali",
+    ),
+    "opt.compare_call_title": (
+        "Compare the real income contracts",
+        "Confronta i contratti di rendita reali",
+    ),
+    "opt.compare_caption": (
+        "Facts, not advice: every listed contract near your levels, side by "
+        "side. The choice belongs to you and your advisor — the platform does "
+        "not pick instruments.",
+        "Fatti, non consigli: ogni contratto quotato vicino ai tuoi livelli, "
+        "fianco a fianco. La scelta spetta a te e al tuo consulente — la "
+        "piattaforma non sceglie strumenti.",
+    ),
+    "opt.col_strike": ("Strike", "Strike"),
+    "opt.col_strike_pct": ("% of price", "% del prezzo"),
+    "opt.col_mid": ("Mid", "Mid"),
+    "opt.col_cost_pct": ("Cost %", "Costo %"),
+    "opt.col_cost_month": ("Cost %/month", "Costo %/mese"),
+    "opt.col_floor": ("Floor", "Pavimento"),
+    "opt.col_locked": ("Locked P&L", "P&L bloccato"),
+    "opt.col_yield": ("Yield (period)", "Rendita (periodo)"),
+    "opt.col_yield_ann": ("Yield /yr", "Rendita /anno"),
+    "opt.col_income": ("Income", "Incasso"),
+    "opt.col_iv": ("IV", "IV"),
+    "opt.col_oi": ("Open int.", "Open int."),
     "opt.market_unavailable": (
         "Live option quotes not available right now (Yahoo options endpoint): "
         "showing theoretical estimates only.",

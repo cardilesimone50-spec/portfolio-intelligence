@@ -6,7 +6,14 @@ strumento di scenario per il confronto col consulente, non una raccomandazione.
 
 import streamlit as st
 
-from src.analytics.options import bs_price, covered_call, protective_put, zero_cost_collar
+from src.analytics.options import (
+    bs_price,
+    covered_call,
+    income_table,
+    protection_table,
+    protective_put,
+    zero_cost_collar,
+)
 from src.data.options_chain import mid_price, nearest_strike_row
 from src.i18n import t
 from src.ui.components import eur, sec
@@ -146,6 +153,38 @@ def render(ctx: ViewContext) -> None:
             )
         )
     _market_check(put_chain, "put", put["strike"], spot, sigma, rate)
+    if put_chain is not None:
+        facts = protection_table(
+            put_chain["table"], spot, max(1, int(put_chain["days"])),
+            cost_basis=cost, qty=qty, fx=fx,
+        )
+        if not facts.empty:
+            with st.expander(t("opt.compare_put_title")):
+                st.dataframe(
+                    facts,
+                    column_config={
+                        "strike": st.column_config.NumberColumn(t("opt.col_strike"), format="%.2f"),
+                        "strike_pct": st.column_config.NumberColumn(
+                            t("opt.col_strike_pct"), format="percent"
+                        ),
+                        "mid": st.column_config.NumberColumn(t("opt.col_mid"), format="%.2f"),
+                        "cost_pct": st.column_config.NumberColumn(
+                            t("opt.col_cost_pct"), format="percent"
+                        ),
+                        "cost_month_pct": st.column_config.NumberColumn(
+                            t("opt.col_cost_month"), format="percent"
+                        ),
+                        "floor": st.column_config.NumberColumn(t("opt.col_floor"), format="%.2f"),
+                        "locked_pnl": st.column_config.NumberColumn(
+                            t("opt.col_locked"), format="%.0f €"
+                        ),
+                        "iv": st.column_config.NumberColumn(t("opt.col_iv"), format="percent"),
+                        "oi": st.column_config.NumberColumn(t("opt.col_oi"), format="%.0f"),
+                    },
+                    hide_index=True,
+                    width="stretch",
+                )
+                st.caption(t("opt.compare_caption"))
 
     # ---- covered call ----------------------------------------------------
     sec(t("opt.income_title"))
@@ -163,6 +202,36 @@ def render(ctx: ViewContext) -> None:
         + ")"
     )
     _market_check(call_chain, "call", call["strike"], spot, sigma, rate)
+    if call_chain is not None:
+        facts = income_table(
+            call_chain["table"], spot, max(1, int(call_chain["days"])), qty=qty, fx=fx
+        )
+        if not facts.empty:
+            with st.expander(t("opt.compare_call_title")):
+                st.dataframe(
+                    facts,
+                    column_config={
+                        "strike": st.column_config.NumberColumn(t("opt.col_strike"), format="%.2f"),
+                        "strike_pct": st.column_config.NumberColumn(
+                            t("opt.col_strike_pct"), format="percent"
+                        ),
+                        "mid": st.column_config.NumberColumn(t("opt.col_mid"), format="%.2f"),
+                        "yield_pct": st.column_config.NumberColumn(
+                            t("opt.col_yield"), format="percent"
+                        ),
+                        "yield_ann": st.column_config.NumberColumn(
+                            t("opt.col_yield_ann"), format="percent"
+                        ),
+                        "income": st.column_config.NumberColumn(
+                            t("opt.col_income"), format="%.0f €"
+                        ),
+                        "iv": st.column_config.NumberColumn(t("opt.col_iv"), format="percent"),
+                        "oi": st.column_config.NumberColumn(t("opt.col_oi"), format="%.0f"),
+                    },
+                    hide_index=True,
+                    width="stretch",
+                )
+                st.caption(t("opt.compare_caption"))
 
     # ---- collar a costo zero --------------------------------------------
     sec(t("opt.collar_title"))

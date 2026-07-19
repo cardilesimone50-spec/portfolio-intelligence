@@ -17,7 +17,94 @@ del premio e fino alla scadenza. Non è consulenza né raccomandazione.
 
 from math import erf, exp, log, sqrt
 
+import pandas as pd
+
 TRADING_DAYS = 252
+
+
+def _mid_series(table: pd.DataFrame) -> pd.Series:
+    """Mid denaro/lettera per riga; fallback ultimo scambio; NaN se nulla."""
+    bid = pd.to_numeric(table.get("bid"), errors="coerce").fillna(0.0)
+    ask = pd.to_numeric(table.get("ask"), errors="coerce").fillna(0.0)
+    last = pd.to_numeric(table.get("lastPrice"), errors="coerce").fillna(0.0)
+    mid = (bid + ask) / 2
+    mid = mid.where((bid > 0) & (ask > 0), last)
+    return mid.where(mid > 0)
+
+
+def protection_table(
+    table: pd.DataFrame,
+    spot: float,
+    days: int,
+    cost_basis: float | None = None,
+    qty: float = 1.0,
+    fx: float = 1.0,
+    lo: float = 0.80,
+    hi: float = 1.001,
+) -> pd.DataFrame:
+    """Confronto fattuale delle put reali tra lo `lo` e lo `hi` del prezzo.
+
+    Nessuna raccomandazione: per ogni contratto quotato mostra costo, pavimento
+    e — dato il carico — il P&L minimo bloccato. Colonne: strike, strike_pct,
+    mid, cost_pct, cost_month_pct, floor, locked_pnl, iv, oi.
+    """
+    if table is None or table.empty or spot <= 0:
+        return pd.DataFrame()
+    rows = table.copy()
+    rows["strike"] = pd.to_numeric(rows.get("strike"), errors="coerce")
+    rows["mid"] = _mid_series(rows)
+    rows = rows.dropna(subset=["strike", "mid"])
+    rows = rows[(rows["strike"] >= spot * lo) & (rows["strike"] <= spot * hi)]
+    if rows.empty:
+        return pd.DataFrame()
+    out = pd.DataFrame(index=rows.index)
+    out["strike"] = rows["strike"]
+    out["strike_pct"] = rows["strike"] / spot
+    out["mid"] = rows["mid"]
+    out["cost_pct"] = rows["mid"] / spot
+    out["cost_month_pct"] = out["cost_pct"] / max(days / 30.0, 0.1)
+    out["floor"] = rows["strike"] - rows["mid"]
+    out["locked_pnl"] = (
+        (out["floor"] - cost_basis) * qty * fx if cost_basis is not None else float("nan")
+    )
+    out["iv"] = pd.to_numeric(rows.get("impliedVolatility"), errors="coerce")
+    out["oi"] = pd.to_numeric(rows.get("openInterest"), errors="coerce")
+    return out.sort_values("strike", ascending=False).reset_index(drop=True)
+
+
+def income_table(
+    table: pd.DataFrame,
+    spot: float,
+    days: int,
+    qty: float = 1.0,
+    fx: float = 1.0,
+    lo: float = 0.999,
+    hi: float = 1.20,
+) -> pd.DataFrame:
+    """Confronto fattuale delle call reali per la covered call (rendita).
+
+    Colonne: strike, strike_pct, mid, yield_pct (periodo), yield_ann,
+    income (premio × quantità in valuta di visualizzazione), iv, oi.
+    """
+    if table is None or table.empty or spot <= 0:
+        return pd.DataFrame()
+    rows = table.copy()
+    rows["strike"] = pd.to_numeric(rows.get("strike"), errors="coerce")
+    rows["mid"] = _mid_series(rows)
+    rows = rows.dropna(subset=["strike", "mid"])
+    rows = rows[(rows["strike"] >= spot * lo) & (rows["strike"] <= spot * hi)]
+    if rows.empty:
+        return pd.DataFrame()
+    out = pd.DataFrame(index=rows.index)
+    out["strike"] = rows["strike"]
+    out["strike_pct"] = rows["strike"] / spot
+    out["mid"] = rows["mid"]
+    out["yield_pct"] = rows["mid"] / spot
+    out["yield_ann"] = out["yield_pct"] * 365.0 / max(days, 1)
+    out["income"] = rows["mid"] * qty * fx
+    out["iv"] = pd.to_numeric(rows.get("impliedVolatility"), errors="coerce")
+    out["oi"] = pd.to_numeric(rows.get("openInterest"), errors="coerce")
+    return out.sort_values("strike", ascending=True).reset_index(drop=True)
 
 
 def _norm_cdf(x: float) -> float:
