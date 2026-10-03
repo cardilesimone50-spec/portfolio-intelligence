@@ -362,6 +362,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "nav.strategies": ("Strategies", "Strategie"),
     "nav.market": ("Market", "Mercato"),
     "nav.clients": ("Clients", "Clienti"),
+    "nav.admin": ("Admin", "Admin"),
     "nav.metrics": ("Metrics", "Metriche"),
     "nav.charts": ("Charts", "Grafici"),
     "nav.optimization": ("Optimization", "Ottimizzazione"),
@@ -401,8 +402,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     # ---------------------------------------------------------------- sidebar
     "side.advisor": ("Advisor: **{advisor}**", "Consulente: **{advisor}**"),
     "side.advisor_demo": (
-        "Advisor: **{advisor}** · demo mode",
-        "Consulente: **{advisor}** · modalità demo",
+        "⚠️ Auth not configured: data isolation is NOT active, "
+        "every visitor shares this workspace (**{advisor}**).",
+        "⚠️ Auth non configurata: l'isolamento dati NON è attivo, "
+        "ogni visitatore condivide questo spazio (**{advisor}**).",
     ),
     "side.login_hint": (
         "Sign in to load your client book.",

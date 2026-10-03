@@ -8,3 +8,6 @@ __pycache__/
 # market.db resta ignorato: può contenere portafogli/analisi personali.
 /data/*
 !/data/nasdaq100_prices.csv
+
+# secrets locali (OIDC, DATABASE_URL, admin_emails): mai nel repo
+.streamlit/secrets.toml

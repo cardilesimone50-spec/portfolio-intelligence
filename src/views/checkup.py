@@ -39,7 +39,7 @@ from src.analytics.performance import (
     value_at_risk,
 )
 from src.analytics.simulation import simulate_shock
-from src.data.store import load_analyses, log_analysis
+from src.data.store import load_analyses, log_analysis, log_audit
 from src.i18n import t, t_in
 from src.portfolio.returns import (
     compute_daily_returns,
@@ -486,6 +486,7 @@ def render(ctx: ViewContext) -> None:
                 c["risk_score"],
                 health=c["health"],
             )
+            log_audit(advisor, "run_analysis", portfolio_name)
             st.toast(t("chk.saved_toast"))
     with col_hist:
         history = load_analyses(advisor)

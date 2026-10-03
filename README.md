@@ -41,6 +41,24 @@ docker build -t portfolio-intelligence .
 docker run -p 8501:8501 portfolio-intelligence
 ```
 
+**Database (Postgres in produzione):** lo schema è gestito con Alembic
+(`alembic.ini` + `migrations/`), stessa risoluzione URL dell'app
+(`DATABASE_URL`, altrimenti SQLite locale).
+```bash
+# database nuovo (vuoto): crea le tabelle
+alembic upgrade head
+
+# database esistente già in uso (creato da create_all prima di Alembic):
+# segna lo schema attuale come aggiornato senza rieseguire le DDL
+alembic stamp head
+```
+
+**Isolamento multi-tenant:** senza `[auth]` configurato nei secrets, ogni
+visitatore condivide lo stesso tenant di sviluppo (nessun isolamento dati —
+vedi `ROADMAP.md` §7). Per rifiutare l'avvio in assenza di auth, imposta
+`REQUIRE_AUTH=true`. Per abilitare la vista admin (statistiche cross-tenant e
+audit log), aggiungi `admin_emails = ["you@example.com"]` ai secrets.
+
 ## Struttura
 
 ```

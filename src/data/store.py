@@ -4,6 +4,12 @@ Backend agnostico via SQLAlchemy: SQLite in locale/test, Postgres in produzione
 B2B. Il motore è scelto da `DATABASE_URL` (es. `postgresql+psycopg://user:pw@host/db`);
 default `sqlite:///data/market.db`. Portafogli e analisi sono **isolati per
 advisor**: ogni consulente vede e tocca solo i propri clienti (multi-tenant).
+
+Schema versionato con Alembic (`alembic.ini` + `migrations/`, stessa
+risoluzione URL qui sotto). `_ensure_schema` resta un `create_all` idempotente
+per SQLite/dev/test (comodo, non richiede di lanciare Alembic); in produzione
+su Postgres usare `alembic upgrade head` (DB nuovo) o `alembic stamp head`
+(DB già esistente) — vedi README.
 """
 
 import json
@@ -67,6 +73,17 @@ analyses_table = Table(
     Column("health", Integer),
 )
 
+# traccia chi ha fatto cosa: requisito minimo di audit per un uso B2B
+audit_log_table = Table(
+    "audit_log",
+    _metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("advisor", String, nullable=False, index=True),
+    Column("timestamp", String, nullable=False),
+    Column("action", String, nullable=False),
+    Column("detail", String, nullable=False, default=""),
+)
+
 _ENGINES: dict[str, Engine] = {}
 
 
@@ -94,13 +111,28 @@ def _ensure_schema(engine: Engine) -> None:
 
 
 def get_engine(url: str | None = None) -> Engine:
-    """Engine SQLAlchemy (cache per URL), con schema garantito al primo uso."""
+    """Engine SQLAlchemy (cache per URL), con schema garantito al primo uso.
+
+    Pooling esplicito solo per Postgres (produzione, più connessioni
+    concorrenti): `pool_pre_ping` evita errori su connessioni scadute dal lato
+    server, `pool_size`/`max_overflow` limitano le connessioni aperte per
+    istanza. SQLite resta sui default di SQLAlchemy (single-writer, il
+    pooling non aiuta).
+    """
     resolved = _resolve_url(url)
     engine = _ENGINES.get(resolved)
     if engine is None:
         if resolved.startswith("sqlite:///"):
             DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        engine = create_engine(resolved, future=True)
+            engine = create_engine(resolved, future=True)
+        else:
+            engine = create_engine(
+                resolved,
+                future=True,
+                pool_pre_ping=True,
+                pool_size=5,
+                max_overflow=10,
+            )
         _ensure_schema(engine)
         _ENGINES[resolved] = engine
     return engine
@@ -266,3 +298,56 @@ def load_analyses(advisor: str, limit: int = 30, engine: Engine | None = None) -
     )
     with engine.connect() as conn:
         return pd.read_sql_query(query, conn)
+
+
+# ---------------------------------------------------------------- audit (admin, cross-tenant)
+
+
+def log_audit(advisor: str, action: str, detail: str = "", engine: Engine | None = None) -> None:
+    """Registra un evento di audit: chi (`advisor`), cosa (`action`), su cosa (`detail`)."""
+    engine = engine or get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            audit_log_table.insert().values(
+                advisor=advisor,
+                timestamp=datetime.now().isoformat(timespec="seconds"),
+                action=action,
+                detail=detail,
+            )
+        )
+
+
+def recent_audit(limit: int = 50, engine: Engine | None = None) -> pd.DataFrame:
+    """Gli ultimi eventi di audit su tutti i tenant (vista admin, non filtrata per advisor)."""
+    engine = engine or get_engine()
+    query = (
+        select(
+            audit_log_table.c.timestamp,
+            audit_log_table.c.advisor,
+            audit_log_table.c.action,
+            audit_log_table.c.detail,
+        )
+        .order_by(audit_log_table.c.id.desc())
+        .limit(limit)
+    )
+    with engine.connect() as conn:
+        return pd.read_sql_query(query, conn)
+
+
+def platform_stats(engine: Engine | None = None) -> dict:
+    """Numeri aggregati cross-tenant per la vista admin: nessun dato di portafoglio,
+    solo conteggi (l'isolamento dei dati clienti resta intatto)."""
+    engine = engine or get_engine()
+    with engine.connect() as conn:
+        n_advisors = len(conn.execute(select(portfolios_table.c.advisor).distinct()).all())
+        n_portfolios = len(conn.execute(select(portfolios_table.c.name)).all())
+        n_analyses = len(conn.execute(select(analyses_table.c.id)).all())
+        last_price_date = conn.execute(
+            select(prices_table.c.date).order_by(prices_table.c.date.desc())
+        ).first()
+    return {
+        "advisors": n_advisors,
+        "portfolios": n_portfolios,
+        "analyses": n_analyses,
+        "last_price_date": last_price_date[0] if last_price_date else None,
+    }

@@ -84,8 +84,8 @@ identità consulente multi-tenant (B2B).
 | 12 | **Accoppiamento implicito tra tab** | Le tab condividono variabili globali di script (`amounts`, `computed`): l'ordine dei blocchi è vincolante e fragile. Servono uno stato applicativo esplicito (dataclass in `st.session_state`). | ✅ Risolto — `ViewContext` dataclass esplicita (`src/views/context.py`) |
 | 13 | **Packaging non standard** | Import `from src.x import y`: non installabile via pip, il nome `src` è generico. Migrare a `pyproject.toml` con package `portfolio_intelligence`, entry point CLI. | 🟡 Parziale — `pyproject.toml` presente (`name = "portfolio-intelligence"`), ma gli import restano `from src.x import y`: il pacchetto installato si chiama ancora `src`, non `portfolio_intelligence` |
 | 14 | **Costanti duplicate** | `TRADING_DAYS = 252` definito in 5 moduli; euristica `min_periods` copiata in più punti; soglie degli score sparse. Centralizzare in `config.py`. | ⬜ Aperto — ora duplicato in 6 moduli (peggiorato), nessun `config.py` |
-| 15 | **DB senza migrazioni né manutenzione** | Schema creato ad-hoc in `_connect`; `load_prices()` pivota tutto in memoria a ogni chiamata (nessuna query per range di date); tabella `analyses` a crescita illimitata. | 🟡 Parziale — upsert e merge incrementale aggiunti (`test_store.py`), ma nessuna migrazione formale (no Alembic) |
-| 16 | **CI minima** | Solo pytest su un solo Python. Aggiungere ruff (lint+format), mypy, coverage con soglia, matrice 3.11/3.12/3.13. | 🟡 Parziale — ruff lint+format ora in CI, ma ancora un solo Python (3.12), nessun mypy, nessuna soglia di coverage |
+| 15 | **DB senza migrazioni né manutenzione** | Schema creato ad-hoc in `_connect`; `load_prices()` pivota tutto in memoria a ogni chiamata (nessuna query per range di date); tabella `analyses` a crescita illimitata. | ✅ Risolto per la parte migrazioni — Alembic (`migrations/`), verificato in CI (`alembic upgrade head`); `load_prices()` pivota ancora tutto in memoria, resta aperto |
+| 16 | **CI minima** | Solo pytest su un solo Python. Aggiungere ruff (lint+format), mypy, coverage con soglia, matrice 3.11/3.12/3.13. | 🟡 Parziale — ruff lint+format + smoke test delle migrazioni ora in CI, ma ancora un solo Python (3.12), nessun mypy, nessuna soglia di coverage |
 
 ### P3 — Esperienza e portata
 
@@ -227,27 +227,25 @@ solo quando compare il trigger concreto che li giustifica.
 
 | Dimensione | Realtà oggi | Soglia enterprise | Gap |
 |---|---|---|---|
-| **Isolamento multi-tenant** | `current_advisor()` isola i dati per email **solo se l'OIDC è configurato** (`secrets["auth"]`). Senza configurazione, ogni utente ricade sullo stesso tenant condiviso `local@dev` — l'isolamento è opt-in, non garantito di default | SSO/OIDC obbligatorio, nessun fallback a tenant condiviso | 🔴 Da chiudere prima di vendere "isolamento dati" come garanzia |
-| **Scalabilità del processo** | Un solo processo Streamlit (`streamlit run app.py`), nessun `docker-compose`, nessun orchestratore multi-replica; stato di sessione e cache (`@st.cache_data`) vivono in-process | Più istanze dietro un load balancer, stato/cache condivisi esternamente | 🔴 Oggi regge finché un'istanza basta per il traffico concorrente |
-| **Database** | SQLite di default (single-writer) o un singolo Postgres via `DATABASE_URL`, nessun pooling esplicito, nessuna migrazione formale (P2-15) | Postgres gestito con pooling dimensionato, migrazioni versionate, read replica se serve | 🟡 Postgres già supportato, ma non dimensionato per concorrenza alta |
-| **Audit/compliance** | Nessun log di audit (nessuna traccia di chi ha visto/modificato cosa) | Audit trail per accessi e modifiche, requisito tipico in ambito finanziario B2B | 🔴 Assente |
-| **RBAC** | Un solo ruolo: "advisor" isolato per tenant. Nessun ruolo admin/ops distinto | Ruoli differenziati (advisor, admin, sola lettura) | 🔴 Assente |
-| **Rate limit su dati esterni** | Solo retry/backoff lato provider (`src/data/providers.py`); nessun throttling per-tenant: tanti advisor concorrenti possono competere sullo stesso budget di chiamate a EODHD/Yahoo | Quote per tenant, cache condivisa per non rifare le stesse chiamate | 🟡 Funziona a basso volume, non testato ad alto volume |
-| **SLA/monitoring/backup** | Nessun monitoring applicativo, nessuna strategia di backup/DR documentata | SLA dichiarato, alerting, backup periodici testati | 🔴 Assente |
+| **Isolamento multi-tenant** | ✅ Risolto in parte (2026-10-04): `REQUIRE_AUTH=true` fa rifiutare l'avvio se l'OIDC non è configurato (`auth_required_but_missing`, `app.py`); senza quel flag, un banner visibile (non più un caption silenzioso) avvisa che l'isolamento non è garantito | SSO/OIDC obbligatorio by default in produzione, non opt-in via env var | 🟡 Il gate esiste ma va attivato esplicitamente nel deploy |
+| **Scalabilità del processo** | Un solo processo Streamlit (`streamlit run app.py`), nessun `docker-compose`, nessun orchestratore multi-replica; stato di sessione e cache (`@st.cache_data`) vivono in-process | Più istanze dietro un load balancer, stato/cache condivisi esternamente | 🔴 Oggi regge finché un'istanza basta per il traffico concorrente — invariato |
+| **Database** | ✅ Risolto (2026-10-04): pooling esplicito su Postgres (`pool_pre_ping`, `pool_size=5`, `max_overflow=10`) e migrazioni versionate con Alembic (`migrations/`, migrazione iniziale verificata su SQLite e in CI) | Postgres gestito con pooling dimensionato, migrazioni versionate, read replica se serve | 🟡 Pooling e migrazioni ci sono; dimensionamento e read replica restano da validare sotto carico reale |
+| **Audit/compliance** | ✅ Risolto in parte (2026-10-04): tabella `audit_log` + `log_audit()`, loggati salvataggio portafoglio e analisi eseguita; consultabile nella vista Admin | Audit trail completo (inclusi login, letture) per accessi e modifiche | 🟡 Copre le scritture principali, non ogni azione |
+| **RBAC** | ✅ Risolto in parte (2026-10-04): ruolo `admin` via allowlist (`is_admin`, secrets `admin_emails`), vista Admin dedicata con statistiche cross-tenant e audit log | Ruoli differenziati (advisor, admin, sola lettura), gestiti non solo da una allowlist statica | 🟡 Un ruolo oltre "advisor"; manca sola-lettura e gestione self-service |
+| **Rate limit su dati esterni** | Solo retry/backoff lato provider (`src/data/providers.py`); nessun throttling per-tenant: tanti advisor concorrenti possono competere sullo stesso budget di chiamate a EODHD/Yahoo | Quote per tenant, cache condivisa per non rifare le stesse chiamate | 🟡 Funziona a basso volume, non testato ad alto volume — invariato |
+| **SLA/monitoring/backup** | Nessun monitoring applicativo, nessuna strategia di backup/DR documentata | SLA dichiarato, alerting, backup periodici testati | 🔴 Assente — invariato |
 
 **Chi possiamo servire oggi**: un numero ridotto di consulenti/advisor
 indipendenti o piccoli studi — self-hosted (Docker) o su Streamlit Community
 Cloud con Postgres — con OIDC configurato esplicitamente e traffico
-concorrente basso. Decine di utenti, non centinaia; nessuna garanzia
-contrattuale di isolamento, audit o SLA.
+concorrente basso. Decine di utenti, non centinaia; isolamento e audit ora
+verificabili (vista Admin), ma nessun SLA o garanzia di scalabilità multi-istanza.
 
-**Cosa serve prima di parlare con un cliente enterprise**: OIDC obbligatorio
-senza fallback condiviso, RBAC, audit trail, deployment multi-istanza con
-stato condiviso esterno, Postgres dimensionato con pooling e migrazioni,
-monitoring/SLA/backup. Nessuno di questi è "costruire una feature nuova" —
-sono gli stessi punti già aperti in §1 (P2-15, P2-16) e §6 (Redis solo a
-trigger di scaling concreto): la lista non cambia, cambia solo la lente con
-cui viene letta prima di un pitch enterprise.
+**Cosa resta prima di parlare con un cliente enterprise**: OIDC obbligatorio
+by default (non solo opt-in via `REQUIRE_AUTH`), deployment multi-istanza con
+stato condiviso esterno, monitoring/SLA/backup. Isolamento (parziale), RBAC,
+audit trail e pooling/migrazioni DB sono stati chiusi il 2026-10-04 — restano
+scalabilità orizzontale e osservabilità operativa.
 
 ---
 

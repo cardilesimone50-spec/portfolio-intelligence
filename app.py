@@ -21,9 +21,10 @@ from src.portfolio.positions import (
     totals,
 )
 from src.ui.components import compliance_footer, empty_state
-from src.ui.identity import current_advisor
+from src.ui.identity import auth_required_but_missing, current_advisor, is_admin
 from src.ui.theme import inject_theme
 from src.views import (
+    admin,
     backtest,
     checkup,
     clients,
@@ -55,6 +56,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 inject_theme()
+
+# gate duro: un deploy pubblico può imporre REQUIRE_AUTH=true per rifiutare
+# di servire richieste finché l'OIDC non isola davvero i dati per advisor
+if auth_required_but_missing():
+    st.error(
+        "⚠️ REQUIRE_AUTH is set but OIDC auth is not configured. "
+        "Refusing to start: tenant data isolation cannot be guaranteed. "
+        "Configure `[auth]` in secrets.toml before deploying."
+    )
+    st.stop()
 
 if "positions" not in st.session_state:
     st.session_state.positions = {}
@@ -140,6 +151,8 @@ MACRO_LABELS = {
     "Market": t("nav.market"),
     "Clients": t("nav.clients"),
 }
+if is_admin(advisor):
+    MACRO_LABELS["Admin"] = t("nav.admin")
 SUBNAV = {
     "Analysis": [(t("nav.metrics"), "Analisi"), (t("nav.charts"), "Visual")],
     "Strategies": [
@@ -194,6 +207,7 @@ VIEWS = {
     "Correlazioni": correlations.render,
     "Fondamentali": fundamentals.render,
     "Clients": clients.render,
+    "Admin": admin.render,
 }
 NEEDS_PORTFOLIO = {"Check-up", "Analisi", "Visual", "Ottimizza", "Opzioni"}
 

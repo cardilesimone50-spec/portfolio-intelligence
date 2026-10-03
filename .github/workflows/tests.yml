@@ -20,10 +20,13 @@ jobs:
       - run: pip install -r requirements.txt ruff
 
       - name: Lint
-        run: ruff check src/ app.py tests/
+        run: ruff check src/ app.py tests/ migrations/
 
       - name: Format check
-        run: ruff format --check src/ app.py tests/
+        run: ruff format --check src/ app.py tests/ migrations/
 
       - name: Tests
         run: python -m pytest -v
+
+      - name: Migrations apply cleanly
+        run: DATABASE_URL="sqlite:////tmp/ci_migrations.db" alembic upgrade head

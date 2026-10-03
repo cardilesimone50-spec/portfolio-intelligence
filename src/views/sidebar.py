@@ -6,7 +6,7 @@ from datetime import date
 import streamlit as st
 
 from src.data.importers import parse_positions
-from src.data.store import list_portfolios, save_portfolio
+from src.data.store import list_portfolios, log_audit, save_portfolio
 from src.i18n import t
 from src.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from src.ui.components import empty_state, eur, position_card_html, sec, ticker_preview_html
@@ -71,7 +71,7 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                 if st.button(t("side.login"), type="primary", width="stretch"):
                     st.login()
         else:
-            st.caption(t("side.advisor_demo", advisor=advisor))
+            st.warning(t("side.advisor_demo", advisor=advisor))
 
         sec(t("side.add_stock"))
 
@@ -242,6 +242,7 @@ def render_sidebar(advisor: str) -> SidebarSettings:
             portfolio_name = st.text_input(t("side.name"), value="My portfolio")
             if st.button(t("side.save_composition"), width="stretch") and positions:
                 save_portfolio(advisor, portfolio_name, positions)
+                log_audit(advisor, "save_portfolio", portfolio_name)
                 st.toast(t("side.saved_toast", name=portfolio_name))
             if saved:
                 selected_saved = st.selectbox(
