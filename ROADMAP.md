@@ -136,6 +136,47 @@ Deploy pubblico con auth · alert Telegram/email schedulati · Monte Carlo · fa
 
 ---
 
+## 6. Architettura target vs attuale
+
+> Proposta di stack a 10 layer valutata il 2026-10-04 (fonte: diagramma esterno,
+> tipico di una piattaforma dati/AI multi-sorgente ed event-driven). Confronto
+> con lo stato attuale (monolite Streamlit, SQLAlchemy su SQLite/Postgres,
+> cache in-process, script batch) per capire cosa adottare e quando.
+
+| # | Layer proposto | Stato reale | Valutazione |
+|---|---|---|---|
+| 01 | Fonti dati API (webhook/CSV/DB) | Yahoo Finance (yfinance) + import CSV/Excel già presenti | ✅ Già c'è, nessun webhook necessario oggi |
+| 02 | Ingestion/ETL (Airbyte/Singer) | Script Python ad-hoc (`download_nasdaq100.py`) | ❌ Overkill: 1-2 fonti non giustificano lo stack operativo di Airbyte |
+| 03 | Message broker (RabbitMQ/Kafka) | — | ❌ Non necessario: nessun servizio disaccoppiato che produce/consuma eventi, tutto è request/response sincrono in un singolo processo |
+| 04 | PostgreSQL + TimescaleDB | Postgres già supportato via `DATABASE_URL` (`src/data/store.py`) | 🟡 Parziale: hypertable utile solo quando le query per range di date su `prices` diventano un collo di bottiglia (oggi 122k righe sono banali) |
+| 05 | Cache semantica (Redis) | `@st.cache_data` in-process | ❌ Prematuro: serve con più istanze dell'app o con un vero layer LLM (cache di embedding/risposte), nessuno dei due casi esiste oggi |
+| 06 | Logic Engine (Pandas/scikit-learn) | `src/analytics`, `src/portfolio`, `src/fundamentals` | ✅ Già il cuore del progetto |
+| 07 | Vector DB/RAG (Qdrant/ChromaDB) | — | ❌ Fuori roadmap: ha senso solo se nasce una feature "chat col portafoglio" |
+| 08 | IA/LLM locale (Ollama) | — | ❌ Nuova direzione di prodotto, non un layer da aggiungere di striscio: richiede sizing, prompt engineering, eval — scope a sé |
+| 09 | Orchestrazione (n8n/Airflow) | Script manuali | ❌ Overkill per 1-2 job schedulati: basta cron o GitHub Actions; rivalutare quando le automazioni reali (es. alert §3-5) superano 3-4 |
+| 10 | UI (Streamlit/Superset) | Streamlit | ✅ Scelta corretta: prodotto guidato con gate di onboarding, viste custom e logica di business — Superset è per BI esplorativa su un warehouse, non sostituisce questo |
+
+**Lettura**: lo stack proposto è quello di una piattaforma dati/AI multi-sorgente
+ed event-driven con assistente conversazionale. Il prodotto attuale è
+single-tenant-per-advisor, con flusso guidato e output deterministici (niente
+LLM, niente eventi asincroni). 6 layer su 10 (02, 03, 05, 07, 08, 09) risolvono
+problemi che questo codebase non ha ancora — non vanno scartati, ma adottati
+solo quando compare il trigger concreto che li giustifica.
+
+**Percorso incrementale** (coerente col piano di rilascio in §5):
+
+1. Restare su Postgres semplice; valutare TimescaleDB solo quando il backtest
+   a storico esteso (constituent storici, P1-6) rende lente le query per range.
+2. Per gli alert schedulati (v1.0) partire da cron/GitHub Actions; passare a
+   n8n solo se le automazioni diventano >3-4 e serve visibilità visuale.
+3. RAG/LLM locale (Qdrant/Chroma + Ollama) solo a fronte di una decisione
+   esplicita di aggiungere un assistente AI sul portafoglio — nuova iniziativa
+   di prodotto, non un layer infrastrutturale isolato.
+4. Redis e message broker: aspettare un trigger concreto (scaling multi-istanza
+   dell'app, o servizi realmente disaccoppiati tra loro).
+
+---
+
 ## Principi non negoziabili
 
 1. **Onestà dei numeri prima delle feature**: mai mostrare una stima senza dichiararne i limiti (già oggi: caption "non è una previsione", survivorship bias dichiarato, euristiche documentate nei tooltip).
