@@ -21,8 +21,9 @@ from src.views.common import TRADING_DAYS, cached_option_chain
 from src.views.context import ViewContext
 
 
-def _market_check(chain: dict | None, kind: str, target_strike: float,
-                  spot: float, sigma: float, rate: float) -> None:
+def _market_check(
+    chain: dict | None, kind: str, target_strike: float, spot: float, sigma: float, rate: float
+) -> None:
     """Stima Black-Scholes contro la quotazione reale, a parità di contratto."""
     st.markdown(f"**{t('opt.market_title')}**")
     row = nearest_strike_row(chain["table"], target_strike) if chain else None
@@ -107,9 +108,7 @@ def render(ctx: ViewContext) -> None:
         st.info(t("opt.no_positions"))
         return
 
-    st.caption(
-        t("opt.vol_used", vol=f"{sigma:.0%}", rf=f"{rate:.2%}", spot=f"{spot:,.2f}")
-    )
+    st.caption(t("opt.vol_used", vol=f"{sigma:.0%}", rf=f"{rate:.2%}", spot=f"{spot:,.2f}"))
 
     put = protective_put(spot, sigma, rate, strike_pct=put_pct, days=days, cost_basis=cost)
     call = covered_call(spot, sigma, rate, strike_pct=call_pct, days=days)
@@ -155,15 +154,21 @@ def render(ctx: ViewContext) -> None:
     _market_check(put_chain, "put", put["strike"], spot, sigma, rate)
     if put_chain is not None:
         facts = protection_table(
-            put_chain["table"], spot, max(1, int(put_chain["days"])),
-            cost_basis=cost, qty=qty, fx=fx,
+            put_chain["table"],
+            spot,
+            max(1, int(put_chain["days"])),
+            cost_basis=cost,
+            qty=qty,
+            fx=fx,
         )
         if not facts.empty:
             with st.expander(t("opt.compare_put_title")):
                 st.dataframe(
                     facts,
                     column_config={
-                        "strike": st.column_config.NumberColumn(t("opt.col_strike"), format="%.2f"),
+                        "strike": st.column_config.NumberColumn(
+                            t("opt.col_strike"), format="%.2f"
+                        ),
                         "strike_pct": st.column_config.NumberColumn(
                             t("opt.col_strike_pct"), format="percent"
                         ),
@@ -211,7 +216,9 @@ def render(ctx: ViewContext) -> None:
                 st.dataframe(
                     facts,
                     column_config={
-                        "strike": st.column_config.NumberColumn(t("opt.col_strike"), format="%.2f"),
+                        "strike": st.column_config.NumberColumn(
+                            t("opt.col_strike"), format="%.2f"
+                        ),
                         "strike_pct": st.column_config.NumberColumn(
                             t("opt.col_strike_pct"), format="percent"
                         ),

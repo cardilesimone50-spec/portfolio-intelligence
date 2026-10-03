@@ -169,9 +169,7 @@ def known_tickers(engine: Engine | None = None) -> list[str]:
 # ---------------------------------------------------------------- portafogli (per advisor)
 
 
-def save_portfolio(
-    advisor: str, name: str, positions: dict, engine: Engine | None = None
-) -> None:
+def save_portfolio(advisor: str, name: str, positions: dict, engine: Engine | None = None) -> None:
     """Salva (o sovrascrive) un portafoglio del consulente.
 
     `positions` è {ticker: {"qty": q, "price": p}} (formato con prezzo di

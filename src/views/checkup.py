@@ -139,7 +139,11 @@ def render(ctx: ViewContext) -> None:
     def _pnl_color(value) -> str:
         if value is None or value != value:
             return ""
-        return "color: #0ea371; font-weight: 600" if value >= 0 else "color: #dc2626; font-weight: 600"
+        return (
+            "color: #0ea371; font-weight: 600"
+            if value >= 0
+            else "color: #dc2626; font-weight: 600"
+        )
 
     st.dataframe(
         positions_df.style.map(_pnl_color, subset=["PnL", "PnLPct", "Ann"]),
@@ -324,11 +328,7 @@ def render(ctx: ViewContext) -> None:
                 f"{bench_cagr:+.1%}",
                 t("r.cagr"),
             ),
-            *(
-                [(t("m.irr"), f"{ctx.irr:+.1%}", "—", t("r.irr"))]
-                if ctx.irr is not None
-                else []
-            ),
+            *([(t("m.irr"), f"{ctx.irr:+.1%}", "—", t("r.irr"))] if ctx.irr is not None else []),
             (
                 t("m.vol"),
                 f"{c['annual_vol']:.1%}",

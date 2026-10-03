@@ -42,9 +42,7 @@ def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict
     fx_factor = (prices_c.ffill().iloc[-1] / last_native).fillna(1.0)
     table_c = position_table(positions_c, last_native, fx_factor)
     agg_c = totals(table_c)
-    amounts_c = {
-        ticker: float(v) for ticker, v in table_c["value"].items() if v == v and v > 0
-    }
+    amounts_c = {ticker: float(v) for ticker, v in table_c["value"].items() if v == v and v > 0}
     total_c = sum(amounts_c.values())
     pf_c = [{"ticker": t, "weight": a / total_c} for t, a in amounts_c.items()]
     returns_c = compute_daily_returns(prices_c)
@@ -67,9 +65,7 @@ def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict
         "cum": float(value_c.iloc[-1] - 1),
         "pnl_pct": agg_c["pnl_pct"],
         "vol": vol_c,
-        "problem": problems_c[0].replace("**", "")
-        if problems_c
-        else t("chk.no_problems"),
+        "problem": problems_c[0].replace("**", "") if problems_c else t("chk.no_problems"),
     }
 
 
@@ -98,9 +94,7 @@ def render(ctx: ViewContext) -> None:
     with st.spinner("Analyzing the client book..."):
         for client_name in sorted(book):
             try:
-                a = quick_client_analysis(
-                    tuple(sorted(book[client_name].items())), period, in_eur
-                )
+                a = quick_client_analysis(tuple(sorted(book[client_name].items())), period, in_eur)
             except ValueError as exc:
                 failures.append(f"{client_name}: {exc}")
                 continue

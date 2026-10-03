@@ -111,8 +111,9 @@ def _norm_cdf(x: float) -> float:
     return 0.5 * (1.0 + erf(x / sqrt(2.0)))
 
 
-def bs_price(kind: str, spot: float, strike: float, years: float, sigma: float,
-             rate: float = 0.0) -> float:
+def bs_price(
+    kind: str, spot: float, strike: float, years: float, sigma: float, rate: float = 0.0
+) -> float:
     """Prezzo Black-Scholes (europeo, senza dividendi) di call o put."""
     if years <= 0 or sigma <= 0 or spot <= 0 or strike <= 0:
         raise ValueError("spot, strike, years and sigma must be positive")

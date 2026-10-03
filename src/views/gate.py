@@ -31,18 +31,19 @@ QUOTES = [
     ("Risk comes from not knowing what you're doing.", "Warren Buffett"),
     ("Be fearful when others are greedy, and greedy when others are fearful.", "Warren Buffett"),
     (
-        "The stock market is a device for transferring money "
-        "from the impatient to the patient.",
+        "The stock market is a device for transferring money from the impatient to the patient.",
         "Warren Buffett",
     ),
     ("Know what you own, and know why you own it.", "Peter Lynch"),
     ("The big money is not in the buying and selling, but in the waiting.", "Charlie Munger"),
     (
-        "The investor's chief problem — and even his worst enemy — "
-        "is likely to be himself.",
+        "The investor's chief problem — and even his worst enemy — is likely to be himself.",
         "Benjamin Graham",
     ),
-    ("The four most dangerous words in investing are: 'this time it's different.'", "John Templeton"),
+    (
+        "The four most dangerous words in investing are: 'this time it's different.'",
+        "John Templeton",
+    ),
     ("In investing, what is comfortable is rarely profitable.", "Robert Arnott"),
 ]
 
@@ -95,10 +96,10 @@ GEAR_SVG = (
     '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" '
     'stroke="var(--accent)" stroke-width="1.4"/>'
     '<path d="M19.4 13a7.6 7.6 0 0 0 .05-2l1.7-1.32a.5.5 0 0 0 .12-.64l-1.6-2.77a.5.5 0 0 0'
-    '-.6-.22l-2 .8a7.4 7.4 0 0 0-1.73-1l-.3-2.12a.5.5 0 0 0-.5-.42h-3.2a.5.5 0 0 0-.5.42'
-    'l-.3 2.12a7.4 7.4 0 0 0-1.73 1l-2-.8a.5.5 0 0 0-.6.22l-1.6 2.77a.5.5 0 0 0 .12.64L4.55 11'
-    'a7.6 7.6 0 0 0 0 2l-1.7 1.32a.5.5 0 0 0-.12.64l1.6 2.77a.5.5 0 0 0 .6.22l2-.8a7.4 7.4 0 0 0'
-    ' 1.73 1l.3 2.12a.5.5 0 0 0 .5.42h3.2a.5.5 0 0 0 .5-.42l.3-2.12a7.4 7.4 0 0 0 1.73-1l2 .8'
+    "-.6-.22l-2 .8a7.4 7.4 0 0 0-1.73-1l-.3-2.12a.5.5 0 0 0-.5-.42h-3.2a.5.5 0 0 0-.5.42"
+    "l-.3 2.12a7.4 7.4 0 0 0-1.73 1l-2-.8a.5.5 0 0 0-.6.22l-1.6 2.77a.5.5 0 0 0 .12.64L4.55 11"
+    "a7.6 7.6 0 0 0 0 2l-1.7 1.32a.5.5 0 0 0-.12.64l1.6 2.77a.5.5 0 0 0 .6.22l2-.8a7.4 7.4 0 0 0"
+    " 1.73 1l.3 2.12a.5.5 0 0 0 .5.42h3.2a.5.5 0 0 0 .5-.42l.3-2.12a7.4 7.4 0 0 0 1.73-1l2 .8"
     'a.5.5 0 0 0 .6-.22l1.6-2.77a.5.5 0 0 0-.12-.64L19.4 13Z" '
     'stroke="var(--accent)" stroke-width="1.4" stroke-linejoin="round"/>'
     "</svg></div>"
@@ -131,9 +132,7 @@ def _gate_add() -> None:
     if qty <= 0 or price <= 0:
         st.toast(t("pos.price_lookup_failed", ticker=k, date=iso))
         return
-    st.session_state.positions[k] = add_lot(
-        st.session_state.positions.get(k), qty, price, when
-    )
+    st.session_state.positions[k] = add_lot(st.session_state.positions.get(k), qty, price, when)
     st.session_state.gate_ticker = None
 
 
@@ -186,7 +185,9 @@ def render_gate() -> None:
                     ticker_preview_html(key, color, preview),
                     unsafe_allow_html=True,
                 )
-                current_price = float(preview["price"]) if preview and preview.get("price") else None
+                current_price = (
+                    float(preview["price"]) if preview and preview.get("price") else None
+                )
                 col_qty, col_date, col_price = st.columns([2, 2, 2], gap="small")
                 with col_qty:
                     st.number_input(
@@ -220,9 +221,7 @@ def render_gate() -> None:
                             current=f"{current_price:,.2f}" if current_price else "—",
                         ),
                     )
-                st.button(
-                    t("gate.add"), width="stretch", type="primary", on_click=_gate_add
-                )
+                st.button(t("gate.add"), width="stretch", type="primary", on_click=_gate_add)
 
             gate_positions = st.session_state.positions
             if gate_positions:
@@ -251,7 +250,11 @@ def render_gate() -> None:
                     with col_card:
                         st.markdown(
                             position_card_html(
-                                ticker, costs[ticker], weight, color, company,
+                                ticker,
+                                costs[ticker],
+                                weight,
+                                color,
+                                company,
                                 amount_label=label,
                             ),
                             unsafe_allow_html=True,

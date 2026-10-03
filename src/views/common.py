@@ -29,7 +29,18 @@ SAMPLE_PORTFOLIO = {
     },
 }
 
-_FALLBACK_TICKERS = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "COST", "NFLX"]
+_FALLBACK_TICKERS = [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "TSLA",
+    "AVGO",
+    "COST",
+    "NFLX",
+]
 
 
 @st.cache_data(ttl=3600, show_spinner="Scarico i prezzi da Yahoo Finance...")

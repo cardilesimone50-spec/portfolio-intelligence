@@ -147,8 +147,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Nel periodo ({period}) il portafoglio ha reso {ret}.",
     ),
     "exec.corr_weak": (
-        "Diversification is weak: the holdings move very similarly "
-        "(average correlation {corr}).",
+        "Diversification is weak: the holdings move very similarly (average correlation {corr}).",
         "La diversificazione è debole: i titoli si muovono in modo molto "
         "simile (correlazione media {corr}).",
     ),
@@ -188,8 +187,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "exec.beta_low": (
         "With a beta of {beta} versus {benchmark}, the portfolio "
         "is more defensive than the market.",
-        "Con un beta di {beta} verso {benchmark}, il portafoglio "
-        "è più difensivo del mercato.",
+        "Con un beta di {beta} verso {benchmark}, il portafoglio è più difensivo del mercato.",
     ),
     # ---------------------------------------------------------------- problems
     "prob.concentration": (
@@ -209,8 +207,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "prob.dividend": (
         "Dividend yield **{dy}%**, below the market average: "
         "the portfolio generates little income.",
-        "Dividend yield **{dy}%**, sotto la media di mercato: "
-        "il portafoglio genera poco reddito.",
+        "Dividend yield **{dy}%**, sotto la media di mercato: il portafoglio genera poco reddito.",
     ),
     "prob.volatility": (
         "Elevated volatility versus a balanced portfolio.",
@@ -225,8 +222,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "opp.cheap": (
         "Among the holdings, **{ticker}** has the lowest multiples (P/E {pe}, P/S {ps}).",
-        "Tra i titoli in portafoglio, **{ticker}** ha i multipli più bassi "
-        "(P/E {pe}, P/S {ps}).",
+        "Tra i titoli in portafoglio, **{ticker}** ha i multipli più bassi (P/E {pe}, P/S {ps}).",
     ),
     "opp.none": (
         "No obvious gaps against the monitored rules (defensive sectors, valuations).",
@@ -408,7 +404,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Advisor: **{advisor}** · demo mode",
         "Consulente: **{advisor}** · modalità demo",
     ),
-    "side.login_hint": ("Sign in to load your client book.", "Accedi per caricare il tuo book clienti."),
+    "side.login_hint": (
+        "Sign in to load your client book.",
+        "Accedi per caricare il tuo book clienti.",
+    ),
     "side.login": ("Log in", "Accedi"),
     "side.logout": ("Log out", "Esci"),
     "side.add_stock": ("Add a stock", "Aggiungi un titolo"),
@@ -627,8 +626,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "cov.note": (
         "{ticker} priced only from {date} — its metrics use the shorter overlap",
-        "{ticker} quotato solo dal {date} — le sue metriche usano la "
-        "sovrapposizione più corta",
+        "{ticker} quotato solo dal {date} — le sue metriche usano la sovrapposizione più corta",
     ),
     "pdf.currency_eur": (
         "amounts in EUR, currency effect included",
@@ -639,7 +637,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "importi nelle valute originali",
     ),
     # ---------------------------------------------------------------- PDF statics
-    "pdf.doc_title": ("SmarteeFinance — Portfolio Report", "SmarteeFinance — Report di Portafoglio"),
+    "pdf.doc_title": (
+        "SmarteeFinance — Portfolio Report",
+        "SmarteeFinance — Report di Portafoglio",
+    ),
     "pdf.title": ("Portfolio Report", "Report di Portafoglio"),
     "pdf.prepared_by": ("prepared by {advisor}", "predisposto da {advisor}"),
     "pdf.profile": ("{profile} profile", "profilo {profile}"),
@@ -946,8 +947,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Prezzo attuale: {current}.",
     ),
     "pos.price_lookup_failed": (
-        "No historical price found for {ticker} on {date}: enter the purchase "
-        "price manually.",
+        "No historical price found for {ticker} on {date}: enter the purchase price manually.",
         "Nessun prezzo storico trovato per {ticker} al {date}: inserisci il "
         "prezzo di carico a mano.",
     ),
@@ -988,7 +988,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Input: volatilità annua realizzata {vol} nel periodo selezionato, "
         "risk-free {rf}, prezzo attuale {spot}.",
     ),
-    "opt.protect_title": ("Protect the gain — protective put", "Proteggi il guadagno — put protettiva"),
+    "opt.protect_title": (
+        "Protect the gain — protective put",
+        "Proteggi il guadagno — put protettiva",
+    ),
     "opt.protect_text": (
         "Buying a put with strike {strike} ({days} days) costs ≈ **{premium}** "
         "per share ({pct} of the position value). Whatever happens, until "

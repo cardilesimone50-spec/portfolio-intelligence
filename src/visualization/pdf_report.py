@@ -48,9 +48,7 @@ _FRAME_H = 254 * mm  # altezza utile per pagina: oltre si restringe, mai pagina 
 
 def _clean(text: str) -> str:
     """Toglie il markdown (**) e fa l'escape XML per i Paragraph."""
-    return (
-        text.replace("**", "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    )
+    return text.replace("**", "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _eur(value: float) -> str:
@@ -64,7 +62,9 @@ def _thin(series: pd.Series, max_points: int = 240) -> pd.Series:
         return valid
     step = max(1, len(valid) // max_points)
     thinned = valid.iloc[::step]
-    return thinned if thinned.index[-1] == valid.index[-1] else pd.concat([thinned, valid.iloc[[-1]]])
+    return (
+        thinned if thinned.index[-1] == valid.index[-1] else pd.concat([thinned, valid.iloc[[-1]]])
+    )
 
 
 def _date_label(value) -> str:
@@ -159,14 +159,28 @@ def _equity_drawing(
         y = y_at(level)
         drawing.add(Line(left, y, left + plot_w, y, strokeColor=_LINE, strokeWidth=0.4))
         drawing.add(
-            String(left - 2 * mm, y - 1, _eur(level), fontName="Helvetica", fontSize=6.5,
-                   fillColor=_MUTED, textAnchor="end")
+            String(
+                left - 2 * mm,
+                y - 1,
+                _eur(level),
+                fontName="Helvetica",
+                fontSize=6.5,
+                fillColor=_MUTED,
+                textAnchor="end",
+            )
         )
     # linea del capitale investito (riferimento)
     if low < invested < high:
         drawing.add(
-            Line(left, y_at(invested), left + plot_w, y_at(invested),
-                 strokeColor=_MUTED, strokeWidth=0.6, strokeDashArray=[1, 2])
+            Line(
+                left,
+                y_at(invested),
+                left + plot_w,
+                y_at(invested),
+                strokeColor=_MUTED,
+                strokeWidth=0.6,
+                strokeDashArray=[1, 2],
+            )
         )
 
     if bench is not None and len(bench) >= 2:
@@ -177,27 +191,45 @@ def _equity_drawing(
         drawing.add(PolyLine(points(pf), strokeColor=_ACCENT, strokeWidth=1.6))
 
     drawing.add(
-        String(left, 1, _date_label(pf.index[0]), fontName="Helvetica", fontSize=6.5,
-               fillColor=_MUTED)
+        String(
+            left, 1, _date_label(pf.index[0]), fontName="Helvetica", fontSize=6.5, fillColor=_MUTED
+        )
     )
     drawing.add(
-        String(left + plot_w, 1, _date_label(pf.index[-1]), fontName="Helvetica", fontSize=6.5,
-               fillColor=_MUTED, textAnchor="end")
+        String(
+            left + plot_w,
+            1,
+            _date_label(pf.index[-1]),
+            fontName="Helvetica",
+            fontSize=6.5,
+            fillColor=_MUTED,
+            textAnchor="end",
+        )
     )
     # legenda in alto a sinistra
     ly = height - 4 * mm
     drawing.add(Rect(left + 2 * mm, ly, 4 * mm, 1.2 * mm, fillColor=_ACCENT, strokeColor=None))
     drawing.add(
-        String(left + 7 * mm, ly - 1, label_portfolio, fontName="Helvetica", fontSize=6.5,
-               fillColor=_INK)
+        String(
+            left + 7 * mm,
+            ly - 1,
+            label_portfolio,
+            fontName="Helvetica",
+            fontSize=6.5,
+            fillColor=_INK,
+        )
     )
     if bench is not None:
+        drawing.add(Rect(left + 24 * mm, ly, 4 * mm, 1.2 * mm, fillColor=_MUTED, strokeColor=None))
         drawing.add(
-            Rect(left + 24 * mm, ly, 4 * mm, 1.2 * mm, fillColor=_MUTED, strokeColor=None)
-        )
-        drawing.add(
-            String(left + 29 * mm, ly - 1, label_benchmark or f"{benchmark} benchmark",
-                   fontName="Helvetica", fontSize=6.5, fillColor=_MUTED)
+            String(
+                left + 29 * mm,
+                ly - 1,
+                label_benchmark or f"{benchmark} benchmark",
+                fontName="Helvetica",
+                fontSize=6.5,
+                fillColor=_MUTED,
+            )
         )
     return drawing
 
@@ -236,14 +268,28 @@ def _underwater_drawing(
 
     for level in (0.0, low / 2, low):
         drawing.add(
-            String(left - 1.5 * mm, y_at(level) - 1, f"{level:.0%}", fontName="Helvetica",
-                   fontSize=6, fillColor=_MUTED, textAnchor="end")
+            String(
+                left - 1.5 * mm,
+                y_at(level) - 1,
+                f"{level:.0%}",
+                fontName="Helvetica",
+                fontSize=6,
+                fillColor=_MUTED,
+                textAnchor="end",
+            )
         )
     trough = dd.idxmin()
     text = trough_label or f"trough {dd.min():.1%} on {_date_label(trough)}"
     drawing.add(
-        String(left + plot_w, 1, text,
-               fontName="Helvetica", fontSize=6, fillColor=_MUTED, textAnchor="end")
+        String(
+            left + plot_w,
+            1,
+            text,
+            fontName="Helvetica",
+            fontSize=6,
+            fillColor=_MUTED,
+            textAnchor="end",
+        )
     )
     return drawing
 
@@ -268,18 +314,30 @@ def _monthly_drawing(
         x = left + slot * i + (slot - bar_w) / 2
         h = float(value) * scale
         color = _GREEN if value >= 0 else _RED
-        drawing.add(
-            Rect(x, zero_y + min(0, h), bar_w, abs(h), fillColor=color, strokeColor=None)
-        )
+        drawing.add(Rect(x, zero_y + min(0, h), bar_w, abs(h), fillColor=color, strokeColor=None))
         value_y = zero_y + h + (1.5 * mm if value >= 0 else -3 * mm)
         drawing.add(
-            String(x + bar_w / 2, value_y, f"{value:+.0%}", fontName="Helvetica", fontSize=5.5,
-                   fillColor=_MUTED, textAnchor="middle")
+            String(
+                x + bar_w / 2,
+                value_y,
+                f"{value:+.0%}",
+                fontName="Helvetica",
+                fontSize=5.5,
+                fillColor=_MUTED,
+                textAnchor="middle",
+            )
         )
         month = pd.Timestamp(label).strftime("%b") if not isinstance(label, str) else str(label)
         drawing.add(
-            String(x + bar_w / 2, 1, month, fontName="Helvetica", fontSize=5.5,
-                   fillColor=_MUTED, textAnchor="middle")
+            String(
+                x + bar_w / 2,
+                1,
+                month,
+                fontName="Helvetica",
+                fontSize=5.5,
+                fillColor=_MUTED,
+                textAnchor="middle",
+            )
         )
     return drawing
 
@@ -299,22 +357,37 @@ def _weight_risk_drawing(
     drawing = Drawing(width, height)
     left = 14 * mm
     plot_w = width - left - 14 * mm
-    biggest = max(float(top_weights.max()), float(contributions.max()) if len(contributions) else 0)
+    biggest = max(
+        float(top_weights.max()), float(contributions.max()) if len(contributions) else 0
+    )
 
     for i, (ticker, weight) in enumerate(top_weights.items()):
         base_y = height - legend_h - row_h * (i + 1)
         risk = float(contributions.get(ticker, float("nan")))
         drawing.add(
-            String(left - 2 * mm, base_y + 2.6 * mm, str(ticker), fontName="Helvetica-Bold",
-                   fontSize=7.5, fillColor=_INK, textAnchor="end")
+            String(
+                left - 2 * mm,
+                base_y + 2.6 * mm,
+                str(ticker),
+                fontName="Helvetica-Bold",
+                fontSize=7.5,
+                fillColor=_INK,
+                textAnchor="end",
+            )
         )
         w_len = plot_w * float(weight) / biggest
         drawing.add(
             Rect(left, base_y + 4 * mm, w_len, 2.4 * mm, fillColor=_ACCENT_SOFT, strokeColor=None)
         )
         drawing.add(
-            String(left + w_len + 1.5 * mm, base_y + 4.4 * mm, f"{weight:.1%}",
-                   fontName="Helvetica", fontSize=6, fillColor=_MUTED)
+            String(
+                left + w_len + 1.5 * mm,
+                base_y + 4.4 * mm,
+                f"{weight:.1%}",
+                fontName="Helvetica",
+                fontSize=6,
+                fillColor=_MUTED,
+            )
         )
         if risk == risk:
             r_len = plot_w * risk / biggest
@@ -322,20 +395,28 @@ def _weight_risk_drawing(
                 Rect(left, base_y + 1 * mm, r_len, 2.4 * mm, fillColor=_ACCENT, strokeColor=None)
             )
             drawing.add(
-                String(left + r_len + 1.5 * mm, base_y + 1.4 * mm, f"{risk:.1%}",
-                       fontName="Helvetica", fontSize=6, fillColor=_MUTED)
+                String(
+                    left + r_len + 1.5 * mm,
+                    base_y + 1.4 * mm,
+                    f"{risk:.1%}",
+                    fontName="Helvetica",
+                    fontSize=6,
+                    fillColor=_MUTED,
+                )
             )
 
     ly = height - 4 * mm
     drawing.add(Rect(left, ly, 4 * mm, 2 * mm, fillColor=_ACCENT_SOFT, strokeColor=None))
     drawing.add(
-        String(left + 5 * mm, ly, legend_weight, fontName="Helvetica", fontSize=6.5,
-               fillColor=_MUTED)
+        String(
+            left + 5 * mm, ly, legend_weight, fontName="Helvetica", fontSize=6.5, fillColor=_MUTED
+        )
     )
     drawing.add(Rect(left + 30 * mm, ly, 4 * mm, 2 * mm, fillColor=_ACCENT, strokeColor=None))
     drawing.add(
-        String(left + 35 * mm, ly, legend_risk, fontName="Helvetica",
-               fontSize=6.5, fillColor=_MUTED)
+        String(
+            left + 35 * mm, ly, legend_risk, fontName="Helvetica", fontSize=6.5, fillColor=_MUTED
+        )
     )
     return drawing
 
@@ -360,16 +441,35 @@ def _sector_drawing(
     for i, (sector, weight) in enumerate(top.items()):
         base_y = height - row_h * (i + 1) + 2 * mm
         drawing.add(
-            String(left - 2 * mm, base_y + 0.4 * mm, str(sector)[:24], fontName="Helvetica",
-                   fontSize=7, fillColor=_MUTED, textAnchor="end")
+            String(
+                left - 2 * mm,
+                base_y + 0.4 * mm,
+                str(sector)[:24],
+                fontName="Helvetica",
+                fontSize=7,
+                fillColor=_MUTED,
+                textAnchor="end",
+            )
         )
         drawing.add(
-            Rect(left, base_y, plot_w * float(weight) / biggest, 2.8 * mm,
-                 fillColor=_ACCENT if i == 0 else _ACCENT_SOFT, strokeColor=None)
+            Rect(
+                left,
+                base_y,
+                plot_w * float(weight) / biggest,
+                2.8 * mm,
+                fillColor=_ACCENT if i == 0 else _ACCENT_SOFT,
+                strokeColor=None,
+            )
         )
         drawing.add(
-            String(left + plot_w * float(weight) / biggest + 1.5 * mm, base_y + 0.4 * mm,
-                   f"{weight:.0%}", fontName="Helvetica-Bold", fontSize=6.5, fillColor=_INK)
+            String(
+                left + plot_w * float(weight) / biggest + 1.5 * mm,
+                base_y + 0.4 * mm,
+                f"{weight:.0%}",
+                fontName="Helvetica-Bold",
+                fontSize=6.5,
+                fillColor=_INK,
+            )
         )
     return drawing
 
@@ -385,20 +485,40 @@ def _breakdown_drawing(breakdown: dict[str, float], width: float = _CONTENT_W) -
         base_y = height - row_h * (i + 1) + 1.5 * mm
         color = _GREEN if score >= 67 else _AMBER if score >= 34 else _RED
         drawing.add(
-            String(left - 2 * mm, base_y + 0.6 * mm, str(label), fontName="Helvetica",
-                   fontSize=7.5, fillColor=_MUTED, textAnchor="end")
+            String(
+                left - 2 * mm,
+                base_y + 0.6 * mm,
+                str(label),
+                fontName="Helvetica",
+                fontSize=7.5,
+                fillColor=_MUTED,
+                textAnchor="end",
+            )
         )
         drawing.add(
-            Rect(left, base_y, plot_w, 2.6 * mm, fillColor=_ROW, strokeColor=_LINE,
-                 strokeWidth=0.3)
+            Rect(
+                left, base_y, plot_w, 2.6 * mm, fillColor=_ROW, strokeColor=_LINE, strokeWidth=0.3
+            )
         )
         drawing.add(
-            Rect(left, base_y, plot_w * min(100, max(0, score)) / 100, 2.6 * mm,
-                 fillColor=color, strokeColor=None)
+            Rect(
+                left,
+                base_y,
+                plot_w * min(100, max(0, score)) / 100,
+                2.6 * mm,
+                fillColor=color,
+                strokeColor=None,
+            )
         )
         drawing.add(
-            String(left + plot_w + 2 * mm, base_y + 0.4 * mm, f"{score:.0f}",
-                   fontName="Helvetica-Bold", fontSize=7.5, fillColor=_INK)
+            String(
+                left + plot_w + 2 * mm,
+                base_y + 0.4 * mm,
+                f"{score:.0f}",
+                fontName="Helvetica-Bold",
+                fontSize=7.5,
+                fillColor=_INK,
+            )
         )
     return drawing
 
@@ -449,6 +569,7 @@ def build_report(
     `scenario` = {"label": str, "direct": float, "total": float} (frazioni).
     `suitability` = {"ok": bool, "text": str} — esito del check di adeguatezza.
     """
+
     def T(key: str, **kwargs) -> str:
         return t_in(lang, key, **kwargs)
 
@@ -471,35 +592,58 @@ def build_report(
     )
     styles = getSampleStyleSheet()
     wordmark = ParagraphStyle(
-        "wordmark", parent=styles["Normal"], fontSize=9, textColor=_MUTED,
+        "wordmark",
+        parent=styles["Normal"],
+        fontSize=9,
+        textColor=_MUTED,
         fontName="Helvetica-Bold",
     )
     h1 = ParagraphStyle(
-        "h1", parent=styles["Title"], fontSize=23, alignment=0, textColor=_INK,
-        spaceBefore=6, spaceAfter=0, leading=27,
+        "h1",
+        parent=styles["Title"],
+        fontSize=23,
+        alignment=0,
+        textColor=_INK,
+        spaceBefore=6,
+        spaceAfter=0,
+        leading=27,
     )
     h2 = ParagraphStyle(
-        "h2", parent=styles["Heading2"], fontSize=14, textColor=_INK, spaceBefore=2,
-        spaceAfter=2, fontName="Helvetica-Bold",
+        "h2",
+        parent=styles["Heading2"],
+        fontSize=14,
+        textColor=_INK,
+        spaceBefore=2,
+        spaceAfter=2,
+        fontName="Helvetica-Bold",
     )
     subtitle = ParagraphStyle(
         "sub", parent=styles["Normal"], fontSize=9.5, textColor=_MUTED, spaceAfter=10, leading=13
     )
-    body = ParagraphStyle("body", parent=styles["Normal"], fontSize=9.5, leading=14,
-                          textColor=_INK)
-    small = ParagraphStyle("small", parent=styles["Normal"], fontSize=8, leading=11.5,
-                           textColor=_MUTED)
-    reading = ParagraphStyle("reading", parent=styles["Normal"], fontSize=8, leading=10.5,
-                             textColor=_MUTED)
-    caption = ParagraphStyle("caption", parent=styles["Normal"], fontSize=7.5, leading=10,
-                             textColor=_MUTED, spaceBefore=2)
+    body = ParagraphStyle(
+        "body", parent=styles["Normal"], fontSize=9.5, leading=14, textColor=_INK
+    )
+    small = ParagraphStyle(
+        "small", parent=styles["Normal"], fontSize=8, leading=11.5, textColor=_MUTED
+    )
+    reading = ParagraphStyle(
+        "reading", parent=styles["Normal"], fontSize=8, leading=10.5, textColor=_MUTED
+    )
+    caption = ParagraphStyle(
+        "caption",
+        parent=styles["Normal"],
+        fontSize=7.5,
+        leading=10,
+        textColor=_MUTED,
+        spaceBefore=2,
+    )
 
     total = sum(positions.values())
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
     # identificativo documento per riferimento e tracciabilità nelle revisioni
-    report_id = hashlib.sha1(
-        f"{portfolio_name}|{advisor or ''}|{now}".encode()
-    ).hexdigest()[:8].upper()
+    report_id = (
+        hashlib.sha1(f"{portfolio_name}|{advisor or ''}|{now}".encode()).hexdigest()[:8].upper()
+    )
     names = names or {}
     weights = pd.Series(positions, dtype=float) / total if total else pd.Series(dtype=float)
     health_color = _GREEN if health_score >= 67 else _AMBER if health_score >= 34 else _RED
@@ -599,13 +743,20 @@ def build_report(
     if suitability:
         ok = bool(suitability.get("ok"))
         box = Table(
-            [["", Paragraph(
-                T(
-                    "pdf.check_text",
-                    status=T("pdf.within") if ok else T("pdf.outside"),
-                    text=_clean(suitability.get("text", "")),
-                )
-                + f"<font size=7 color='#6b7280'>{T('pdf.check_caveat')}</font>", body)]],
+            [
+                [
+                    "",
+                    Paragraph(
+                        T(
+                            "pdf.check_text",
+                            status=T("pdf.within") if ok else T("pdf.outside"),
+                            text=_clean(suitability.get("text", "")),
+                        )
+                        + f"<font size=7 color='#6b7280'>{T('pdf.check_caveat')}</font>",
+                        body,
+                    ),
+                ]
+            ],
             colWidths=[1.2 * mm, _CONTENT_W - 1.2 * mm],
         )
         box.setStyle(
@@ -622,8 +773,7 @@ def build_report(
         page1 += [Spacer(1, 5), box]
     page1.append(Spacer(1, 10))
 
-    page1 += [_section(T("pdf.capital_section", period=period, benchmark=benchmark)),
-              Spacer(1, 5)]
+    page1 += [_section(T("pdf.capital_section", period=period, benchmark=benchmark)), Spacer(1, 5)]
     if pf_value is not None and len(pf_value.dropna()) >= 2:
         page1.append(
             _equity_drawing(
@@ -643,10 +793,17 @@ def build_report(
     page1 += [_section(T("pdf.holdings")), Spacer(1, 5)]
     sorted_pos = sorted(positions.items(), key=lambda kv: -kv[1])
     shown, rest = sorted_pos[:12], sorted_pos[12:]
-    rows = [[
-        T("pdf.h_ticker"), T("pdf.h_company"), T("pdf.h_value"), T("pdf.h_pnl"),
-        T("pdf.h_weight"), T("pdf.h_return", period=period), T("pdf.h_risk"),
-    ]]
+    rows = [
+        [
+            T("pdf.h_ticker"),
+            T("pdf.h_company"),
+            T("pdf.h_value"),
+            T("pdf.h_pnl"),
+            T("pdf.h_weight"),
+            T("pdf.h_return", period=period),
+            T("pdf.h_risk"),
+        ]
+    ]
     for ticker, amount in shown:
         ret = per_ticker_returns.get(ticker) if per_ticker_returns is not None else None
         risk = contributions.get(ticker) if contributions is not None else None
@@ -668,8 +825,15 @@ def build_report(
     if rest:
         rest_total = sum(amount for _, amount in rest)
         rows.append(
-            [f"+{len(rest)}", T("pdf.other_holdings"), _eur(rest_total), "",
-             f"{rest_total / total:.1%}", "", ""]
+            [
+                f"+{len(rest)}",
+                T("pdf.other_holdings"),
+                _eur(rest_total),
+                "",
+                f"{rest_total / total:.1%}",
+                "",
+                "",
+            ]
         )
     composition = Table(
         rows, colWidths=[16 * mm, 48 * mm, 25 * mm, 23 * mm, 16 * mm, 24 * mm, 22 * mm]
@@ -813,8 +977,7 @@ def build_report(
         div_cells.append(
             [
                 _section_mini(T("pdf.sector_title")),
-                _sector_drawing(sector_weights, width=half_w3,
-                                other_label=T("pdf.other_sectors")),
+                _sector_drawing(sector_weights, width=half_w3, other_label=T("pdf.other_sectors")),
                 Paragraph(T("pdf.sector_caption"), caption),
             ]
         )
@@ -909,7 +1072,11 @@ def build_report(
     page3.append(Spacer(1, 8))
 
     fine = ParagraphStyle(
-        "fine", parent=styles["Normal"], fontSize=6.2, leading=8.2, textColor=_MUTED,
+        "fine",
+        parent=styles["Normal"],
+        fontSize=6.2,
+        leading=8.2,
+        textColor=_MUTED,
         spaceAfter=3,
     )
     rf_note = T("pdf.notice_rf", rate=f"{risk_free:.2%}") if risk_free is not None else ""

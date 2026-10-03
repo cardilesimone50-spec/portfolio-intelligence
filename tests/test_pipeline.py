@@ -41,18 +41,34 @@ def computed() -> dict:
 
 def test_pipeline_returns_all_view_keys(computed):
     expected = {
-        "returns", "prices", "pf_daily", "pf_value", "bench_daily", "annual_ret",
-        "annual_vol", "drawdown", "avg_corr", "var_95", "beta", "alpha",
-        "min_periods", "cum_return", "risk_score", "contributions", "radar",
-        "fund", "dna", "health", "breakdown", "usd_weight",
+        "returns",
+        "prices",
+        "pf_daily",
+        "pf_value",
+        "bench_daily",
+        "annual_ret",
+        "annual_vol",
+        "drawdown",
+        "avg_corr",
+        "var_95",
+        "beta",
+        "alpha",
+        "min_periods",
+        "cum_return",
+        "risk_score",
+        "contributions",
+        "radar",
+        "fund",
+        "dna",
+        "health",
+        "breakdown",
+        "usd_weight",
     }
     assert expected <= set(computed)
 
 
 def test_cumulative_return_matches_equity_curve(computed):
-    assert computed["cum_return"] == pytest.approx(
-        float(computed["pf_value"].iloc[-1]) - 1
-    )
+    assert computed["cum_return"] == pytest.approx(float(computed["pf_value"].iloc[-1]) - 1)
 
 
 def test_risk_contributions_sum_to_one(computed):

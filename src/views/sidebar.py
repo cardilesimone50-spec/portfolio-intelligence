@@ -46,9 +46,7 @@ def _add_holding() -> None:
     if qty <= 0 or price <= 0:
         st.toast(t("pos.price_lookup_failed", ticker=k, date=iso))
         return
-    st.session_state.positions[k] = add_lot(
-        st.session_state.positions.get(k), qty, price, when
-    )
+    st.session_state.positions[k] = add_lot(st.session_state.positions.get(k), qty, price, when)
     st.session_state.add_ticker = None
 
 
@@ -167,8 +165,9 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                         unsafe_allow_html=True,
                     )
                 with col_menu, st.popover("···"):
-                    current = agg if agg is not None else {"qty": 0.0, "price": 0.0,
-                                                           "first_date": None}
+                    current = (
+                        agg if agg is not None else {"qty": 0.0, "price": 0.0, "first_date": None}
+                    )
                     new_qty = st.number_input(
                         t("pos.qty"),
                         min_value=0.0,
@@ -246,7 +245,9 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                 st.toast(t("side.saved_toast", name=portfolio_name))
             if saved:
                 selected_saved = st.selectbox(
-                    t("side.load"), sorted(saved), index=None,
+                    t("side.load"),
+                    sorted(saved),
+                    index=None,
                     placeholder=t("side.load_placeholder"),
                 )
                 if selected_saved and st.button(t("side.load_btn"), width="stretch"):

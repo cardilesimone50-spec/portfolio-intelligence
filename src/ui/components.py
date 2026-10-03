@@ -101,9 +101,7 @@ def hero_html(
     if gain is not None and gain == gain:
         css_g = "up" if gain >= 0 else "down"
         pct = f"{gain_pct:+.1%}" if gain_pct is not None and gain_pct == gain_pct else "—"
-        irr_text = (
-            t("hero.irr", irr=f"{irr:+.1%}") if irr is not None and irr == irr else ""
-        )
+        irr_text = t("hero.irr", irr=f"{irr:+.1%}") if irr is not None and irr == irr else ""
         gain_html = (
             f'<div class="chg {css_g}" style="font-size:.95rem;margin-top:2px">'
             f"{t('hero.gain_line', amount=eur(gain) if gain < 0 else '+' + eur(gain), pct=pct)}"

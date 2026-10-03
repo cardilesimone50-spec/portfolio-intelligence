@@ -203,10 +203,7 @@ def position_table(
             days = (today - first).days if first is not pd.NaT else float("nan")
             ann = float("nan")
             if agg["all_dated"] and last == last:
-                flows = [
-                    (lot["date"], -lot["qty"] * lot["price"] * factor)
-                    for lot in pos["lots"]
-                ]
+                flows = [(lot["date"], -lot["qty"] * lot["price"] * factor) for lot in pos["lots"]]
                 flows.append((today, value))
                 ann_val = xirr(flows)
                 ann = ann_val if ann_val is not None else float("nan")
@@ -246,8 +243,13 @@ def totals(table: pd.DataFrame) -> dict:
     """Totali di portafoglio: valore, carico, P&L (solo sulle posizioni con
     carico noto) e flag di copertura completa del carico."""
     if table.empty:
-        return {"value": 0.0, "cost": 0.0, "pnl": float("nan"), "pnl_pct": float("nan"),
-                "cost_known": False}
+        return {
+            "value": 0.0,
+            "cost": 0.0,
+            "pnl": float("nan"),
+            "pnl_pct": float("nan"),
+            "cost_known": False,
+        }
     known = table[table["cost_known"]]
     value = float(table["value"].sum())
     cost = float(table["cost"].sum())

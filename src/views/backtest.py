@@ -96,9 +96,7 @@ def render(ctx: ViewContext) -> None:
                 )
                 weights_now = pd.Series(amounts) / sum(amounts.values())
                 if "Your portfolio (buy & hold)" in chosen:
-                    curves["Your portfolio (buy & hold)"] = buy_and_hold(
-                        my_prices, weights_now
-                    )
+                    curves["Your portfolio (buy & hold)"] = buy_and_hold(my_prices, weights_now)
                 if "Maximum Sharpe on your holdings" in chosen:
                     curves["Maximum Sharpe on your holdings"] = run_backtest(
                         my_prices, max_sharpe, cost_bps=cost_bps

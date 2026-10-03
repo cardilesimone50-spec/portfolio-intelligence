@@ -59,16 +59,12 @@ def render(ctx: ViewContext) -> None:
     with col_compare:
         st.markdown("**Comparison**")
         compare = points.set_index("nome")
-        compare["sharpe"] = (compare["annual_return"] - risk_free) / compare[
-            "annual_volatility"
-        ]
+        compare["sharpe"] = (compare["annual_return"] - risk_free) / compare["annual_volatility"]
         st.dataframe(
             compare,
             column_config={
                 "annual_return": st.column_config.NumberColumn("Return", format="percent"),
-                "annual_volatility": st.column_config.NumberColumn(
-                    "Volatility", format="percent"
-                ),
+                "annual_volatility": st.column_config.NumberColumn("Volatility", format="percent"),
                 "sharpe": st.column_config.NumberColumn("Sharpe", format="%.2f"),
             },
         )

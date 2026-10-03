@@ -72,9 +72,7 @@ def _pick_best(candidates: list[dict]) -> dict | None:
     return min(usable, key=rank)
 
 
-def resolve_isins(
-    isins: list[str], *, post=requests.post
-) -> dict[str, SecurityRef]:
+def resolve_isins(isins: list[str], *, post=requests.post) -> dict[str, SecurityRef]:
     """Mappa ISIN → SecurityRef per gli ISIN risolti (gli altri sono omessi).
 
     `post` è iniettabile per i test (nessuna chiamata di rete reale).

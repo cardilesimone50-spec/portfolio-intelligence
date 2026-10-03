@@ -18,15 +18,32 @@ class _FakeResp:
 # database ISIN → listing candidates (come li restituisce OpenFIGI)
 _DB = {
     "US0378331005": [
-        {"ticker": "AAPL", "exchCode": "US", "securityType": "Common Stock", "name": "APPLE INC", "marketSector": "Equity"},
-        {"ticker": "AAPL", "exchCode": "MM", "securityType": "Common Stock", "name": "APPLE INC", "marketSector": "Equity"},
+        {
+            "ticker": "AAPL",
+            "exchCode": "US",
+            "securityType": "Common Stock",
+            "name": "APPLE INC",
+            "marketSector": "Equity",
+        },
+        {
+            "ticker": "AAPL",
+            "exchCode": "MM",
+            "securityType": "Common Stock",
+            "name": "APPLE INC",
+            "marketSector": "Equity",
+        },
     ],
     "IT0003128367": [
         {"ticker": "ENEL", "exchCode": "MI", "securityType": "Common Stock", "name": "ENEL SPA"},
     ],
     # stesso ISIN con un derivato su piazza USA e l'azione ordinaria: vince l'azione
     "US88160R1014": [
-        {"ticker": "TSLA", "exchCode": "US", "securityType": "Equity WRT", "name": "TESLA WARRANT"},
+        {
+            "ticker": "TSLA",
+            "exchCode": "US",
+            "securityType": "Equity WRT",
+            "name": "TESLA WARRANT",
+        },
         {"ticker": "TSLA", "exchCode": "US", "securityType": "Common Stock", "name": "TESLA INC"},
     ],
 }

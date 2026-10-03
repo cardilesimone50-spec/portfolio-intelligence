@@ -56,7 +56,9 @@ def test_unsupported_extension_raises():
 
 
 def test_parse_quantity_and_cost_price_returns_positions_with_pnl_basis():
-    content = "ticker,quantità,prezzo medio di carico,controvalore\nAAPL,10,\"150,50\",2000\n".encode()
+    content = (
+        'ticker,quantità,prezzo medio di carico,controvalore\nAAPL,10,"150,50",2000\n'.encode()
+    )
     positions = parse_positions(content, "fineco.csv")
     # con quantità + prezzo di carico il controvalore viene ignorato:
     # vince il formato ricco che permette il P&L reale
