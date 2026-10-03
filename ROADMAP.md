@@ -218,6 +218,39 @@ solo quando compare il trigger concreto che li giustifica.
 
 ---
 
+## 7. Capacità attuale: chi possiamo servire oggi
+
+> Documentato il 2026-10-04, prima del prossimo pitch commerciale. Lo stack
+> bundlato (Streamlit + SQLite/Postgres singolo + cache in-process, vedi §6)
+> non è sbagliato: è la base giusta per i primi clienti. Non è pronto per un
+> cliente enterprise — e questo va dichiarato prima di promettere il contrario.
+
+| Dimensione | Realtà oggi | Soglia enterprise | Gap |
+|---|---|---|---|
+| **Isolamento multi-tenant** | `current_advisor()` isola i dati per email **solo se l'OIDC è configurato** (`secrets["auth"]`). Senza configurazione, ogni utente ricade sullo stesso tenant condiviso `local@dev` — l'isolamento è opt-in, non garantito di default | SSO/OIDC obbligatorio, nessun fallback a tenant condiviso | 🔴 Da chiudere prima di vendere "isolamento dati" come garanzia |
+| **Scalabilità del processo** | Un solo processo Streamlit (`streamlit run app.py`), nessun `docker-compose`, nessun orchestratore multi-replica; stato di sessione e cache (`@st.cache_data`) vivono in-process | Più istanze dietro un load balancer, stato/cache condivisi esternamente | 🔴 Oggi regge finché un'istanza basta per il traffico concorrente |
+| **Database** | SQLite di default (single-writer) o un singolo Postgres via `DATABASE_URL`, nessun pooling esplicito, nessuna migrazione formale (P2-15) | Postgres gestito con pooling dimensionato, migrazioni versionate, read replica se serve | 🟡 Postgres già supportato, ma non dimensionato per concorrenza alta |
+| **Audit/compliance** | Nessun log di audit (nessuna traccia di chi ha visto/modificato cosa) | Audit trail per accessi e modifiche, requisito tipico in ambito finanziario B2B | 🔴 Assente |
+| **RBAC** | Un solo ruolo: "advisor" isolato per tenant. Nessun ruolo admin/ops distinto | Ruoli differenziati (advisor, admin, sola lettura) | 🔴 Assente |
+| **Rate limit su dati esterni** | Solo retry/backoff lato provider (`src/data/providers.py`); nessun throttling per-tenant: tanti advisor concorrenti possono competere sullo stesso budget di chiamate a EODHD/Yahoo | Quote per tenant, cache condivisa per non rifare le stesse chiamate | 🟡 Funziona a basso volume, non testato ad alto volume |
+| **SLA/monitoring/backup** | Nessun monitoring applicativo, nessuna strategia di backup/DR documentata | SLA dichiarato, alerting, backup periodici testati | 🔴 Assente |
+
+**Chi possiamo servire oggi**: un numero ridotto di consulenti/advisor
+indipendenti o piccoli studi — self-hosted (Docker) o su Streamlit Community
+Cloud con Postgres — con OIDC configurato esplicitamente e traffico
+concorrente basso. Decine di utenti, non centinaia; nessuna garanzia
+contrattuale di isolamento, audit o SLA.
+
+**Cosa serve prima di parlare con un cliente enterprise**: OIDC obbligatorio
+senza fallback condiviso, RBAC, audit trail, deployment multi-istanza con
+stato condiviso esterno, Postgres dimensionato con pooling e migrazioni,
+monitoring/SLA/backup. Nessuno di questi è "costruire una feature nuova" —
+sono gli stessi punti già aperti in §1 (P2-15, P2-16) e §6 (Redis solo a
+trigger di scaling concreto): la lista non cambia, cambia solo la lente con
+cui viene letta prima di un pitch enterprise.
+
+---
+
 ## Principi non negoziabili
 
 1. **Onestà dei numeri prima delle feature**: mai mostrare una stima senza dichiararne i limiti (già oggi: caption "non è una previsione", survivorship bias dichiarato, euristiche documentate nei tooltip).
