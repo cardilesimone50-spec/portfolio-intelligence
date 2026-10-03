@@ -1,7 +1,7 @@
 # ROADMAP — Portfolio Intelligence
 
 > Obiettivo: diventare il miglior software open-source di Portfolio Intelligence.
-> Documento di lavoro del CTO — aggiornato al 2026-07-11.
+> Documento di lavoro del CTO — aggiornato al 2026-10-04.
 
 ## MVP — "Il check-up onesto in 60 secondi per l'investitore europeo"
 
@@ -22,17 +22,35 @@ galassia, Markowitz, correlazioni Nasdaq-100.
 
 **Metrica north-star**: tempo dal primo avvio al primo report generato < 60s.
 
-Stato: ✅ LICENSE MIT · ✅ conversione EUR con rischio cambio (toggle, default ON)
-· ✅ rendimento annualizzato composto · ✅ risk-free configurabile per
-Sharpe/Sortino — restano: parser broker su file reali (P1-8), deploy pubblico.
+Stato: ✅ Elastic License 2.0 (source-available, non MIT come pianificato — vedi
+nota in P0-1) · ✅ conversione EUR con rischio cambio (toggle, default ON) ·
+✅ rendimento annualizzato composto · ✅ risk-free configurabile per Sharpe/Sortino
+· ✅ import Fineco + risoluzione ISIN→ticker (OpenFIGI) · ✅ deploy pubblico
+(Dockerfile + guida Streamlit Cloud in README). Il funnel MVP originale è
+completo; il prodotto è andato oltre: posizioni a lotti con data d'acquisto e
+IRR vero, overlay di opzioni protettive con catene reali, onboarding a gate,
+identità consulente multi-tenant (B2B).
 
 ---
 
 ## Stato attuale
 
-- ~3.600 righe Python; engine a package (`data / portfolio / analytics / fundamentals / visualization`), dashboard Streamlit (`app.py`, 857 righe), 84 test unitari verdi, CI GitHub Actions.
-- Dati: Yahoo Finance (yfinance), storico Nasdaq-100 in SQLite (~122k righe) con aggiornamento incrementale.
-- Funzionalità: metriche di rischio (Sharpe, Sortino, VaR, drawdown, beta/alpha), correlazioni, Markowitz + frontiera, backtest, check-up con score, report PDF, import CSV/Excel, portafogli salvati.
+- ~9.000 righe Python (`app.py` 224 righe, solo router; pacchetto `src/` ~8.800
+  righe su `data / portfolio / analytics / fundamentals / ui / views /
+  visualization`), 198 test unitari verdi su 31 file, CI GitHub Actions (ruff
+  lint + format + pytest).
+- Dati: catena di provider con fallback (`src/data/providers.py`) — EODHD (se
+  configurata `EODHD_API_KEY`) → Yahoo chart diretto → yfinance → Stooq;
+  storico Nasdaq-100 in SQLite/Postgres (~122k righe) con merge incrementale.
+- Funzionalità MVP: onboarding a gate (landing → ticker → loading), check-up
+  con score, metriche di rischio (Sharpe, Sortino, VaR, drawdown, beta/alpha)
+  in EUR, correlazioni, Markowitz + frontiera, backtest con costi di
+  transazione, report PDF con grafici vettoriali, import CSV/Excel/Fineco con
+  risoluzione ISIN→ticker, i18n EN/IT.
+- Oltre l'MVP: posizioni a lotti con data d'acquisto e IRR vero (XIRR), overlay
+  di opzioni protettive con catene reali (non solo stimate) e tabelle di
+  confronto contratti, identità consulente multi-tenant (isolamento dati per
+  advisor, pronta per login OIDC nativo di Streamlit).
 
 ---
 
@@ -40,99 +58,122 @@ Sharpe/Sortino — restano: parser broker su file reali (P1-8), deploy pubblico.
 
 ### P0 — Bloccanti per l'obiettivo open-source
 
-| # | Problema | Dettaglio |
-|---|----------|-----------|
-| 1 | **Nessuna LICENSE** | Senza licenza il codice non è open source: nessuno può legalmente usarlo o contribuire. Scegliere MIT (adozione massima) o AGPL (protegge da SaaS chiusi). |
-| 2 | **Rischio cambio ignorato** | Gli importi sono in EUR ma i prezzi in USD. Rendimenti e VaR "in euro" ignorano l'EUR/USD: per un investitore europeo su titoli USA il cambio può dominare il risultato. Serve la serie EURUSD=X e la conversione delle equity curve. |
-| 3 | **Annualizzazione aritmetica** | "Guadagno atteso = media giornaliera × 252" sovrastima sistematicamente rispetto al rendimento composto (CAGR), proprio il numero mostrato più in grande a un utente retail. Passare al geometrico o etichettare onestamente. |
-| 4 | **Fonte dati unica e fragile** | yfinance usa API non ufficiali Yahoo: rate-limit, cambi di schema improvvisi, nessuna garanzia. Serve un layer provider astratto + almeno un fallback (es. Stooq per i prezzi) e retry/backoff. |
+| # | Problema | Dettaglio | Stato |
+|---|----------|-----------|-------|
+| 1 | **Nessuna LICENSE** | Senza licenza il codice non è open source: nessuno può legalmente usarlo o contribuire. Scegliere MIT (adozione massima) o AGPL (protegge da SaaS chiusi). | ✅ Risolto — ma con **Elastic License 2.0** (source-available), non MIT: vieta a terzi di offrire il software come servizio hosted/gestito. Coerente col pivot B2B, ma è una scelta diversa da quella pianificata qui — da tenere a mente se l'obiettivo "open-source" in cima al documento resta invariato |
+| 2 | **Rischio cambio ignorato** | Gli importi sono in EUR ma i prezzi in USD. Rendimenti e VaR "in euro" ignorano l'EUR/USD: per un investitore europeo su titoli USA il cambio può dominare il risultato. Serve la serie EURUSD=X e la conversione delle equity curve. | ✅ Risolto |
+| 3 | **Annualizzazione aritmetica** | "Guadagno atteso = media giornaliera × 252" sovrastima sistematicamente rispetto al rendimento composto (CAGR), proprio il numero mostrato più in grande a un utente retail. Passare al geometrico o etichettare onestamente. | ✅ Risolto |
+| 4 | **Fonte dati unica e fragile** | yfinance usa API non ufficiali Yahoo: rate-limit, cambi di schema improvvisi, nessuna garanzia. Serve un layer provider astratto + almeno un fallback (es. Stooq per i prezzi) e retry/backoff. | ✅ Risolto — catena EODHD → Yahoo chart diretto → yfinance → Stooq (`src/data/providers.py`) |
 
 ### P1 — Correttezza e affidabilità
 
-| # | Problema | Dettaglio |
-|---|----------|-----------|
-| 5 | **Risk-free = 0** | Sharpe/Sortino calcolati con tasso zero in un mondo a tassi positivi: sovrastimati. Prendere il T-bill 3M (^IRX) come default. |
-| 6 | **Survivorship bias nel backtest** | L'universo usa i componenti *attuali* del Nasdaq-100: le strategie (soprattutto momentum) risultano gonfiate. Serve lo storico dei constituent (dataset pubblici o snapshot periodici nel DB). |
-| 7 | **Backtest senza costi** | Nessun costo di transazione/slippage: il momentum trimestrale su 10 titoli ruota molto e in realtà renderebbe meno. Aggiungere bps configurabili per ribilanciamento. |
-| 8 | **Import Fineco/ISIN irrisolto** | L'importer generico gestisce sinonimi e preamboli ma senza file reali dei broker non è garantito. Manca la risoluzione ISIN→ticker (OpenFIGI API, gratuita) e il suffisso di mercato (.MI, .DE) per i titoli non-USA. |
-| 9 | **`Ticker.info` sequenziale** | I fondamentali fanno 1 richiesta HTTP per ticker in loop: 10 titoli = ~10s. Parallelizzare (ThreadPool) e cachare su disco con TTL. |
-| 10 | **Nessun logging** | Solo `print` negli script; in caso di errore dati non c'è traccia diagnostica. Introdurre `logging` strutturato. |
+| # | Problema | Dettaglio | Stato |
+|---|----------|-----------|-------|
+| 5 | **Risk-free = 0** | Sharpe/Sortino calcolati con tasso zero in un mondo a tassi positivi: sovrastimati. Prendere il T-bill 3M (^IRX) come default. | ✅ Risolto |
+| 6 | **Survivorship bias nel backtest** | L'universo usa i componenti *attuali* del Nasdaq-100: le strategie (soprattutto momentum) risultano gonfiate. Serve lo storico dei constituent (dataset pubblici o snapshot periodici nel DB). | ⬜ Aperto — dichiarato onestamente in UI (`src/views/backtest.py`), ma non ancora risolto |
+| 7 | **Backtest senza costi** | Nessun costo di transazione/slippage: il momentum trimestrale su 10 titoli ruota molto e in realtà renderebbe meno. Aggiungere bps configurabili per ribilanciamento. | ✅ Risolto — `cost_bps` configurabile in `src/analytics/backtest.py` |
+| 8 | **Import Fineco/ISIN irrisolto** | L'importer generico gestisce sinonimi e preamboli ma senza file reali dei broker non è garantito. Manca la risoluzione ISIN→ticker (OpenFIGI API, gratuita) e il suffisso di mercato (.MI, .DE) per i titoli non-USA. | ✅ Risolto — parsing Fineco + `resolve_isins` via OpenFIGI (`src/data/isin.py`) |
+| 9 | **`Ticker.info` sequenziale** | I fondamentali fanno 1 richiesta HTTP per ticker in loop: 10 titoli = ~10s. Parallelizzare (ThreadPool) e cachare su disco con TTL. | ✅ Risolto — `ThreadPoolExecutor` in `src/fundamentals/valuation.py` |
+| 10 | **Nessun logging** | Solo `print` negli script; in caso di errore dati non c'è traccia diagnostica. Introdurre `logging` strutturato. | ⬜ Aperto — nessun modulo `logging` nel codebase |
 
 ### P2 — Architettura e manutenzione
 
-| # | Problema | Dettaglio |
-|---|----------|-----------|
-| 11 | **app.py monolite (857 righe)** | Tutte le 6 tab in un file: UI non testabile, merge conflict garantiti appena si è in due. Spacchettare in `src/ui/` (una view per tab) + testare con `streamlit.testing.AppTest`. |
-| 12 | **Accoppiamento implicito tra tab** | Le tab condividono variabili globali di script (`amounts`, `computed`): l'ordine dei blocchi è vincolante e fragile. Servono uno stato applicativo esplicito (dataclass in `st.session_state`). |
-| 13 | **Packaging non standard** | Import `from src.x import y`: non installabile via pip, il nome `src` è generico. Migrare a `pyproject.toml` con package `portfolio_intelligence`, entry point CLI. |
-| 14 | **Costanti duplicate** | `TRADING_DAYS = 252` definito in 5 moduli; euristica `min_periods` copiata in più punti; soglie degli score sparse. Centralizzare in `config.py`. |
-| 15 | **DB senza migrazioni né manutenzione** | Schema creato ad-hoc in `_connect`; `load_prices()` pivota tutto in memoria a ogni chiamata (nessuna query per range di date); tabella `analyses` a crescita illimitata. |
-| 16 | **CI minima** | Solo pytest su un solo Python. Aggiungere ruff (lint+format), mypy, coverage con soglia, matrice 3.11/3.12/3.13. |
+| # | Problema | Dettaglio | Stato |
+|---|----------|-----------|-------|
+| 11 | **app.py monolite (857 righe)** | Tutte le 6 tab in un file: UI non testabile, merge conflict garantiti appena si è in due. Spacchettare in `src/ui/` (una view per tab) + testare con `streamlit.testing.AppTest`. | ✅ Risolto — `app.py` ora 224 righe (solo router), viste in `src/views/` |
+| 12 | **Accoppiamento implicito tra tab** | Le tab condividono variabili globali di script (`amounts`, `computed`): l'ordine dei blocchi è vincolante e fragile. Servono uno stato applicativo esplicito (dataclass in `st.session_state`). | ✅ Risolto — `ViewContext` dataclass esplicita (`src/views/context.py`) |
+| 13 | **Packaging non standard** | Import `from src.x import y`: non installabile via pip, il nome `src` è generico. Migrare a `pyproject.toml` con package `portfolio_intelligence`, entry point CLI. | 🟡 Parziale — `pyproject.toml` presente (`name = "portfolio-intelligence"`), ma gli import restano `from src.x import y`: il pacchetto installato si chiama ancora `src`, non `portfolio_intelligence` |
+| 14 | **Costanti duplicate** | `TRADING_DAYS = 252` definito in 5 moduli; euristica `min_periods` copiata in più punti; soglie degli score sparse. Centralizzare in `config.py`. | ⬜ Aperto — ora duplicato in 6 moduli (peggiorato), nessun `config.py` |
+| 15 | **DB senza migrazioni né manutenzione** | Schema creato ad-hoc in `_connect`; `load_prices()` pivota tutto in memoria a ogni chiamata (nessuna query per range di date); tabella `analyses` a crescita illimitata. | 🟡 Parziale — upsert e merge incrementale aggiunti (`test_store.py`), ma nessuna migrazione formale (no Alembic) |
+| 16 | **CI minima** | Solo pytest su un solo Python. Aggiungere ruff (lint+format), mypy, coverage con soglia, matrice 3.11/3.12/3.13. | 🟡 Parziale — ruff lint+format ora in CI, ma ancora un solo Python (3.12), nessun mypy, nessuna soglia di coverage |
 
 ### P3 — Esperienza e portata
 
-| # | Problema | Dettaglio |
-|---|----------|-----------|
-| 17 | **Solo italiano, stringhe hardcoded** | Per un progetto open-source internazionale serve i18n (EN default, IT) con catalogo messaggi. |
-| 18 | **Universo solo Nasdaq-100** | S&P 500, STOXX 600, FTSE MIB, watchlist custom. |
-| 19 | **PDF senza grafici** | Il report è solo testo/tabelle: aggiungere chart (matplotlib → immagine embedded). |
-| 20 | **Nessuna storia di deploy** | Niente Dockerfile, niente guida Streamlit Cloud, secrets non gestiti. |
+| # | Problema | Dettaglio | Stato |
+|---|----------|-----------|-------|
+| 17 | **Solo italiano, stringhe hardcoded** | Per un progetto open-source internazionale serve i18n (EN default, IT) con catalogo messaggi. | ✅ Risolto — i18n EN/IT (`src/i18n.py`) |
+| 18 | **Universo solo Nasdaq-100** | S&P 500, STOXX 600, FTSE MIB, watchlist custom. | ⬜ Aperto |
+| 19 | **PDF senza grafici** | Il report è solo testo/tabelle: aggiungere chart (matplotlib → immagine embedded). | ✅ Risolto — grafici vettoriali nel report (`src/visualization/pdf_report.py`) |
+| 20 | **Nessuna storia di deploy** | Niente Dockerfile, niente guida Streamlit Cloud, secrets non gestiti. | ✅ Risolto — Dockerfile + guida Streamlit Cloud in README, bridge `DATABASE_URL` da secrets |
 
 ---
 
-## 2. Debito tecnico (ripagabile in ~1 settimana di lavoro)
+## 2. Debito tecnico
 
-- [ ] `save_prices`: `PerformanceWarning` per DataFrame frammentato (copy prima del melt).
-- [ ] `load_market_db()` non è cachato: ricarica e ripivota 122k righe a ogni interazione UI → `@st.cache_data` con invalidazione su mtime del DB.
-- [ ] Session state del `data_editor` perso a ogni reload del codice: caricare all'avvio l'ultimo portafoglio salvato.
-- [ ] `git config user.name/email` non configurati (warning a ogni commit).
-- [ ] `fundamentals_report.py` e `analyze_nasdaq100.py` duplicano logica dell'app: ridurli a thin wrapper dell'engine.
-- [ ] Indice temporale naive (no timezone): esplicitare UTC.
-- [ ] Validazione input dal DB assente (una riga corrotta crasha il pivot).
-- [ ] Cartella `data/` contiene ancora i CSV legacy accanto al DB: rimuovere il fallback CSV dopo un periodo di grazia.
+- [ ] `save_prices`: `PerformanceWarning` per DataFrame frammentato (copy prima del melt) — non riverificato.
+- [x] `load_market_db()` non è cachato → risolto, `@st.cache_data` pervasivo in `src/views/common.py` (prezzi, fondamentali, EUR/USD, prezzo storico).
+- [x] Session state del `data_editor` perso a ogni reload → **obsoleto**: il flusso di inserimento posizioni è stato riscritto (gate a 3 stadi con `selectbox`/`number_input`), il vecchio `data_editor` non esiste più.
+- [x] `fundamentals_report.py` e `analyze_nasdaq100.py` duplicano logica dell'app → ridimensionati (62 e 34 righe), vicini a thin wrapper dell'engine.
+- [ ] Indice temporale naive (no timezone): esplicitare UTC — non riverificato.
+- [ ] Validazione input dal DB assente — `src/data/validators.py` esiste ma copre solo `weights_sum_to_one`, non la validazione delle righe del DB: ancora aperto.
+- [ ] Cartella `data/` contiene ancora i CSV legacy (`nasdaq100_prices.csv`, `nasdaq100_returns.csv`) accanto al DB: rimuovere il fallback CSV dopo un periodo di grazia.
 
 ---
 
 ## 3. Miglioramenti a funzionalità esistenti
 
-1. **Backtest**: costi di transazione, ribilanciamento configurabile (mensile/trimestrale/annuale), metriche per strategia (Sharpe, max DD, turnover), walk-forward.
-2. **Ottimizzazione**: vincoli utente (peso max per titolo/settore), shrinkage della covarianza (Ledoit-Wolf), Black-Litterman come opzione avanzata.
-3. **VaR**: aggiungere CVaR (expected shortfall) e VaR parametrico accanto allo storico; orizzonti multipli.
-4. **Score/DNA**: percentili rispetto all'universo invece di soglie assolute (più robusti tra settori); documentare la metodologia in `docs/METHODOLOGY.md`.
-5. **Alert**: canale push reale — script `check_alerts.py` schedulabile via cron + notifica Telegram/email (richiede credenziali utente).
-6. **Galaxy/Radar**: legenda interattiva, drill-down sul titolo cliccato.
+1. **Backtest**: ✅ costi di transazione (`cost_bps`) già fatti — restano ribilanciamento configurabile (mensile/trimestrale/annuale), metriche per strategia (Sharpe, max DD, turnover), walk-forward.
+2. **Ottimizzazione**: vincoli utente (peso max per titolo/settore), shrinkage della covarianza (Ledoit-Wolf), Black-Litterman come opzione avanzata — ancora da fare.
+3. **VaR**: aggiungere CVaR (expected shortfall) e VaR parametrico accanto allo storico; orizzonti multipli — ancora da fare.
+4. **Score/DNA**: percentili rispetto all'universo invece di soglie assolute (più robusti tra settori); documentare la metodologia in `docs/METHODOLOGY.md` — ancora da fare.
+5. **Alert**: canale push reale — script `check_alerts.py` schedulabile via cron + notifica Telegram/email (richiede credenziali utente) — ancora da fare.
+6. **Galaxy/Radar**: legenda interattiva, drill-down sul titolo cliccato — vista presente (`src/views/visual.py`), interattività ancora da fare.
 
 ---
 
-## 4. Nuove funzionalità (ordinate per rapporto valore/sforzo)
+## 4. Nuove funzionalità
+
+### Spedite (non previste nella versione originale di questo documento)
+
+| Feature | Note |
+|---|---|
+| **Posizioni a lotti con data d'acquisto** | IRR vero (XIRR) al posto del rendimento stimato, prezzo auto-compilato dallo storico alla data del lotto. |
+| **Overlay di opzioni protettive** | Catene reali (non solo stimate) con tabelle di confronto contratti, side by side. |
+| **Onboarding a gate** | Landing → ticker → loading, piattaforma bloccata finché non c'è un portafoglio. |
+| **Identità consulente multi-tenant (B2B)** | Isolamento dati per advisor, pronto per login OIDC nativo Streamlit. |
+| **Supporto multi-valuta (EUR/USD)** | Risolveva anche P0-2, ora chiuso. |
+| **Risoluzione ISIN → ticker** | Via OpenFIGI, chiudeva P1-8. |
+| **Deploy pubblico** | Dockerfile + guida Streamlit Cloud, chiudeva P3-20. |
+
+### Ancora da fare (ordinate per rapporto valore/sforzo)
 
 | Priorità | Feature | Note |
 |----------|---------|------|
-| Alta | **Supporto multi-valuta** | Conversione EUR/USD/GBP con serie FX di Yahoo; risolve anche P0-2. |
-| Alta | **Risoluzione ISIN → ticker** | OpenFIGI (gratuita, key opzionale): sblocca gli import broker reali. |
-| Alta | **Deploy pubblico** | Dockerfile + guida Streamlit Cloud; a quel punto (e solo allora) autenticazione multi-utente. |
 | Media | **Universi aggiuntivi** | S&P 500 (lista Wikipedia stabile), FTSE MIB, watchlist custom salvate nel DB. |
 | Media | **Monte Carlo** | Simulazione di scenari sul portafoglio (bootstrap dei rendimenti storici), fan chart del valore a 1-5 anni. |
-| Media | **Factor analysis reale** | Regressione dei rendimenti su fattori (mercato, size, value, momentum) — completa il modulo `analytics`. |
+| Media | **Factor analysis reale** | `src/analytics/factors.py` oggi calcola solo i fattori per lo stock-picking del backtest (momentum, low-vol, trend); manca la regressione dei rendimenti del portafoglio su fattori di mercato. |
 | Media | **Export Excel** | Il gemello del PDF per chi lavora in spreadsheet. |
-| Bassa | **API REST (FastAPI)** | Separa engine e UI; abilita app mobile/terze parti. Solo dopo il packaging (P2-13). |
+| Bassa | **API REST (FastAPI)** | Separa engine e UI; abilita app mobile/terze parti. Solo dopo aver chiuso il packaging (P2-13, ancora parziale). |
 | Bassa | **PyPI** | Pubblicare l'engine come libreria `portfolio-intelligence`. |
 
 ---
 
 ## 5. Piano di rilascio proposto
 
-### v0.2 — "Open Source Ready" (1-2 settimane)
-LICENSE (MIT) · CONTRIBUTING.md · README inglese con screenshot · ruff+mypy+coverage in CI · pyproject.toml e rinomina package · spacchettamento app.py · logging.
+### v0.2 — "Open Source Ready" 🟡 parziale
+✅ LICENSE (Elastic License 2.0, non MIT) · ✅ README con guida deploy ·
+✅ pyproject.toml · ✅ spacchettamento app.py — restano: CONTRIBUTING.md,
+mypy+coverage in CI, rinomina package da `src` a `portfolio_intelligence`,
+logging strutturato.
 
-### v0.3 — "Numeri onesti" (2-3 settimane)
-Multi-valuta EUR/USD · rendimento geometrico · risk-free reale · costi nel backtest · CVaR · provider dati astratto con fallback e retry · fondamentali paralleli con cache.
+### v0.3 — "Numeri onesti" ✅ fatto
+Multi-valuta EUR/USD · rendimento geometrico · risk-free reale · costi nel
+backtest · provider dati astratto con fallback e retry · fondamentali
+paralleli con cache — manca solo il CVaR (resta in §3).
 
-### v0.4 — "Import per tutti" (2 settimane)
-OpenFIGI ISIN→ticker · suffissi di mercato · parser dedicati per broker costruiti su file di esempio reali (raccolti dalla community con issue template dedicato) · universi S&P 500 e FTSE MIB.
+### v0.4 — "Import per tutti" 🟡 parziale
+✅ OpenFIGI ISIN→ticker · ✅ parser Fineco su file reali — restano: suffissi di
+mercato (.MI, .DE) per i titoli non-USA, universi S&P 500 e FTSE MIB.
 
-### v1.0 — "Prodotto" (1-2 mesi)
-Deploy pubblico con auth · alert Telegram/email schedulati · Monte Carlo · factor analysis · i18n EN/IT · storico constituent per backtest senza survivorship bias.
+### v1.0 — "Prodotto" 🟡 parziale
+✅ Deploy pubblico (Docker + Streamlit Cloud) · ✅ i18n EN/IT · ✅ identità
+consulente multi-tenant (base per l'auth, non ancora login OIDC attivo in
+produzione) — restano: alert Telegram/email schedulati, Monte Carlo, factor
+analysis, storico constituent per backtest senza survivorship bias.
+
+### v1.1 — non pianificata in origine, emersa dallo sviluppo reale
+Posizioni a lotti con IRR vero · overlay di opzioni protettive con catene
+reali e confronto contratti · onboarding a gate. Già spedite (§4).
 
 ---
 
