@@ -59,6 +59,40 @@ vedi `ROADMAP.md` §7). Per rifiutare l'avvio in assenza di auth, imposta
 `REQUIRE_AUTH=true`. Per abilitare la vista admin (statistiche cross-tenant e
 audit log), aggiungi `admin_emails = ["you@example.com"]` ai secrets.
 
+## Autenticazione (OIDC)
+
+L'app usa il login nativo di Streamlit (`st.login`/`st.user`). Senza un
+provider configurato resta usabile ma **senza isolamento dati tra
+utenti**. Per attivarlo con Google:
+
+1. **Crea le credenziali OAuth** su [console.cloud.google.com](https://console.cloud.google.com):
+   - Crea (o seleziona) un progetto.
+   - *APIs & Services → OAuth consent screen*: tipo "External", nome app,
+     email di supporto. Basta la versione minima, non serve pubblicarlo per
+     uso interno/pochi utenti (restano in modalità "Testing": aggiungi le
+     email degli advisor come "Test users").
+   - *APIs & Services → Credentials → Create Credentials → OAuth client ID*,
+     tipo "Web application".
+   - **Authorized redirect URIs**: `http://localhost:8501/oauth2callback` in
+     locale; in produzione aggiungi anche
+     `https://<tuo-dominio>/oauth2callback` (es. `https://<app>.streamlit.app/oauth2callback`
+     su Streamlit Community Cloud).
+   - Copia **Client ID** e **Client secret**.
+
+2. **Copia il template** `.streamlit/secrets.toml.example` →
+   `.streamlit/secrets.toml` (ignorato da git) e incolla `client_id` e
+   `client_secret`. Genera un `cookie_secret` tuo:
+   ```bash
+   python -c "import secrets; print(secrets.token_hex(32))"
+   ```
+
+3. **Su Streamlit Community Cloud**: incolla lo stesso contenuto in
+   *App settings → Secrets*, con `redirect_uri` aggiornato al dominio
+   pubblico dell'app.
+
+Una volta configurato, il banner "Auth not configured" in sidebar sparisce e
+`current_advisor()` isola davvero i dati per email di chi ha fatto login.
+
 ## Struttura
 
 ```
