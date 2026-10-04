@@ -22,7 +22,7 @@ from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio import Portfolio
 from portfolio_intelligence.portfolio.positions import portfolio_xirr, position_table, totals
 from portfolio_intelligence.ui.components import empty_state
-from portfolio_intelligence.ui.identity import auth_required_but_missing
+from portfolio_intelligence.ui.identity import auth_required_but_missing, resolve_require_auth
 from portfolio_intelligence.ui.theme import inject_theme
 from portfolio_intelligence.views.common import (
     BENCHMARK,
@@ -37,12 +37,13 @@ from portfolio_intelligence.views.sidebar import SidebarSettings
 def bootstrap_page(page_title: str, require_auth_default: bool) -> None:
     """Bridge secrets→env, set_page_config, tema, gate REQUIRE_AUTH.
 
-    `require_auth_default` è il valore di `REQUIRE_AUTH` se l'operatore non
-    lo imposta esplicitamente nell'ambiente: True per Advisor (B2B, l'auth è
-    la norma), False per Investor (B2C anonimo, l'auth non si applica).
-    `setdefault` rispetta sempre una scelta esplicita dell'operatore.
+    `require_auth_default` è il valore di REQUIRE_AUTH se né l'operatore né
+    i secrets lo scelgono esplicitamente: True per Advisor (B2B, l'auth è la
+    norma), False per Investor (B2C anonimo, l'auth non si applica). La
+    precedenza reale (env > secrets `[auth].require_auth` > questo default)
+    è in `resolve_require_auth`.
     """
-    os.environ.setdefault("REQUIRE_AUTH", "true" if require_auth_default else "false")
+    resolve_require_auth(require_auth_default)
 
     # i secrets di Streamlit non diventano env var da soli: DATABASE_URL nei
     # secrets fa passare lo store da SQLite a Postgres.

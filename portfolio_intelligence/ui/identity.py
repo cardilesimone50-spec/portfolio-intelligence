@@ -40,17 +40,48 @@ def current_advisor() -> str:
 
 
 def auth_configured() -> bool:
-    """True se l'autenticazione OIDC è configurata (secrets `[auth]` presenti)."""
+    """True se l'OIDC è configurato per davvero: serve un `client_id` dentro
+    `[auth]`, non basta che la sezione esista. `[auth]` può contenere solo
+    `require_auth` (vedi `resolve_require_auth`) senza alcuna credenziale —
+    in quel caso l'OIDC NON è configurato, anche se "auth" compare in secrets.
+    """
     try:
-        return "auth" in st.secrets
+        return bool(st.secrets.get("auth", {}).get("client_id"))
     except Exception:
         return False
 
 
+def resolve_require_auth(default_if_unset: bool) -> None:
+    """Decide REQUIRE_AUTH e lo scrive nell'ambiente, con questa precedenza:
+
+    1. variabile d'ambiente REQUIRE_AUTH già impostata esplicitamente
+       (scelta dell'operatore: Docker, systemd, shell — vince sempre);
+    2. `require_auth` dentro `[auth]` nei secrets — comodo su Streamlit
+       Community Cloud, dove si impostano secrets dalla dashboard ma non
+       variabili d'ambiente per singola app;
+    3. `default_if_unset`, il default del profilo chiamante (investor=False,
+       advisor=True — vedi app_investor.py/app_advisor.py).
+
+    Va chiamata PRIMA di `auth_required_but_missing()`, che poi legge solo
+    la variabile d'ambiente: qui c'è la risoluzione, lì solo il controllo.
+    """
+    if os.getenv("REQUIRE_AUTH") is not None:
+        return
+    try:
+        secrets_auth = st.secrets.get("auth", {})
+        if "require_auth" in secrets_auth:
+            os.environ["REQUIRE_AUTH"] = "true" if secrets_auth["require_auth"] else "false"
+            return
+    except Exception:
+        pass
+    os.environ["REQUIRE_AUTH"] = "true" if default_if_unset else "false"
+
+
 def auth_required_but_missing() -> bool:
-    """True se il deploy ha chiesto di imporre l'auth (`REQUIRE_AUTH=true`) ma
-    l'OIDC non è configurato: in questo caso l'isolamento dati non è
-    garantito e l'app non deve servire richieste."""
+    """True se è stato chiesto di imporre l'auth (REQUIRE_AUTH=true, già
+    risolto da `resolve_require_auth`) ma l'OIDC non è configurato: in
+    questo caso l'isolamento dati non è garantito e l'app non deve servire
+    richieste."""
     required = os.getenv("REQUIRE_AUTH", "false").strip().lower() == "true"
     return required and not auth_configured()
 

@@ -71,11 +71,18 @@ alembic upgrade head
 alembic stamp head
 ```
 
-**Isolamento multi-tenant:** senza `[auth]` configurato nei secrets, ogni
-visitatore condivide lo stesso tenant di sviluppo (nessun isolamento dati —
-vedi `ROADMAP.md` §7). Per rifiutare l'avvio in assenza di auth, imposta
-`REQUIRE_AUTH=true`. Per abilitare la vista admin (statistiche cross-tenant e
-audit log), aggiungi `admin_emails = ["you@example.com"]` ai secrets.
+**Isolamento multi-tenant:** senza `[auth]` configurato nei secrets (con un
+`client_id` reale — una sezione `[auth]` con solo `require_auth` non conta
+come configurata), ogni visitatore condivide lo stesso tenant di sviluppo
+(nessun isolamento dati — vedi `ROADMAP.md` §7). `app_advisor.py` rifiuta di
+avviarsi senza auth per impostazione predefinita; `app_investor.py` non la
+richiede mai. Per scegliere esplicitamente: variabile d'ambiente
+`REQUIRE_AUTH=true|false`, oppure — comodo su Streamlit Community Cloud, dove
+si impostano secrets ma non variabili d'ambiente per singola app —
+`require_auth = true|false` dentro `[auth]` nei secrets (vedi
+`.streamlit/secrets.toml.example`); l'env var, se impostata, vince sempre.
+Per abilitare la vista admin (statistiche cross-tenant e audit log), aggiungi
+`admin_emails = ["you@example.com"]` ai secrets.
 
 ## Autenticazione (OIDC)
 

@@ -10,9 +10,13 @@ Se nessuno imposta APP_MODE, questo file deve restare quello che era: niente
 sorprese per un deploy che faceva già `streamlit run app.py` senza secrets
 OIDC configurati. Per questo, SOLO se il profilo è scelto esplicitamente,
 app_advisor.py applica il suo default più severo (REQUIRE_AUTH=true); senza
-APP_MODE la variabile resta quella storica (REQUIRE_AUTH=false, opt-in).
-Chi vuole davvero il gate forzato: `streamlit run app_advisor.py` direttamente,
-o APP_MODE=advisor esplicito.
+APP_MODE il default è quello storico (REQUIRE_AUTH=false) — ma resta
+sovrascrivibile da REQUIRE_AUTH nell'ambiente o da `require_auth` in
+[auth] nei secrets (stessa precedenza di `resolve_require_auth`, riusata
+qui apposta: un `require_auth = true` nei secrets deve valere anche per chi
+lancia `app.py` senza scegliere un profilo).
+Chi vuole il gate forzato senza toccare i secrets: `streamlit run
+app_advisor.py` direttamente, o APP_MODE=advisor esplicito.
 
 Avvio diretto per nome, più esplicito:
     streamlit run app_investor.py
@@ -21,11 +25,13 @@ Avvio diretto per nome, più esplicito:
 
 import os
 
+from portfolio_intelligence.ui.identity import resolve_require_auth
+
 _mode_chosen_explicitly = "APP_MODE" in os.environ
 _MODE = os.getenv("APP_MODE", "advisor").strip().lower()
 
 if not _mode_chosen_explicitly:
-    os.environ.setdefault("REQUIRE_AUTH", "false")
+    resolve_require_auth(default_if_unset=False)
 
 if _MODE == "investor":
     from app_investor import main
