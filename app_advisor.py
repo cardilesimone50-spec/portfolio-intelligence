@@ -126,7 +126,9 @@ def main() -> None:
         stateful=True,
     )
 
-    render_nav_and_dispatch(macro_labels, subnav, views, needs_portfolio, ctx, cp.compute_error)
+    render_nav_and_dispatch(
+        macro_labels, subnav, views, needs_portfolio, ctx, cp.compute_error, cp.notice
+    )
 
     compliance_footer()
 

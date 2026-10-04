@@ -478,35 +478,138 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "advisorw.switch_to_investor": ("← Switch to Investor view", "← Torna a Investor"),
     "advisorw.active_profile": ("Active profile: ADVISOR", "Profilo attivo: ADVISOR"),
-    # ---------------------------------------------------------------- gate
-    "gate.step": ("Step 1 of 2 · Build your portfolio", "Passo 1 di 2 · Componi il portafoglio"),
-    "gate.title": ("Which stocks do you hold?", "Quali titoli possiedi?"),
-    "gate.sub": (
-        "Add each position with the amount you have invested. "
-        "Nothing else is available until you tell us what to analyze.",
-        "Aggiungi ogni posizione con l'importo investito. "
-        "Il resto si sblocca solo quando ci dici cosa analizzare.",
+    "app.fund_unavailable": (
+        "Company financials are temporarily unavailable: risk, return and "
+        "diversification are complete, valuation and quality indicators are not.",
+        "I dati di bilancio delle società non sono al momento disponibili: rischio, "
+        "rendimento e diversificazione sono completi, valutazione e qualità no.",
     ),
+    # ---------------------------------------------------------------- landing
+    "landing.eyebrow": ("Portfolio check-up", "Check-up di portafoglio"),
+    "landing.title": (
+        "An independent analysis of your equity portfolio",
+        "Analisi indipendente del portafoglio azionario",
+    ),
+    "landing.sub": (
+        "Risk, concentration, currency exposure and company quality, measured "
+        "in euros on the positions you actually hold. No return forecasts: "
+        "only what your data shows.",
+        "Rischio, concentrazione, esposizione valutaria e qualità delle società, "
+        "misurati in euro sulle posizioni effettivamente detenute. Nessuna "
+        "previsione di rendimento: solo ciò che dicono i tuoi dati.",
+    ),
+    "landing.cta": ("Start the analysis", "Inizia l'analisi"),
+    "landing.cta_note": (
+        "No sign-up required · about one minute",
+        "Nessuna registrazione richiesta · circa un minuto",
+    ),
+    "landing.panel": ("What the report includes", "Cosa contiene il report"),
+    "landing.f1_t": ("Health Score", "Health Score"),
+    "landing.f1_d": (
+        "Six components: diversification, concentration, volatility, currency, "
+        "drawdown and quality.",
+        "Sei componenti: diversificazione, concentrazione, volatilità, valuta, "
+        "drawdown e qualità.",
+    ),
+    "landing.f2_t": ("Risk in euros", "Rischio in euro"),
+    "landing.f2_d": (
+        "Volatility and drawdown computed in your currency, EUR/USD exchange risk included.",
+        "Volatilità e drawdown calcolati nella tua valuta, rischio di cambio EUR/USD incluso.",
+    ),
+    "landing.f3_t": ("Risk contribution", "Contributo al rischio"),
+    "landing.f3_d": (
+        "How much of the total risk each position accounts for, beyond its weight.",
+        "Quanto del rischio complessivo dipende da ciascuna posizione, oltre il suo peso.",
+    ),
+    "landing.f4_t": ("PDF report", "Report PDF"),
+    "landing.f4_d": (
+        "A three-page summary to keep or share with your advisor.",
+        "Una sintesi di tre pagine da conservare o condividere con il consulente.",
+    ),
+    "landing.fact1": (
+        "Nasdaq-100 stocks with stored history and financials",
+        "titoli Nasdaq-100 con storico prezzi e bilanci",
+    ),
+    "landing.fact2": ("Health Score components", "componenti dell'Health Score"),
+    "landing.fact3": (
+        "base currency, exchange risk included",
+        "valuta di riferimento, rischio di cambio incluso",
+    ),
+    "landing.legal": (
+        "Informational tool. It does not constitute investment advice.",
+        "Strumento informativo: non costituisce consulenza in materia di investimenti.",
+    ),
+    # ---------------------------------------------------------------- gate
+    "gate.step1": ("Composition", "Composizione"),
+    "gate.step2": ("Analysis", "Analisi"),
+    "gate.title": ("Portfolio composition", "Composizione del portafoglio"),
+    "gate.sub": (
+        "Enter the positions you currently hold. The purchase price is taken "
+        "from the adjusted close on the purchase date and can be edited.",
+        "Inserisci le posizioni attualmente detenute. Il prezzo di carico è "
+        "ricavato dalla chiusura rettificata alla data di acquisto ed è modificabile.",
+    ),
+    "gate.tab_manual": ("Manual entry", "Inserimento manuale"),
+    "gate.tab_import": ("Import from file", "Importa da file"),
+    "gate.tab_sample": ("Model portfolio", "Portafoglio dimostrativo"),
+    "gate.instrument": ("Instrument", "Strumento"),
     "gate.search_placeholder": (
-        "Search by symbol (e.g. AAPL)...",
-        "Cerca per simbolo (es. AAPL)...",
+        "Ticker symbol, e.g. AAPL",
+        "Simbolo, es. AAPL",
     ),
     "gate.add": ("＋ Add", "＋ Aggiungi"),
-    "gate.your_holdings": ("Your holdings", "Le tue posizioni"),
-    "gate.total": ("Total: **{total}** · {n} stocks", "Totale: **{total}** · {n} titoli"),
-    "gate.search_hint": (
-        "Search a stock above and add it with its amount.",
-        "Cerca un titolo qui sopra e aggiungilo con il suo importo.",
+    "gate.add_position": ("Add", "Aggiungi"),
+    "gate.your_holdings": ("Positions", "Posizioni"),
+    "gate.col_instrument": ("Instrument", "Strumento"),
+    "gate.col_avg_price": ("Avg. price", "Prezzo medio"),
+    "gate.col_cost": ("Cost basis", "Controvalore"),
+    "gate.col_weight": ("Weight", "Peso"),
+    "gate.clear": ("Clear all", "Svuota elenco"),
+    "gate.empty_title": ("No positions entered", "Nessuna posizione inserita"),
+    "gate.empty_hint": (
+        "Add instruments one by one, import your broker's securities position, "
+        "or load the model portfolio.",
+        "Aggiungi gli strumenti uno alla volta, importa la posizione titoli del "
+        "tuo broker oppure carica il portafoglio dimostrativo.",
     ),
-    "gate.sample": (
-        "Try a sample portfolio (AAPL · MSFT · NVDA)",
-        "Prova un portafoglio di esempio (AAPL · MSFT · NVDA)",
+    "gate.import_desc": (
+        "Upload the securities position exported from your broker (CSV or "
+        "Excel). Required columns: ticker/symbol and amount/value, or quantity "
+        "and price. The file replaces the positions entered so far.",
+        "Carica la posizione titoli esportata dal tuo broker (CSV o Excel). "
+        "Colonne richieste: ticker/simbolo e importo/controvalore, oppure "
+        "quantità e prezzo. Il file sostituisce le posizioni inserite finora.",
     ),
-    "gate.analyze": ("Analyze my portfolio →", "Analizza il mio portafoglio →"),
-    "gate.loading_hint": (
-        "Crunching the numbers on your portfolio…",
-        "Stiamo macinando i numeri del tuo portafoglio…",
+    "gate.sample_desc": (
+        "Three US large-cap positions — Apple, Microsoft, NVIDIA — with "
+        "purchase lots between 2024 and 2025. Useful to review the analysis "
+        "before entering your own data.",
+        "Tre posizioni large-cap USA — Apple, Microsoft, NVIDIA — con lotti di "
+        "acquisto tra il 2024 e il 2025. Utile per esaminare l'analisi prima di "
+        "inserire i propri dati.",
     ),
+    "gate.sample": ("Load model portfolio", "Carica portafoglio dimostrativo"),
+    "gate.summary": ("Summary", "Riepilogo"),
+    "gate.sum_positions": ("Positions", "Posizioni"),
+    "gate.sum_invested": ("Invested (cost basis)", "Investito (carico)"),
+    "gate.sum_largest": ("Largest position", "Posizione principale"),
+    "gate.sum_top3": ("Top 3 weight", "Peso prime 3"),
+    "gate.analyze": ("Run analysis", "Avvia l'analisi"),
+    "gate.analyze_disabled": (
+        "Add at least one position to run the analysis.",
+        "Aggiungi almeno una posizione per avviare l'analisi.",
+    ),
+    "gate.analyze_note": (
+        "Daily adjusted closes · values in EUR with currency risk · not investment advice.",
+        "Chiusure giornaliere rettificate · valori in EUR con rischio cambio · "
+        "non costituisce consulenza finanziaria.",
+    ),
+    "gate.loading_title": ("Preparing the analysis", "Preparazione dell'analisi"),
+    "gate.loading_sub": ("{n} positions", "{n} posizioni"),
+    "gate.load_prices": ("Historical prices", "Prezzi storici"),
+    "gate.load_fx": ("EUR/USD exchange rate", "Cambio EUR/USD"),
+    "gate.load_fundamentals": ("Company financials", "Dati di bilancio"),
+    "gate.load_rates": ("Risk-free rate", "Tasso privo di rischio"),
     # ---------------------------------------------------------------- sidebar
     "side.advisor": ("Advisor: **{advisor}**", "Consulente: **{advisor}**"),
     "side.advisor_demo": (

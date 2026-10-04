@@ -27,8 +27,8 @@ from portfolio_intelligence.ui.components import empty_state, eur, sec
 from portfolio_intelligence.ui.theme import AMBER
 from portfolio_intelligence.views.common import (
     TRADING_DAYS,
+    analysis_fundamentals,
     cached_eurusd,
-    cached_fundamentals,
     cached_prices,
 )
 from portfolio_intelligence.views.context import ViewContext
@@ -58,7 +58,7 @@ def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict
     mp_c = rolling_min_periods(len(returns_c))
     corr_c = average_pairwise_correlation(returns_c, min_periods=mp_c)
     radar_c = radar_scores(vol_c, pf_c, dd_c, corr_c)
-    fund_c = cached_fundamentals(tuple(sorted(amounts_c)))
+    fund_c = analysis_fundamentals(tuple(sorted(amounts_c)))
     dna_c = dna_scores(fund_c, pf_c, vol_c, corr_c)
     breakdown_c = health_breakdown(dna_c, radar_c, usd_exposure(pf_c))
     contributions_c = risk_contributions(returns_c, pf_c)

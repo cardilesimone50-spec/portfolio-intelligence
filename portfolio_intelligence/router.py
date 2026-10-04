@@ -26,8 +26,8 @@ from portfolio_intelligence.ui.identity import auth_required_but_missing, resolv
 from portfolio_intelligence.ui.theme import inject_theme
 from portfolio_intelligence.views.common import (
     BENCHMARK,
+    analysis_fundamentals,
     cached_eurusd,
-    cached_fundamentals,
     cached_prices,
 )
 from portfolio_intelligence.views.context import ViewContext
@@ -92,6 +92,7 @@ class ComputedPortfolio:
     pnl_totals: dict | None
     irr: float | None
     names: dict[str, str]
+    notice: str | None = None  # avviso non bloccante (es. bilanci non disponibili)
 
 
 def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPortfolio:
@@ -110,6 +111,7 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
     pnl_totals = None
     irr: float | None = None
     names: dict[str, str] = dict(st.session_state.get("names", {}))
+    notice: str | None = None
 
     if not positions:
         return ComputedPortfolio(
@@ -145,8 +147,10 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
             if total
             else []
         )
-        fund = cached_fundamentals(tickers)
+        fund = analysis_fundamentals(tickers)
         computed = analyze_portfolio(prices, bench_prices, portfolio, fund, BENCHMARK)
+        if fund.isna().all().all():
+            notice = t("app.fund_unavailable")
         if "name" in fund.columns:
             names = {**names, **fund["name"].dropna().to_dict()}
             st.session_state["names"] = names
@@ -154,7 +158,16 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
         compute_error = str(exc)
 
     return ComputedPortfolio(
-        computed, compute_error, amounts, total, portfolio, pos_table, pnl_totals, irr, names
+        computed,
+        compute_error,
+        amounts,
+        total,
+        portfolio,
+        pos_table,
+        pnl_totals,
+        irr,
+        names,
+        notice,
     )
 
 
@@ -177,6 +190,7 @@ def render_nav_and_dispatch(
     needs_portfolio: set[str],
     ctx: ViewContext,
     compute_error: str | None,
+    notice: str | None = None,
 ) -> None:
     """Meccanica di nav a due livelli + dispatch: identica tra i profili.
 
@@ -213,6 +227,8 @@ def render_nav_and_dispatch(
 
     if compute_error:
         st.error(compute_error)
+    elif notice:
+        st.warning(notice)
 
     if view in needs_portfolio and ctx.computed is None:
         if not compute_error:

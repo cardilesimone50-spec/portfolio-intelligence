@@ -4,12 +4,15 @@ import pandas as pd
 import streamlit as st
 
 from portfolio_intelligence.config import TRADING_DAYS
-from portfolio_intelligence.data.cache import load_nasdaq100_prices
+from portfolio_intelligence.data.cache import (
+    load_nasdaq100_fundamentals,
+    load_nasdaq100_prices,
+)
 from portfolio_intelligence.data.fx import fetch_eurusd
 from portfolio_intelligence.data.rates import fetch_risk_free_rate
 from portfolio_intelligence.data.store import load_prices as load_stored_prices
 from portfolio_intelligence.data.yahoo_client import fetch_price_history
-from portfolio_intelligence.fundamentals.valuation import fetch_fundamentals
+from portfolio_intelligence.fundamentals.valuation import empty_fundamentals, fetch_fundamentals
 from portfolio_intelligence.i18n import LANGUAGES, set_language
 from portfolio_intelligence.ui.components import empty_state
 
@@ -50,9 +53,27 @@ def cached_prices(tickers: tuple[str, ...], period: str) -> pd.DataFrame:
     return fetch_price_history(list(tickers), period=period)
 
 
-@st.cache_data(ttl=3600, show_spinner="Scarico i fondamentali da Yahoo Finance...")
+@st.cache_data(show_spinner=False)
+def _fundamentals_snapshot() -> pd.DataFrame | None:
+    return load_nasdaq100_fundamentals()
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
-    return fetch_fundamentals(list(tickers))
+    return fetch_fundamentals(list(tickers), fallback=_fundamentals_snapshot())
+
+
+def analysis_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
+    """Fondamentali per la pipeline di analisi: non solleva mai.
+
+    Se né Yahoo né lo snapshot hanno dati, restituisce una tabella NaN e
+    l'analisi di rischio/rendimento prosegue comunque (i bilanci sono un
+    arricchimento, non un prerequisito).
+    """
+    try:
+        return cached_fundamentals(tickers)
+    except ValueError:
+        return empty_fundamentals(list(tickers))
 
 
 @st.cache_data(ttl=3600, show_spinner="Scarico il cambio EUR/USD...")

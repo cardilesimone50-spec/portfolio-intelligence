@@ -1,51 +1,33 @@
-"""Onboarding gate: landing → inserimento titoli → loading, poi la piattaforma.
+"""Onboarding gate: landing → composizione del portafoglio → loading, poi la piattaforma.
 
 Finché lo stage non è "app", la piattaforma è bloccata (sidebar nascosta).
 """
 
-import random
-import time
+from contextlib import suppress
 from datetime import date
 
 import streamlit as st
 
+from portfolio_intelligence.data.importers import parse_positions
 from portfolio_intelligence.i18n import t
-from portfolio_intelligence.portfolio.positions import add_lot, aggregate
-from portfolio_intelligence.ui.components import (
-    eur,
-    position_card_html,
-    render_landing,
-    sec,
-    ticker_preview_html,
-)
+from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
+from portfolio_intelligence.ui.components import render_landing
 from portfolio_intelligence.views.common import (
+    BENCHMARK,
     SAMPLE_PORTFOLIO,
+    analysis_fundamentals,
+    cached_eurusd,
     cached_price_on,
+    cached_prices,
+    cached_risk_free,
     known_tickers,
     language_selector,
     ticker_preview,
 )
-from portfolio_intelligence.visualization.charts import PALETTE
 
-QUOTES = [
-    ("Risk comes from not knowing what you're doing.", "Warren Buffett"),
-    ("Be fearful when others are greedy, and greedy when others are fearful.", "Warren Buffett"),
-    (
-        "The stock market is a device for transferring money from the impatient to the patient.",
-        "Warren Buffett",
-    ),
-    ("Know what you own, and know why you own it.", "Peter Lynch"),
-    ("The big money is not in the buying and selling, but in the waiting.", "Charlie Munger"),
-    (
-        "The investor's chief problem — and even his worst enemy — is likely to be himself.",
-        "Benjamin Graham",
-    ),
-    (
-        "The four most dangerous words in investing are: 'this time it's different.'",
-        "John Templeton",
-    ),
-    ("In investing, what is comfortable is rarely profitable.", "Robert Arnott"),
-]
+# orizzonte di default della sidebar (pf_period): il caricamento scalda le
+# stesse chiavi di cache che la piattaforma userà alla prima apertura
+_DEFAULT_PERIOD = "1y"
 
 GATE_CSS = """
 <style>
@@ -54,56 +36,131 @@ GATE_CSS = """
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"] { display: none !important; }
 
-.gate-head { max-width: 620px; margin: 8px auto 4px; text-align: center; }
-.gate-title {
-    font-family: var(--font-display); font-weight: 700;
-    font-size: 2rem; letter-spacing: -0.01em; color: var(--ink); margin: 0;
+/* ---- header: brand + stepper ---- */
+.gate-bar { display: flex; align-items: center; gap: 28px; min-height: 40px; }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.step {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.8rem; font-weight: 600; color: var(--muted);
 }
-.gate-sub { color: var(--muted); font-size: 0.98rem; margin-top: 10px; line-height: 1.5; }
-.gate-step {
-    display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--accent);
-    background: var(--accent-soft); border: 1px solid var(--accent-border);
-    border-radius: 999px; padding: 4px 14px; margin-bottom: 14px;
+.step-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700;
+    border: 1px solid var(--line); background: #fff; color: var(--muted);
 }
+.step.active { color: var(--ink); }
+.step.active .step-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+.step-sep { width: 36px; height: 1px; background: var(--line); }
 
-/* loading screen: full-screen overlay so no stale widgets show through */
-.loading-wrap {
-    position: fixed; inset: 0; z-index: 99999;
-    background: #F8FAFC; padding: 24px; text-align: center;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 26px;
-}
-.gear { width: 96px; height: 96px; animation: gearspin 3.4s linear infinite; }
-.gear svg { width: 100%; height: 100%; display: block; }
-@keyframes gearspin { to { transform: rotate(360deg); } }
-.loading-quote {
+.gate-head { margin: 14px 0 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.gate-title {
     font-family: var(--font-display); font-weight: 600;
-    font-size: 1.35rem; line-height: 1.45; color: var(--ink);
-    max-width: 560px;
+    font-size: 1.6rem; letter-spacing: -0.01em; color: var(--ink); margin: 0;
 }
-.loading-author {
-    font-size: 0.9rem; font-weight: 600; letter-spacing: 0.06em;
-    text-transform: uppercase; color: var(--accent);
+.gate-sub { color: var(--muted); font-size: 0.92rem; margin-top: 6px; max-width: 720px; }
+
+/* ---- instrument line under the entry row ---- */
+.instr-meta { font-size: 0.82rem; color: var(--muted); margin: -2px 0 4px; }
+.instr-meta b { color: var(--ink); font-weight: 600; }
+.instr-meta .up { color: var(--gain); }
+.instr-meta .down { color: var(--loss); }
+.tab-desc { font-size: 0.86rem; color: var(--muted); line-height: 1.55; margin: 2px 0 12px; }
+
+/* ---- positions table ---- */
+.tbl-title {
+    display: flex; gap: 10px; align-items: baseline; margin: 26px 0 6px;
 }
-.loading-hint { color: var(--muted); font-size: 0.85rem; }
+.tbl-title .h {
+    font-family: var(--font-display); font-size: 1rem; font-weight: 600; color: var(--ink);
+}
+.tbl-title .n {
+    font-size: 0.72rem; font-weight: 600; color: var(--muted);
+    background: #F1F5F9; border-radius: 999px; padding: 1px 8px;
+}
+.tbl-grid {
+    display: grid; grid-template-columns: 0.9fr 2.3fr 0.9fr 1.5fr 1.5fr 0.8fr;
+    gap: 12px; align-items: center; min-height: 40px;
+}
+.tbl-grid.head { min-height: 28px; }
+.th {
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); white-space: nowrap;
+}
+.th.r, .td.r { text-align: right; }
+.td { font-size: 0.88rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.td.sym { font-weight: 700; letter-spacing: 0.02em; }
+.td.name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-key-gate_thead, [class*="st-key-gate_row_"] { border-bottom: 1px solid var(--line); }
+.st-key-gate_thead [data-testid="stMarkdownContainer"],
+[class*="st-key-gate_row_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+[class*="st-key-gate_row_"] .stButton button {
+    min-height: 28px; border: none !important; box-shadow: none !important;
+    color: var(--muted); transform: none !important;
+}
+[class*="st-key-gate_row_"] .stButton button:hover { color: var(--loss); }
+.empty-tbl {
+    border: 1px dashed var(--line); border-radius: 10px; padding: 26px 20px;
+    text-align: center; background: #fff;
+}
+.empty-tbl .t { font-weight: 600; color: var(--ink); font-size: 0.92rem; }
+.empty-tbl .h { color: var(--muted); font-size: 0.84rem; margin-top: 4px; }
+
+/* ---- summary panel ---- */
+.sum-h {
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+}
+.sum-row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 0.86rem;
+}
+.sum-row .k { color: var(--muted); }
+.sum-row .v { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sum-note { font-size: 0.74rem; color: var(--muted); line-height: 1.5; margin-top: 2px; }
+
+/* ---- loading: full-screen overlay so no stale widgets show through ---- */
+.loading-wrap {
+    position: fixed; inset: 0; z-index: 99999; background: #F8FAFC;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.loading-card {
+    width: 100%; max-width: 440px; background: #fff;
+    border: 1px solid var(--line); border-radius: 12px; padding: 28px 30px 22px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 12px 32px rgba(15,23,42,0.06);
+}
+.loading-card .brand { font-size: 0.85rem; margin-bottom: 22px; }
+.loading-title {
+    font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; color: var(--ink);
+}
+.loading-sub { font-size: 0.84rem; color: var(--muted); margin-top: 2px; }
+.loading-bar { height: 4px; background: #EEF2F7; border-radius: 4px; margin: 18px 0 10px; }
+.loading-bar div {
+    height: 100%; background: var(--accent); border-radius: 4px; transition: width .3s ease;
+}
+/* l'indicatore "Running/Stop" di Streamlit non deve affiorare sopra la scheda */
+body:has(.loading-wrap) [data-testid="stStatusWidget"] { visibility: hidden; }
+.lstep {
+    display: flex; align-items: center; gap: 12px; padding: 9px 0;
+    font-size: 0.88rem; color: var(--muted); border-top: 1px solid var(--line);
+}
+.loading-bar + .lstep { border-top: none; }
+.lstep.done, .lstep.active { color: var(--ink); }
+.lstep-ic {
+    flex: none; width: 18px; height: 18px; border-radius: 50%;
+    border: 1.5px solid var(--line); display: inline-flex;
+    align-items: center; justify-content: center;
+}
+.lstep.done .lstep-ic {
+    background: var(--gain); border-color: var(--gain); color: #fff; font-size: 0.66rem;
+}
+.lstep.active .lstep-ic {
+    border-color: var(--accent-border); border-top-color: var(--accent);
+    animation: lspin .8s linear infinite;
+}
+@keyframes lspin { to { transform: rotate(360deg); } }
 </style>
 """
-
-GEAR_SVG = (
-    '<div class="gear"><svg viewBox="0 0 24 24" fill="none" '
-    'xmlns="http://www.w3.org/2000/svg">'
-    '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" '
-    'stroke="var(--accent)" stroke-width="1.4"/>'
-    '<path d="M19.4 13a7.6 7.6 0 0 0 .05-2l1.7-1.32a.5.5 0 0 0 .12-.64l-1.6-2.77a.5.5 0 0 0'
-    "-.6-.22l-2 .8a7.4 7.4 0 0 0-1.73-1l-.3-2.12a.5.5 0 0 0-.5-.42h-3.2a.5.5 0 0 0-.5.42"
-    "l-.3 2.12a7.4 7.4 0 0 0-1.73 1l-2-.8a.5.5 0 0 0-.6.22l-1.6 2.77a.5.5 0 0 0 .12.64L4.55 11"
-    "a7.6 7.6 0 0 0 0 2l-1.7 1.32a.5.5 0 0 0-.12.64l1.6 2.77a.5.5 0 0 0 .6.22l2-.8a7.4 7.4 0 0 0"
-    " 1.73 1l.3 2.12a.5.5 0 0 0 .5.42h3.2a.5.5 0 0 0 .5-.42l.3-2.12a7.4 7.4 0 0 0 1.73-1l2 .8"
-    'a.5.5 0 0 0 .6-.22l1.6-2.77a.5.5 0 0 0-.12-.64L19.4 13Z" '
-    'stroke="var(--accent)" stroke-width="1.4" stroke-linejoin="round"/>'
-    "</svg></div>"
-)
 
 
 def _go_input() -> None:
@@ -116,6 +173,14 @@ def _go_loading() -> None:
 
 def _load_sample() -> None:
     st.session_state.positions = {t_: dict(p) for t_, p in SAMPLE_PORTFOLIO.items()}
+
+
+def _clear_positions() -> None:
+    st.session_state.positions = {}
+
+
+def _remove_position(ticker: str) -> None:
+    st.session_state.positions.pop(ticker, None)
 
 
 def _gate_add() -> None:
@@ -144,153 +209,359 @@ def render_gate() -> None:
         return
 
     st.markdown(GATE_CSS, unsafe_allow_html=True)
-    if st.session_state.stage != "loading":
-        _spacer, lang_col = st.columns([6, 1])
-        with lang_col:
-            language_selector("lang_gate")
 
     # ---- stage 1: landing ------------------------------------------------
     if st.session_state.stage == "landing":
+        _topbar(step=None)
         render_landing(on_start=_go_input)
 
-    # ---- stage 2: you must enter the tickers -----------------------------
+    # ---- stage 2: portfolio composition ----------------------------------
     elif st.session_state.stage == "input":
+        _topbar(step=1)
+        _render_input()
+
+    # ---- stage 3: real data fetch with progress, then the platform -------
+    elif st.session_state.stage == "loading":
+        _render_loading()
+
+    st.stop()
+
+
+def _topbar(step: int | None) -> None:
+    """Marchio, avanzamento (solo nei passi del flusso) e lingua."""
+    stepper = ""
+    if step is not None:
+        steps = [
+            f'<div class="step{" active" if n == step else ""}">'
+            f'<span class="step-num">{n}</span>{t(f"gate.step{n}")}</div>'
+            for n in (1, 2)
+        ]
+        stepper = f'<div class="stepper">{steps[0]}<div class="step-sep"></div>{steps[1]}</div>'
+    bar, lang_col = st.columns([6, 1], vertical_alignment="center")
+    with bar:
         st.markdown(
-            f"""
-            <div class="gate-head">
-              <div class="gate-step">{t("gate.step")}</div>
-              <div class="gate-title">{t("gate.title")}</div>
-              <div class="gate-sub">{t("gate.sub")}</div>
-            </div>
-            """,
+            f'<div class="gate-bar"><div class="brand">◆ SMARTEE<b>FINANCE</b></div>{stepper}</div>',
             unsafe_allow_html=True,
         )
+    with lang_col:
+        language_selector("lang_gate")
 
-        _l, mid, _r = st.columns([1, 2, 1])
-        with mid:
-            new_ticker = st.selectbox(
-                "Search stock",
-                known_tickers(),
-                index=None,
-                placeholder=t("gate.search_placeholder"),
-                accept_new_options=True,
-                label_visibility="collapsed",
-                key="gate_ticker",
+
+# ----------------------------------------------------------------- stage 2
+
+
+def _render_input() -> None:
+    st.markdown(
+        '<div class="gate-head">'
+        f'<div class="gate-title">{t("gate.title")}</div>'
+        f'<div class="gate-sub">{t("gate.sub")}</div>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    main, side = st.columns([2.4, 1], gap="large")
+    with main:
+        with st.container(border=True):
+            tab_manual, tab_import, tab_sample = st.tabs(
+                [t("gate.tab_manual"), t("gate.tab_import"), t("gate.tab_sample")]
             )
-            if new_ticker:
-                key = str(new_ticker).upper().strip()
-                color = PALETTE[abs(hash(key)) % len(PALETTE)]
-                preview = ticker_preview(key)
+            with tab_manual:
+                _manual_entry()
+            with tab_import:
+                _file_import()
+            with tab_sample:
                 st.markdown(
-                    ticker_preview_html(key, color, preview),
+                    f'<div class="tab-desc">{t("gate.sample_desc")}</div>',
                     unsafe_allow_html=True,
                 )
-                current_price = (
-                    float(preview["price"]) if preview and preview.get("price") else None
-                )
-                col_qty, col_date, col_price = st.columns([2, 2, 2], gap="small")
-                with col_qty:
-                    st.number_input(
-                        t("pos.qty"),
-                        min_value=0.0001,
-                        value=10.0,
-                        step=1.0,
-                        key=f"gate_qty_{key}",
-                    )
-                with col_date:
-                    buy_date = st.date_input(
-                        t("pos.buy_date"),
-                        value=date.today(),
-                        max_value=date.today(),
-                        key=f"gate_date_{key}",
-                    )
-                # il prezzo si ricava dalla data: chiusura storica dal database,
-                # con l'ultimo prezzo come ripiego; resta modificabile a mano
-                iso = buy_date.isoformat() if buy_date else ""
-                looked_up = cached_price_on(key, iso) if iso else None
-                default_price = looked_up or current_price or 100.0
-                with col_price:
-                    st.number_input(
-                        t("pos.buy_price"),
-                        min_value=0.0001,
-                        value=float(default_price),
-                        step=1.0,
-                        key=f"gate_price_{key}_{iso}",
-                        help=t(
-                            "pos.price_auto_help",
-                            current=f"{current_price:,.2f}" if current_price else "—",
-                        ),
-                    )
-                st.button(t("gate.add"), width="stretch", type="primary", on_click=_gate_add)
+                st.button(t("gate.sample"), on_click=_load_sample)
+        _positions_table()
+    with side:
+        _summary_panel()
 
-            gate_positions = st.session_state.positions
-            if gate_positions:
-                sec(t("gate.your_holdings"))
-                aggs = {ticker: aggregate(pos) for ticker, pos in gate_positions.items()}
-                costs = {
-                    ticker: (
-                        agg["qty"] * agg["price"]
-                        if agg is not None
-                        else gate_positions[ticker].get("amount", 0.0)
-                    )
-                    for ticker, agg in aggs.items()
-                }
-                gate_total = sum(costs.values())
-                for ticker in sorted(costs, key=lambda k: costs[k], reverse=True):
-                    agg = aggs[ticker]
-                    color = PALETTE[sorted(costs).index(ticker) % len(PALETTE)]
-                    weight = costs[ticker] / gate_total if gate_total else 0
-                    company = st.session_state.get("names", {}).get(ticker, "")
-                    label = (
-                        f"{agg['qty']:g} × {agg['price']:,.2f}"
-                        if agg is not None
-                        else eur(costs[ticker])
-                    )
-                    col_card, col_del = st.columns([6, 1], gap="small")
-                    with col_card:
-                        st.markdown(
-                            position_card_html(
-                                ticker,
-                                costs[ticker],
-                                weight,
-                                color,
-                                company,
-                                amount_label=label,
-                            ),
-                            unsafe_allow_html=True,
-                        )
-                    with col_del:
-                        if st.button("✕", key=f"gate_del_{ticker}", width="stretch"):
-                            st.session_state.positions.pop(ticker, None)
-                            st.rerun()
-                st.caption(t("pos.total_cost", total=f"{gate_total:,.0f}", n=len(gate_positions)))
-            else:
-                st.caption(t("gate.search_hint"))
-                st.button(t("gate.sample"), on_click=_load_sample, width="stretch")
 
-            st.divider()
-            st.button(
-                t("gate.analyze"),
-                type="primary",
-                width="stretch",
-                on_click=_go_loading,
-                disabled=not st.session_state.positions,
-            )
+def _manual_entry() -> None:
+    c_sym, c_qty, c_date, c_price, c_add = st.columns(
+        [2.1, 1.0, 1.3, 1.5, 1.2], gap="small", vertical_alignment="bottom"
+    )
+    with c_sym:
+        chosen = st.selectbox(
+            t("gate.instrument"),
+            known_tickers(),
+            index=None,
+            placeholder=t("gate.search_placeholder"),
+            accept_new_options=True,
+            key="gate_ticker",
+        )
+    key = str(chosen).upper().strip() if chosen else ""
+    preview = ticker_preview(key) if key else None
+    current_price = float(preview["price"]) if preview and preview.get("price") else None
+    with c_qty:
+        st.number_input(
+            t("pos.qty"),
+            min_value=0.0001,
+            value=10.0,
+            step=1.0,
+            key=f"gate_qty_{key}",
+            disabled=not key,
+        )
+    with c_date:
+        buy_date = st.date_input(
+            t("pos.buy_date"),
+            value=date.today(),
+            max_value=date.today(),
+            key=f"gate_date_{key}",
+            disabled=not key,
+        )
+    # il prezzo si ricava dalla data: chiusura storica dal database,
+    # con l'ultimo prezzo come ripiego; resta modificabile a mano
+    iso = buy_date.isoformat() if buy_date else ""
+    looked_up = cached_price_on(key, iso) if key and iso else None
+    default_price = looked_up or current_price or (100.0 if key else 0.0)
+    with c_price:
+        st.number_input(
+            t("pos.buy_price"),
+            min_value=0.0,
+            value=float(default_price),
+            step=1.0,
+            format="%.2f",
+            key=f"gate_price_{key}_{iso}",
+            disabled=not key,
+            help=t(
+                "pos.price_auto_help",
+                current=f"{current_price:,.2f}" if current_price else "—",
+            ),
+        )
+    with c_add:
+        st.button(
+            t("gate.add_position"),
+            type="primary",
+            width="stretch",
+            on_click=_gate_add,
+            disabled=not key,
+        )
 
-    # ---- stage 3: gear + investing quote, then the platform opens --------
-    elif st.session_state.stage == "loading":
-        quote, author = random.choice(QUOTES)
+    if not key:
+        return
+    if preview:
+        st.session_state.setdefault("names", {})[key] = preview["name"]
+        parts = [f"<b>{preview['name']}</b>"]
+        if preview.get("sector"):
+            parts.append(preview["sector"])
+        if current_price is not None:
+            sym = "$" if preview.get("currency") == "USD" else preview.get("currency", "")
+            price = f"{sym}{current_price:,.2f}"
+            chg = preview.get("change")
+            if chg is not None:
+                css = "up" if chg >= 0 else "down"
+                price += f' <span class="{css}">{chg:+.2f}%</span>'
+            parts.append(price)
+        meta = " · ".join(parts)
+    else:
+        meta = f"<b>{key}</b>"
+    st.markdown(f'<div class="instr-meta">{meta}</div>', unsafe_allow_html=True)
+
+
+def _file_import() -> None:
+    st.markdown(f'<div class="tab-desc">{t("gate.import_desc")}</div>', unsafe_allow_html=True)
+    uploaded = st.file_uploader(
+        t("side.upload_label"),
+        type=["csv", "xlsx", "xls"],
+        help=t("side.upload_help"),
+        label_visibility="collapsed",
+        key="gate_upload",
+    )
+    if uploaded is None:
+        return
+    file_id = f"{uploaded.name}-{uploaded.size}"
+    if st.session_state.get("last_upload") == file_id:
+        return
+    try:
+        st.session_state.positions = normalize_portfolio(
+            parse_positions(uploaded.getvalue(), uploaded.name)
+        )
+    except ValueError as exc:
+        st.error(t("side.import_failed", err=exc))
+        return
+    st.session_state.last_upload = file_id
+    st.toast(t("side.imported", n=len(st.session_state.positions)))
+    st.rerun()
+
+
+def _cost_basis(positions: dict) -> dict[str, tuple[float | None, float | None, float]]:
+    """Per ticker: (quantità, prezzo medio di carico, controvalore di carico)."""
+    rows: dict[str, tuple[float | None, float | None, float]] = {}
+    for ticker, pos in positions.items():
+        agg = aggregate(pos)
+        if agg is not None:
+            rows[ticker] = (agg["qty"], agg["price"], agg["qty"] * agg["price"])
+        else:
+            rows[ticker] = (None, None, float(pos.get("amount", 0.0)))
+    return rows
+
+
+def _company_name(ticker: str) -> str:
+    names = st.session_state.setdefault("names", {})
+    if ticker not in names:
+        preview = ticker_preview(ticker)
+        names[ticker] = preview["name"] if preview else ""
+    return names[ticker]
+
+
+def _positions_table() -> None:
+    positions = st.session_state.positions
+    st.markdown(
+        '<div class="tbl-title">'
+        f'<span class="h">{t("gate.your_holdings")}</span>'
+        f'<span class="n">{len(positions)}</span></div>',
+        unsafe_allow_html=True,
+    )
+    if not positions:
         st.markdown(
-            '<div class="loading-wrap">'
-            + GEAR_SVG
-            + f'<div class="loading-quote">“{quote}”</div>'
-            + f'<div class="loading-author">— {author}</div>'
-            + f'<div class="loading-hint">{t("gate.loading_hint")}</div>'
+            '<div class="empty-tbl">'
+            f'<div class="t">{t("gate.empty_title")}</div>'
+            f'<div class="h">{t("gate.empty_hint")}</div></div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    headers = [
+        ("", t("gate.col_instrument")),
+        ("", ""),
+        ("r", t("pos.qty")),
+        ("r", t("gate.col_avg_price")),
+        ("r", t("gate.col_cost")),
+        ("r", t("gate.col_weight")),
+    ]
+    widths = [14, 1]  # griglia dati | azione di rimozione
+    with st.container(key="gate_thead"):
+        st.columns(widths, gap="small")[0].markdown(
+            '<div class="tbl-grid head">'
+            + "".join(f'<div class="th {css}">{label}</div>' for css, label in headers)
             + "</div>",
             unsafe_allow_html=True,
         )
-        time.sleep(2.8)
-        st.session_state.stage = "app"
-        st.rerun()
 
-    st.stop()
+    rows = _cost_basis(positions)
+    total = sum(cost for _, _, cost in rows.values())
+    for ticker in sorted(rows, key=lambda k: rows[k][2], reverse=True):
+        qty, avg, cost = rows[ticker]
+        cells = [
+            ("sym", ticker),
+            ("name", _company_name(ticker) or "—"),
+            ("r", f"{qty:,.4g}" if qty is not None else "—"),
+            ("r", f"{avg:,.2f}" if avg is not None else "—"),
+            ("r", f"{cost:,.2f}"),
+            ("r", f"{cost / total:.1%}" if total else "—"),
+        ]
+        with st.container(key=f"gate_row_{ticker}"):
+            data_col, action_col = st.columns(widths, gap="small", vertical_alignment="center")
+            data_col.markdown(
+                '<div class="tbl-grid">'
+                + "".join(f'<div class="td {css}">{text}</div>' for css, text in cells)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+            action_col.button(
+                "✕",
+                key=f"gate_del_{ticker}",
+                type="tertiary",
+                help=t("side.remove"),
+                on_click=_remove_position,
+                args=(ticker,),
+            )
+    st.button(t("gate.clear"), type="tertiary", on_click=_clear_positions)
+
+
+def _summary_panel() -> None:
+    positions = st.session_state.positions
+    rows = _cost_basis(positions)
+    costs = sorted((cost for _, _, cost in rows.values()), reverse=True)
+    total = sum(costs)
+    if total:
+        largest = max(rows, key=lambda k: rows[k][2])
+        largest_txt = f"{largest} · {rows[largest][2] / total:.1%}"
+        top3_txt = f"{sum(costs[:3]) / total:.1%}"
+        total_txt = f"{total:,.2f}"
+    else:
+        largest_txt = top3_txt = total_txt = "—"
+
+    summary = [
+        (t("gate.sum_positions"), str(len(positions))),
+        (t("gate.sum_invested"), total_txt),
+        (t("gate.sum_largest"), largest_txt),
+        (t("gate.sum_top3"), top3_txt),
+    ]
+    with st.container(border=True):
+        st.markdown(
+            f'<div class="sum-h">{t("gate.summary")}</div>'
+            + "".join(
+                f'<div class="sum-row"><span class="k">{k}</span><span class="v">{v}</span></div>'
+                for k, v in summary
+            ),
+            unsafe_allow_html=True,
+        )
+        st.button(
+            t("gate.analyze"),
+            type="primary",
+            width="stretch",
+            on_click=_go_loading,
+            disabled=not positions,
+            help=None if positions else t("gate.analyze_disabled"),
+        )
+        st.markdown(
+            f'<div class="sum-note">{t("gate.analyze_note")}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+# ----------------------------------------------------------------- stage 3
+
+
+def _loading_html(labels: list[str], done: int, n_positions: int) -> str:
+    rows = ""
+    for i, label in enumerate(labels):
+        state = "done" if i < done else "active" if i == done else ""
+        icon = "✓" if i < done else ""
+        rows += f'<div class="lstep {state}"><span class="lstep-ic">{icon}</span>{label}</div>'
+    pct = done / len(labels) * 100
+    return (
+        '<div class="loading-wrap"><div class="loading-card">'
+        '<div class="brand">◆ SMARTEE<b>FINANCE</b></div>'
+        f'<div class="loading-title">{t("gate.loading_title")}</div>'
+        f'<div class="loading-sub">{t("gate.loading_sub", n=n_positions)}</div>'
+        f'<div class="loading-bar"><div style="width:{pct:.0f}%"></div></div>'
+        f"{rows}</div></div>"
+    )
+
+
+def _render_loading() -> None:
+    """Scarica davvero i dati dell'analisi, mostrando l'avanzamento passo per passo.
+
+    Scalda le cache che la piattaforma interroga alla prima apertura, così la
+    vista si apre già pronta invece di mostrare spinner in sequenza.
+    """
+    tickers = tuple(sorted(st.session_state.positions))
+    tasks = [
+        (
+            t("gate.load_prices"),
+            lambda: (
+                cached_prices(tickers, _DEFAULT_PERIOD),
+                cached_prices((BENCHMARK,), _DEFAULT_PERIOD),
+            ),
+        ),
+        (t("gate.load_fx"), lambda: cached_eurusd(_DEFAULT_PERIOD)),
+        (t("gate.load_fundamentals"), lambda: analysis_fundamentals(tickers)),
+        (t("gate.load_rates"), cached_risk_free),
+    ]
+    labels = [label for label, _ in tasks]
+    placeholder = st.empty()
+    for i, (_label, task) in enumerate(tasks):
+        placeholder.markdown(_loading_html(labels, i, len(tickers)), unsafe_allow_html=True)
+        # nessun blocco qui: la piattaforma rifà la chiamata e mostra
+        # l'errore nel suo contesto, con il messaggio giusto
+        with suppress(Exception):
+            task()
+    placeholder.markdown(_loading_html(labels, len(tasks), len(tickers)), unsafe_allow_html=True)
+    st.session_state.stage = "app"
+    st.rerun()

@@ -1,12 +1,21 @@
 """Aggiorna il database locale (data/market.db) con i prezzi dei componenti
-del Nasdaq-100: scarica tutto al primo avvio, poi solo i giorni mancanti."""
+del Nasdaq-100: scarica tutto al primo avvio, poi solo i giorni mancanti.
+
+Rigenera anche lo snapshot dei fondamentali (data/nasdaq100_fundamentals.csv),
+spedito nel deploy come riserva quando Yahoo non risponde (IP cloud bloccati).
+"""
 
 import pandas as pd
 import yfinance as yf
 
-from portfolio_intelligence.data.cache import load_nasdaq100_prices
+from portfolio_intelligence.data.cache import (
+    NASDAQ100_FUNDAMENTALS,
+    load_nasdaq100_prices,
+    save_nasdaq100_fundamentals,
+)
 from portfolio_intelligence.data.store import DB_PATH, known_tickers, last_date, save_prices
 from portfolio_intelligence.data.yahoo_client import get_nasdaq100_tickers
+from portfolio_intelligence.fundamentals.valuation import fetch_fundamentals
 
 FULL_PERIOD = "5y"
 
@@ -51,5 +60,15 @@ def update_nasdaq100() -> None:
     print(f"Database aggiornato al {final_label} ({len(known_tickers())} ticker) in {DB_PATH}")
 
 
+def update_fundamentals_snapshot(tickers: list[str]) -> None:
+    fundamentals = fetch_fundamentals(tickers)
+    save_nasdaq100_fundamentals(fundamentals.sort_index())
+    missing = sorted(set(tickers) - set(fundamentals.index))
+    if missing:
+        print(f"Fondamentali non disponibili per {len(missing)} ticker: {', '.join(missing)}")
+    print(f"Snapshot fondamentali: {len(fundamentals)} ticker in {NASDAQ100_FUNDAMENTALS}")
+
+
 if __name__ == "__main__":
     update_nasdaq100()
+    update_fundamentals_snapshot(known_tickers())

@@ -96,6 +96,12 @@ def portfolio_risk_score(scores: dict[str, float]) -> int:
     return round(sum(valid) / len(valid)) if valid else 0
 
 
+def _mean_valid(parts: list[float]) -> float:
+    """Media delle parti disponibili; NaN se nessuna lo è (dato assente ≠ zero)."""
+    valid = [p for p in parts if p == p]
+    return sum(valid) / len(valid) if valid else float("nan")
+
+
 def dna_scores(
     fundamentals: pd.DataFrame,
     portfolio: Portfolio,
@@ -124,14 +130,12 @@ def dna_scores(
         _scale(weighted("net_margin"), *NET_MARGIN_SCALE),
         100 - _scale(weighted("debt_to_equity"), *DEBT_TO_EQUITY_SCALE),
     ]
-    quality = sum(p for p in quality_parts if p == p) / max(
-        1, sum(1 for p in quality_parts if p == p)
-    )
+    quality = _mean_valid(quality_parts)
     value_parts = [
         100 - _scale(weighted("pe"), *PE_SCALE),
         100 - _scale(weighted("ps"), *PS_SCALE),
     ]
-    value = sum(p for p in value_parts if p == p) / max(1, sum(1 for p in value_parts if p == p))
+    value = _mean_valid(value_parts)
     risk_parts = [
         _scale(annual_volatility, *VOLATILITY_SCALE),
         concentration_score(portfolio),
@@ -366,7 +370,8 @@ def find_opportunities(
     if "sector" in fundamentals.columns:
         held_sectors = set(fundamentals["sector"].dropna())
         missing = [s for s in DEFENSIVE_SECTORS if s not in held_sectors]
-        if missing:
+        # senza alcun settore noto non si può dire cosa manca
+        if held_sectors and missing:
             opportunities.append(t("opp.defensive_sectors", sectors=", ".join(missing)))
 
     if {"pe", "ps"}.issubset(fundamentals.columns):

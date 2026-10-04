@@ -6,11 +6,12 @@ __pycache__/
 .coverage
 .mypy_cache/
 *.egg-info/
-# dati locali ignorati, tranne lo snapshot prezzi Nasdaq-100 che va spedito
+# dati locali ignorati, tranne gli snapshot Nasdaq-100 (prezzi, fondamentali) da spedire
 # nel deploy (il cloud non può scaricarlo: yfinance è bloccato sugli IP cloud).
 # market.db resta ignorato: può contenere portafogli/analisi personali.
 /data/*
 !/data/nasdaq100_prices.csv
+!/data/nasdaq100_fundamentals.csv
 
 # secrets locali (OIDC, DATABASE_URL, admin_emails): mai nel repo
 .streamlit/secrets.toml

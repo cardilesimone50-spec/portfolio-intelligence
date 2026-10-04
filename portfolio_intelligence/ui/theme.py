@@ -196,9 +196,6 @@ def inject_theme() -> None:
         @media (max-width: 920px) {{
             .hero-panel {{ flex-direction: column; text-align: center; gap: 16px; }}
             .kpi {{ min-width: 100%; }}
-            .landing-hero {{ padding: 44px 26px 40px !important; }}
-            .landing-title {{ font-size: 2.1rem !important; }}
-            .glass-row {{ flex-direction: column; }}
         }}
         @media (max-width: 640px) {{
             .block-container {{ padding-left: 0.6rem; padding-right: 0.6rem; }}

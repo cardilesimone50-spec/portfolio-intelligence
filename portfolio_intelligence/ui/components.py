@@ -136,11 +136,12 @@ def dna_card_html(dna: dict[str, float], label: str, title: str | None = None) -
     rows = ""
     for name, score in dna.items():
         css = "risk" if name == "Risk" else ""
+        known = score == score  # NaN: dato non disponibile, non zero
         rows += (
             f'<div class="dna-row"><div class="dna-name">{_comp_name(name)}</div>'
             f'<div class="dna-track"><div class="dna-fill {css}" '
-            f'style="width:{score:.0f}%"></div></div>'
-            f'<div class="dna-value">{score:.0f}</div></div>'
+            f'style="width:{score if known else 0:.0f}%"></div></div>'
+            f'<div class="dna-value">{f"{score:.0f}" if known else "—"}</div></div>'
         )
     return (
         f'<div class="panel"><div class="dna-title">{title}</div>{rows}'
@@ -228,48 +229,56 @@ def empty_state(title: str, hint: str, icon: str = "search") -> None:
 
 LANDING_CSS = """
 <style>
-.landing-hero {
-    position: relative; overflow: hidden;
-    background:
-        radial-gradient(900px 380px at 82% -10%, rgba(30,64,175,0.08), transparent 60%),
-        radial-gradient(700px 300px at 8% 110%, rgba(57,135,229,0.08), transparent 60%),
-        linear-gradient(165deg, #ffffff 0%, #f1f5f9 70%);
-    border: 1px solid #E2E8F0;
-    border-radius: 18px;
-    padding: 74px 60px 66px;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.05);
-    animation: fadeUp .5s ease-out both;
+.landing-hero { padding: 44px 0 22px; animation: fadeUp .4s ease-out both; }
+.landing-side { padding-top: 44px; animation: fadeUp .5s ease-out both; }
+.landing-eyebrow {
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
 }
 .landing-title {
-    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
-    font-size: 3rem; font-weight: 700; letter-spacing: -0.02em;
-    line-height: 1.12; margin: 0 auto 16px; max-width: 720px; color: #14171e;
+    font-family: var(--font-display) !important;
+    font-size: 2.6rem; font-weight: 600; letter-spacing: -0.02em;
+    line-height: 1.12; margin: 0 0 18px; color: var(--ink);
 }
-.landing-title em { font-style: normal; color: #1E40AF; }
-.landing-sub {
-    font-size: 1.08rem; color: #5a6270; max-width: 560px;
-    margin: 0 auto 8px; line-height: 1.6;
+.landing-sub { font-size: 1.02rem; color: var(--muted); line-height: 1.65; max-width: 560px; }
+.landing-panel {
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px 24px 8px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.04);
 }
-.glass-row { display: flex; gap: 18px; margin-top: 22px; }
-.glass {
-    flex: 1; text-align: center;
-    background: #ffffff;
-    border: 1px solid #E2E8F0;
-    border-radius: 18px; padding: 26px 18px;
-    box-shadow: 0 1px 3px rgba(15,23,42,0.04);
-    animation: fadeUp .6s ease-out both;
+.landing-panel-h {
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
 }
-.glass:nth-child(2) { animation-delay: .12s; }
-.glass:nth-child(3) { animation-delay: .24s; }
-.glass-num {
-    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
-    font-size: 2rem; font-weight: 700; color: #1E40AF;
-    font-variant-numeric: tabular-nums;
+.feat { display: flex; gap: 14px; padding: 13px 0; border-top: 1px solid var(--line); }
+.landing-panel-h + .feat { border-top: none; }
+.feat-ix {
+    flex: none; width: 24px; font-size: 0.75rem; font-weight: 700;
+    color: var(--accent); font-variant-numeric: tabular-nums; padding-top: 1px;
 }
-.glass-label {
-    font-size: 0.78rem; color: #6b7280; text-transform: uppercase;
-    letter-spacing: 0.09em; font-weight: 600; margin-top: 4px;
+.feat-t { font-weight: 600; font-size: 0.92rem; color: var(--ink); }
+.feat-d { font-size: 0.84rem; color: var(--muted); line-height: 1.5; margin-top: 2px; }
+.landing-cta-note { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.facts {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    margin: 40px 0 14px;
+}
+.fact { padding: 20px 24px; border-left: 1px solid var(--line); }
+.fact:first-child { border-left: none; padding-left: 0; }
+.fact-n {
+    font-family: var(--font-display) !important; font-size: 1.5rem; font-weight: 600;
+    color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.fact-l { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+.landing-legal { font-size: 0.76rem; color: var(--muted); }
+@media (max-width: 900px) {
+    .landing-hero { padding-top: 20px; }
+    .landing-side { padding-top: 12px; }
+    .landing-title { font-size: 2rem; }
+    .facts { grid-template-columns: 1fr; }
+    .fact { border-left: none; border-top: 1px solid var(--line); padding-left: 0; }
+    .fact:first-child { border-top: none; }
 }
 @keyframes fadeUp {
     from { opacity: 0; transform: translateY(14px); }
@@ -280,44 +289,45 @@ LANDING_CSS = """
 
 
 def render_landing(on_start) -> None:
-    """Landing page: hero, CTA, statistiche in glass card."""
+    """Landing: proposta, contenuto del report, CTA e dati di copertura."""
     st.markdown(LANDING_CSS, unsafe_allow_html=True)
-    st.markdown(
-        """
-        <div class="landing-hero">
-          <div class="landing-title">Understand your portfolio
-          in <em>60 seconds</em>.</div>
-          <div class="landing-sub">Health score, concrete problems and risk
-          measured in euros, currency included. Honest by construction:
-          no promise of returns, only your data.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    features = "".join(
+        f'<div class="feat"><div class="feat-ix">{i:02d}</div><div>'
+        f'<div class="feat-t">{t(f"landing.f{i}_t")}</div>'
+        f'<div class="feat-d">{t(f"landing.f{i}_d")}</div></div></div>'
+        for i in range(1, 5)
     )
-    col_left, col_cta, col_right = st.columns([1, 1.2, 1])
-    with col_cta:
-        st.button(
-            "Analyze my portfolio",
-            type="primary",
-            width="stretch",
-            on_click=on_start,
+    left, right = st.columns([1.25, 1], gap="large")
+    with left:
+        st.markdown(
+            '<div class="landing-hero">'
+            f'<div class="landing-eyebrow">{t("landing.eyebrow")}</div>'
+            f'<div class="landing-title">{t("landing.title")}</div>'
+            f'<div class="landing-sub">{t("landing.sub")}</div></div>',
+            unsafe_allow_html=True,
         )
-    st.markdown(
-        """
-        <div class="glass-row">
-          <div class="glass"><div class="glass-num">60s</div>
-            <div class="glass-label">to first report</div></div>
-          <div class="glass"><div class="glass-num">6</div>
-            <div class="glass-label">health-score components</div></div>
-          <div class="glass"><div class="glass-num">103</div>
-            <div class="glass-label">Nasdaq-100 stocks covered</div></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+        cta, _rest = st.columns([1, 1.4])
+        with cta:
+            st.button(t("landing.cta"), type="primary", width="stretch", on_click=on_start)
+        st.markdown(
+            f'<div class="landing-cta-note">{t("landing.cta_note")}</div>',
+            unsafe_allow_html=True,
+        )
+    with right:
+        st.markdown(
+            '<div class="landing-side">'
+            f'<div class="landing-panel"><div class="landing-panel-h">{t("landing.panel")}</div>'
+            f"{features}</div></div>",
+            unsafe_allow_html=True,
+        )
+    facts = "".join(
+        f'<div class="fact"><div class="fact-n">{num}</div>'
+        f'<div class="fact-l">{t(f"landing.fact{i}")}</div></div>'
+        for i, num in enumerate(["103", "6", "EUR"], start=1)
     )
-    st.caption(
-        "Analysis in euros with EUR/USD currency risk included · shareable "
-        "PDF report · no sign-up required. Not financial advice."
+    st.markdown(
+        f'<div class="facts">{facts}</div><div class="landing-legal">{t("landing.legal")}</div>',
+        unsafe_allow_html=True,
     )
 
 

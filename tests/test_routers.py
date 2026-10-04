@@ -110,7 +110,9 @@ def test_compute_portfolio_builds_the_same_shape_as_the_old_app_py(monkeypatch):
 
     monkeypatch.setattr(router_mod, "cached_prices", lambda tickers, period: _prices_for(tickers))
     monkeypatch.setattr(router_mod, "cached_eurusd", lambda period: eurusd)
-    monkeypatch.setattr(router_mod, "cached_fundamentals", lambda tickers: fund.loc[list(tickers)])
+    monkeypatch.setattr(
+        router_mod, "analysis_fundamentals", lambda tickers: fund.loc[list(tickers)]
+    )
 
     import streamlit as st
 

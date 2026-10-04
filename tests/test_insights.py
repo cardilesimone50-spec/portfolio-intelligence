@@ -239,3 +239,21 @@ def test_generate_insights_mentions_top_risk_contributors():
     assert "WILD" in text
     assert "+12.0%" in text
     assert "0.70" in text  # correlazione alta segnalata
+
+
+def test_dna_and_opportunities_treat_missing_financials_as_unknown_not_zero():
+    """Senza bilanci (Yahoo giù, ticker fuori snapshot) Quality/Value sono NaN,
+    non 0: altrimenti l'Health Score verrebbe penalizzato per un dato assente.
+    Né si segnalano "settori difensivi scoperti" se nessun settore è noto."""
+    from portfolio_intelligence.analytics.insights import find_opportunities
+    from portfolio_intelligence.fundamentals.valuation import empty_fundamentals
+
+    pf = [{"ticker": "AAPL", "weight": 0.5}, {"ticker": "MSFT", "weight": 0.5}]
+    fund = empty_fundamentals(["AAPL", "MSFT"])
+
+    dna = dna_scores(fund, pf, 0.2, 0.5)
+    assert np.isnan(dna["Quality"]) and np.isnan(dna["Value"]) and np.isnan(dna["Growth"])
+    assert not np.isnan(dna["Risk"])
+
+    text = " ".join(find_opportunities(pf, fund))
+    assert "Healthcare" not in text
