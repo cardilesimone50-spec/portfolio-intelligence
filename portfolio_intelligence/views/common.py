@@ -13,7 +13,7 @@ from portfolio_intelligence.data.rates import fetch_risk_free_rate
 from portfolio_intelligence.data.store import load_prices as load_stored_prices
 from portfolio_intelligence.data.yahoo_client import fetch_price_history
 from portfolio_intelligence.fundamentals.valuation import empty_fundamentals, fetch_fundamentals
-from portfolio_intelligence.i18n import LANGUAGES, set_language
+from portfolio_intelligence.i18n import LANGUAGES, set_language, t
 from portfolio_intelligence.ui.components import empty_state
 
 __all__ = ["TRADING_DAYS"]  # ruff F401: re-esportata per le viste che la importano da qui
@@ -48,7 +48,7 @@ _FALLBACK_TICKERS = [
 ]
 
 
-@st.cache_data(ttl=3600, show_spinner="Scarico i prezzi da Yahoo Finance...")
+@st.cache_data(ttl=3600, show_spinner=False)
 def cached_prices(tickers: tuple[str, ...], period: str) -> pd.DataFrame:
     return fetch_price_history(list(tickers), period=period)
 
@@ -76,7 +76,7 @@ def analysis_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
         return empty_fundamentals(list(tickers))
 
 
-@st.cache_data(ttl=3600, show_spinner="Scarico il cambio EUR/USD...")
+@st.cache_data(ttl=3600, show_spinner=False)
 def cached_eurusd(period: str) -> pd.Series:
     return fetch_eurusd(period)
 
@@ -130,15 +130,11 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
     """Il database prezzi, con download integrato se assente (per il cloud)."""
     prices = load_market_db()
     if prices is None:
-        empty_state(
-            "Database prezzi non ancora presente",
-            "5 years of daily prices for the 103 Nasdaq-100 stocks are "
-            "needed: downloaded once, then refreshed incrementally.",
-        )
-        if st.button("Download data (~1 minute)", key=f"dl_{view_key}", type="primary"):
+        empty_state(t("db.missing_title"), t("db.missing_hint"))
+        if st.button(t("db.download_btn"), key=f"dl_{view_key}", type="primary"):
             from download_nasdaq100 import update_nasdaq100
 
-            with st.spinner("Downloading 5 years of prices from Yahoo Finance..."):
+            with st.spinner(t("db.downloading")):
                 update_nasdaq100()
             st.rerun()
     return prices

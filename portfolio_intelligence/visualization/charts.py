@@ -4,6 +4,8 @@ import altair as alt
 import numpy as np
 import pandas as pd
 
+from portfolio_intelligence.i18n import t
+
 # Palette categorica validata per superficie chiara (dataviz skill, light mode)
 PALETTE = ["#2470d0", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"]
 # Correlazione: blu = opposti, neutro chiaro = zero, rosso = si muovono insieme
@@ -236,10 +238,11 @@ def benchmark_overlay(
     pf_value: pd.Series, bench_value: pd.Series, bench_name: str = "QQQ"
 ) -> alt.Chart:
     """Portafoglio vs benchmark, entrambi a base 100."""
+    pf_label = t("chk.hist_portfolio")
     df = (
         pd.DataFrame(
             {
-                "Portafoglio": pf_value / pf_value.iloc[0] * 100,
+                pf_label: pf_value / pf_value.iloc[0] * 100,
                 bench_name: bench_value / bench_value.iloc[0] * 100,
             }
         )
@@ -255,7 +258,7 @@ def benchmark_overlay(
             y=alt.Y("valore:Q", title=None, scale=alt.Scale(zero=False)),
             color=alt.Color(
                 "serie:N",
-                scale=alt.Scale(domain=["Portafoglio", bench_name], range=[ACCENT, MUTED]),
+                scale=alt.Scale(domain=[pf_label, bench_name], range=[ACCENT, MUTED]),
                 legend=alt.Legend(title=None, orient="top-left"),
             ),
             tooltip=[
@@ -335,6 +338,7 @@ def returns_histogram(daily_returns: pd.Series, var_95: float) -> alt.Chart:
 
 def weight_vs_risk_bars(weights: pd.Series, contributions: pd.Series) -> alt.Chart:
     """Peso investito vs contributo al rischio, per titolo (barre appaiate)."""
+    weight_label, risk_label = t("chart.weight"), t("chart.risk_contribution")
     order = contributions.sort_values(ascending=False).index
     df = pd.concat(
         [
@@ -342,25 +346,23 @@ def weight_vs_risk_bars(weights: pd.Series, contributions: pd.Series) -> alt.Cha
             .rename("valore")
             .rename_axis("ticker")
             .reset_index()
-            .assign(tipo="Peso investito"),
+            .assign(tipo=weight_label),
             contributions.reindex(order)
             .rename("valore")
             .rename_axis("ticker")
             .reset_index()
-            .assign(tipo="Contributo al rischio"),
+            .assign(tipo=risk_label),
         ]
     )
     base = alt.Chart(df).encode(
         y=alt.Y("ticker:N", sort=list(order), title=None),
-        yOffset=alt.YOffset("tipo:N", sort=["Peso investito", "Contributo al rischio"]),
+        yOffset=alt.YOffset("tipo:N", sort=[weight_label, risk_label]),
         x=alt.X("valore:Q", title=None, axis=alt.Axis(format="%")),
     )
     bars = base.mark_bar(height=10, cornerRadiusEnd=3).encode(
         color=alt.Color(
             "tipo:N",
-            scale=alt.Scale(
-                domain=["Peso investito", "Contributo al rischio"], range=[PALETTE[0], ACCENT]
-            ),
+            scale=alt.Scale(domain=[weight_label, risk_label], range=[PALETTE[0], ACCENT]),
             legend=alt.Legend(title=None, orient="top"),
         )
     )

@@ -7,7 +7,7 @@ name = "portfolio-intelligence"
 version = "0.4.1"
 description = "Il check-up onesto del portafoglio in 60 secondi, in euro con rischio cambio incluso."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "Elastic-2.0" }
 authors = [{ name = "Simone Cardile" }]
 dependencies = [
@@ -38,7 +38,7 @@ include = ["portfolio_intelligence*"]
 
 [tool.ruff]
 line-length = 99
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 # E/W pycodestyle, F pyflakes, I import-sort, UP pyupgrade, B bugbear, SIM simplify

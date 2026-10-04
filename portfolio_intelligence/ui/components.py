@@ -363,9 +363,9 @@ def render_profile_chooser(on_investor, on_advisor) -> None:
     )
 
     col_investor, col_advisor = st.columns(2, gap="large")
-    for col, profile, cta_type, on_click in (
-        (col_investor, "investor", "primary", on_investor),
-        (col_advisor, "advisor", "secondary", on_advisor),
+    for col, profile, on_click in (
+        (col_investor, "investor", on_investor),
+        (col_advisor, "advisor", on_advisor),
     ):
         with col:
             st.markdown(
@@ -377,7 +377,7 @@ def render_profile_chooser(on_investor, on_advisor) -> None:
             st.button(
                 t(f"chooser.{profile}_cta"),
                 key=f"chooser_{profile}",
-                type=cta_type,
+                type="primary" if profile == "investor" else "secondary",
                 width="stretch",
                 on_click=on_click,
             )

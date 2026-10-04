@@ -3,6 +3,7 @@
 Finché lo stage non è "app", la piattaforma è bloccata (sidebar nascosta).
 """
 
+from collections.abc import Callable
 from contextlib import suppress
 from datetime import date
 
@@ -552,7 +553,7 @@ def _render_loading() -> None:
     vista si apre già pronta invece di mostrare spinner in sequenza.
     """
     tickers = tuple(sorted(st.session_state.positions))
-    tasks = [
+    tasks: list[tuple[str, Callable[[], object]]] = [
         (
             t("gate.load_prices"),
             lambda: (

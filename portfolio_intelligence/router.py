@@ -124,10 +124,11 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
 
     try:
         tickers = tuple(sorted(positions))
-        prices_native = cached_prices(tickers, settings.period)
-        bench_prices = cached_prices((BENCHMARK,), settings.period)
+        with st.spinner(t("app.loading_data")):
+            prices_native = cached_prices(tickers, settings.period)
+            bench_prices = cached_prices((BENCHMARK,), settings.period)
+            eurusd = cached_eurusd(settings.period) if settings.in_eur else None
         if settings.in_eur:
-            eurusd = cached_eurusd(settings.period)
             prices = convert_to_eur(prices_native, eurusd)
             bench_prices = convert_to_eur(bench_prices, eurusd)
         else:

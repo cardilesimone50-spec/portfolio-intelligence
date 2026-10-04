@@ -416,8 +416,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Non sai quale scegliere? Investor non costa nulla da provare: puoi cambiare in qualsiasi momento tornando su questa pagina.",
     ),
     # ------------------------------------------------------- advisor welcome
-    "advisorw.eyebrow": ("PORTFOLIO INTELLIGENCE PRO", "PORTFOLIO INTELLIGENCE PRO"),
-    "advisorw.title": ("Console Consulenti", "Console Consulenti"),
+    "advisorw.title": ("Advisor console", "Console Consulenti"),
     "advisorw.sub": (
         "Reserved platform for client portfolio analysis, robustness checks and client reporting.",
         "Piattaforma riservata per l'analisi dei portafogli dei clienti, "
@@ -478,6 +477,25 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "diversification are complete, valuation and quality indicators are not.",
         "I dati di bilancio delle società non sono al momento disponibili: rischio, "
         "rendimento e diversificazione sono completi, valutazione e qualità no.",
+    ),
+    # ---------------------------------------------------------------- data/charts
+    "chart.weight": ("Invested weight", "Peso investito"),
+    "chart.risk_contribution": ("Risk contribution", "Contributo al rischio"),
+    "app.loading_data": ("Loading market data…", "Caricamento dei dati di mercato…"),
+    "db.missing_title": (
+        "Price database not available yet",
+        "Database prezzi non ancora presente",
+    ),
+    "db.missing_hint": (
+        "Five years of daily prices for the 103 Nasdaq-100 stocks are needed: "
+        "downloaded once, then refreshed incrementally.",
+        "Servono cinque anni di prezzi giornalieri dei 103 titoli del Nasdaq-100: "
+        "si scaricano una volta, poi si aggiornano solo i giorni mancanti.",
+    ),
+    "db.download_btn": ("Download data (about one minute)", "Scarica i dati (circa un minuto)"),
+    "db.downloading": (
+        "Downloading five years of prices…",
+        "Download di cinque anni di prezzi in corso…",
     ),
     # ---------------------------------------------------------------- legal
     "legal.privacy": ("Privacy policy", "Informativa privacy"),
