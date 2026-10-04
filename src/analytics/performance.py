@@ -2,11 +2,10 @@
 
 import pandas as pd
 
+from src.config import TRADING_DAYS
 from src.portfolio import Portfolio
 from src.portfolio.returns import portfolio_daily_returns
 from src.portfolio.risk import portfolio_volatility
-
-TRADING_DAYS = 252
 
 
 def per_ticker_annualized_stats(

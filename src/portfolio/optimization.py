@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
-TRADING_DAYS = 252
+from src.config import TRADING_DAYS
 
 
 def _optimize(returns: pd.DataFrame, objective) -> pd.Series:

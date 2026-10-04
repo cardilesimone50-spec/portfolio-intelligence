@@ -36,6 +36,8 @@ from sqlalchemy.dialects.postgresql import insert as _pg_insert
 from sqlalchemy.dialects.sqlite import insert as _sqlite_insert
 from sqlalchemy.engine import Engine
 
+from src.data.validators import safe_load_positions, validate_price_rows
+
 DB_PATH = Path("data/market.db")
 
 _metadata = MetaData()
@@ -169,10 +171,15 @@ def save_prices(prices: pd.DataFrame, engine: Engine | None = None) -> int:
 
 
 def load_prices(engine: Engine | None = None) -> pd.DataFrame | None:
-    """DataFrame wide (index date, colonne ticker), o None se vuoto."""
+    """DataFrame wide (index date, colonne ticker), o None se vuoto.
+
+    Le righe non valide (data/prezzo corrotti) vengono scartate con un
+    warning in log invece di far crashare il pivot — vedi `validate_price_rows`.
+    """
     engine = engine or get_engine()
     with engine.connect() as conn:
         long = pd.read_sql_query(select(prices_table), conn)
+    long = validate_price_rows(long)
     if long.empty:
         return None
     wide = long.pivot(index="date", columns="ticker", values="close")
@@ -229,7 +236,11 @@ def save_portfolio(advisor: str, name: str, positions: dict, engine: Engine | No
 
 
 def list_portfolios(advisor: str, engine: Engine | None = None) -> dict[str, dict]:
-    """Portafogli salvati del consulente: {nome: {ticker: posizione}} (nuovo o legacy)."""
+    """Portafogli salvati del consulente: {nome: {ticker: posizione}} (nuovo o legacy).
+
+    Un portafoglio con JSON corrotto viene scartato (con warning in log)
+    invece di far fallire l'intero book — vedi `safe_load_positions`.
+    """
     engine = engine or get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
@@ -237,7 +248,12 @@ def list_portfolios(advisor: str, engine: Engine | None = None) -> dict[str, dic
             .where(portfolios_table.c.advisor == advisor)
             .order_by(portfolios_table.c.name)
         ).all()
-    return {name: json.loads(positions) for name, positions in rows}
+    result = {}
+    for name, positions in rows:
+        parsed = safe_load_positions(advisor, name, positions)
+        if parsed is not None:
+            result[name] = parsed
+    return result
 
 
 def delete_portfolio(advisor: str, name: str, engine: Engine | None = None) -> None:

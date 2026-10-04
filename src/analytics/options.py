@@ -19,8 +19,6 @@ from math import erf, exp, log, sqrt
 
 import pandas as pd
 
-TRADING_DAYS = 252
-
 
 def _mid_series(table: pd.DataFrame) -> pd.Series:
     """Mid denaro/lettera per riga; fallback ultimo scambio; NaN se nulla."""

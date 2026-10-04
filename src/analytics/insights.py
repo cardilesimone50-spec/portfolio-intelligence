@@ -9,8 +9,6 @@ import pandas as pd
 from src.i18n import t
 from src.portfolio import Portfolio, weights_series
 
-TRADING_DAYS = 252
-
 
 def _scale(value: float, low: float, high: float) -> float:
     """Mappa value da [low, high] a [0, 100], con clipping."""

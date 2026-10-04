@@ -23,6 +23,10 @@ from typing import Protocol
 import pandas as pd
 import requests
 
+from src.logging_config import get_logger
+
+log = get_logger(__name__)
+
 _PERIOD_DAYS = {
     "1mo": 31,
     "6mo": 186,
@@ -240,11 +244,20 @@ class ProviderChain:
             try:
                 data = provider.fetch(tickers, period)
             except ProviderError as exc:
+                log.warning("%s failed, trying next provider: %s", provider.name, exc)
                 errors.append(str(exc))
                 continue
             if not data.empty and not data.isna().all().all():
+                if errors:
+                    log.info(
+                        "%s served the request after %d failed provider(s)",
+                        provider.name,
+                        len(errors),
+                    )
                 return data, provider.name
+            log.warning("%s returned an empty result, trying next provider", provider.name)
             errors.append(f"{provider.name}: empty result")
+        log.error("All providers failed for %d ticker(s): %s", len(tickers), " · ".join(errors))
         raise ValueError("No data provider responded: " + " · ".join(errors))
 
 

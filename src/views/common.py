@@ -3,6 +3,7 @@
 import pandas as pd
 import streamlit as st
 
+from src.config import TRADING_DAYS
 from src.data.cache import load_nasdaq100_prices
 from src.data.fx import fetch_eurusd
 from src.data.rates import fetch_risk_free_rate
@@ -12,8 +13,9 @@ from src.fundamentals.valuation import fetch_fundamentals
 from src.i18n import LANGUAGES, set_language
 from src.ui.components import empty_state
 
+__all__ = ["TRADING_DAYS"]  # ruff F401: re-esportata per le viste che la importano da qui
+
 BENCHMARK = "QQQ"  # ETF sul Nasdaq-100
-TRADING_DAYS = 252
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
 # annual volatility thresholds per risk profile (declared in the UI)
 PROFILE_VOL = {"Conservative": 0.10, "Moderate": 0.18, "Aggressive": 0.30}

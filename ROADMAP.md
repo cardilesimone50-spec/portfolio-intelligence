@@ -74,7 +74,7 @@ identità consulente multi-tenant (B2B).
 | 7 | **Backtest senza costi** | Nessun costo di transazione/slippage: il momentum trimestrale su 10 titoli ruota molto e in realtà renderebbe meno. Aggiungere bps configurabili per ribilanciamento. | ✅ Risolto — `cost_bps` configurabile in `src/analytics/backtest.py` |
 | 8 | **Import Fineco/ISIN irrisolto** | L'importer generico gestisce sinonimi e preamboli ma senza file reali dei broker non è garantito. Manca la risoluzione ISIN→ticker (OpenFIGI API, gratuita) e il suffisso di mercato (.MI, .DE) per i titoli non-USA. | ✅ Risolto — parsing Fineco + `resolve_isins` via OpenFIGI (`src/data/isin.py`) |
 | 9 | **`Ticker.info` sequenziale** | I fondamentali fanno 1 richiesta HTTP per ticker in loop: 10 titoli = ~10s. Parallelizzare (ThreadPool) e cachare su disco con TTL. | ✅ Risolto — `ThreadPoolExecutor` in `src/fundamentals/valuation.py` |
-| 10 | **Nessun logging** | Solo `print` negli script; in caso di errore dati non c'è traccia diagnostica. Introdurre `logging` strutturato. | ⬜ Aperto — nessun modulo `logging` nel codebase |
+| 10 | **Nessun logging** | Solo `print` negli script; in caso di errore dati non c'è traccia diagnostica. Introdurre `logging` strutturato. | ✅ Risolto (2026-10-04) — `src/logging_config.py`, cablato su `ProviderChain.fetch` (warning sui fallback, error se tutti i provider falliscono). I `print()` nei CLI (`main.py`, `fundamentals_report.py`, ecc.) restano: sono l'output del tool, non diagnostica |
 
 ### P2 — Architettura e manutenzione
 
@@ -83,7 +83,7 @@ identità consulente multi-tenant (B2B).
 | 11 | **app.py monolite (857 righe)** | Tutte le 6 tab in un file: UI non testabile, merge conflict garantiti appena si è in due. Spacchettare in `src/ui/` (una view per tab) + testare con `streamlit.testing.AppTest`. | ✅ Risolto — `app.py` ora 224 righe (solo router), viste in `src/views/` |
 | 12 | **Accoppiamento implicito tra tab** | Le tab condividono variabili globali di script (`amounts`, `computed`): l'ordine dei blocchi è vincolante e fragile. Servono uno stato applicativo esplicito (dataclass in `st.session_state`). | ✅ Risolto — `ViewContext` dataclass esplicita (`src/views/context.py`) |
 | 13 | **Packaging non standard** | Import `from src.x import y`: non installabile via pip, il nome `src` è generico. Migrare a `pyproject.toml` con package `portfolio_intelligence`, entry point CLI. | 🟡 Parziale — `pyproject.toml` presente (`name = "portfolio-intelligence"`), ma gli import restano `from src.x import y`: il pacchetto installato si chiama ancora `src`, non `portfolio_intelligence` |
-| 14 | **Costanti duplicate** | `TRADING_DAYS = 252` definito in 5 moduli; euristica `min_periods` copiata in più punti; soglie degli score sparse. Centralizzare in `config.py`. | ⬜ Aperto — ora duplicato in 6 moduli (peggiorato), nessun `config.py` |
+| 14 | **Costanti duplicate** | `TRADING_DAYS = 252` definito in 5 moduli; euristica `min_periods` copiata in più punti; soglie degli score sparse. Centralizzare in `config.py`. | 🟡 Parziale (2026-10-04) — `TRADING_DAYS` centralizzato in `src/config.py` (6 definizioni → 1; due erano codice morto, mai usate); `min_periods` e le soglie degli score restano sparse |
 | 15 | **DB senza migrazioni né manutenzione** | Schema creato ad-hoc in `_connect`; `load_prices()` pivota tutto in memoria a ogni chiamata (nessuna query per range di date); tabella `analyses` a crescita illimitata. | ✅ Risolto per la parte migrazioni — Alembic (`migrations/`), verificato in CI (`alembic upgrade head`); `load_prices()` pivota ancora tutto in memoria, resta aperto |
 | 16 | **CI minima** | Solo pytest su un solo Python. Aggiungere ruff (lint+format), mypy, coverage con soglia, matrice 3.11/3.12/3.13. | 🟡 Parziale — ruff lint+format + smoke test delle migrazioni ora in CI, ma ancora un solo Python (3.12), nessun mypy, nessuna soglia di coverage |
 
@@ -105,7 +105,7 @@ identità consulente multi-tenant (B2B).
 - [x] Session state del `data_editor` perso a ogni reload → **obsoleto**: il flusso di inserimento posizioni è stato riscritto (gate a 3 stadi con `selectbox`/`number_input`), il vecchio `data_editor` non esiste più.
 - [x] `fundamentals_report.py` e `analyze_nasdaq100.py` duplicano logica dell'app → ridimensionati (62 e 34 righe), vicini a thin wrapper dell'engine.
 - [ ] Indice temporale naive (no timezone): esplicitare UTC — non riverificato.
-- [ ] Validazione input dal DB assente — `src/data/validators.py` esiste ma copre solo `weights_sum_to_one`, non la validazione delle righe del DB: ancora aperto.
+- [x] Validazione input dal DB assente → risolto (2026-10-04): `validate_price_rows` scarta righe `prices` con data/prezzo corrotti prima del pivot, `safe_load_positions` scarta un portafoglio con JSON corrotto invece di far crashare l'intero book — entrambe loggano cosa scartano.
 - [ ] Cartella `data/` contiene ancora i CSV legacy (`nasdaq100_prices.csv`, `nasdaq100_returns.csv`) accanto al DB: rimuovere il fallback CSV dopo un periodo di grazia.
 
 ---

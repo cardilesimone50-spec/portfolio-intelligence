@@ -65,6 +65,20 @@ def test_chain_falls_back_when_provider_fails():
     assert source == "Secondary"
 
 
+def test_chain_logs_fallback_instead_of_failing_silently(caplog):
+    # un fallimento di provider non deve sparire senza lasciare traccia
+    # (debito tecnico P1-10: "nessun logging" sugli errori dati)
+    good = pd.DataFrame({"AAPL": [1.0]})
+    primary = _StubProvider("Primary", fail=True)
+    secondary = _StubProvider("Secondary", result=good)
+    chain = ProviderChain([primary, secondary])
+
+    with caplog.at_level("WARNING", logger="src.data.providers"):
+        chain.fetch(["AAPL"], "1y")
+
+    assert any("Primary" in r.message for r in caplog.records)
+
+
 def test_chain_skips_empty_results():
     empty = pd.DataFrame({"AAPL": [float("nan")]})
     good = pd.DataFrame({"AAPL": [1.0]})
