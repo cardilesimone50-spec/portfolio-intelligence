@@ -238,3 +238,37 @@ def test_app_dispatcher_defaults_to_advisor_for_backward_compat():
     with open("app.py") as f:
         source = f.read()
     assert 'os.getenv("APP_MODE", "advisor")' in source
+
+
+def test_app_dispatcher_without_app_mode_does_not_force_require_auth(monkeypatch):
+    """Regressione: `streamlit run app.py` senza APP_MODE impostato (il modo
+    in cui questo file veniva lanciato prima dello split) non deve imporre di
+    soppiatto il REQUIRE_AUTH=true di app_advisor.py — altrimenti un deploy
+    esistente senza secrets OIDC, che prima funzionava, smette di avviarsi."""
+    monkeypatch.delenv("APP_MODE", raising=False)
+    monkeypatch.delenv("REQUIRE_AUTH", raising=False)
+
+    with open("app.py") as f:
+        source = f.read()
+    namespace: dict = {"os": __import__("os")}
+    # esegue solo la logica di scelta del profilo (le righe prima di "if
+    # _MODE =="), non l'import/avvio reale dell'app
+    setup_source = source.split("if _MODE ==")[0]
+    exec(compile(setup_source, "app.py", "exec"), namespace)
+
+    assert namespace["os"].environ.get("REQUIRE_AUTH") == "false"
+
+
+def test_app_dispatcher_with_explicit_app_mode_lets_profile_default_apply(monkeypatch):
+    """Se l'operatore sceglie APP_MODE esplicitamente, il profilo scelto
+    applica il proprio default — niente rete di sicurezza di compatibilità."""
+    monkeypatch.setenv("APP_MODE", "advisor")
+    monkeypatch.delenv("REQUIRE_AUTH", raising=False)
+
+    with open("app.py") as f:
+        source = f.read()
+    namespace: dict = {"os": __import__("os")}
+    setup_source = source.split("if _MODE ==")[0]
+    exec(compile(setup_source, "app.py", "exec"), namespace)
+
+    assert "REQUIRE_AUTH" not in namespace["os"].environ
