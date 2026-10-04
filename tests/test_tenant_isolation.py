@@ -64,16 +64,30 @@ def test_require_auth_off_never_blocks(monkeypatch):
     assert identity.auth_required_but_missing() is False
 
 
-def test_app_gate_runs_before_sidebar_and_platform():
-    """Regressione strutturale: il controllo REQUIRE_AUTH deve stare, nel
-    sorgente di app.py, PRIMA del rendering di sidebar/piattaforma — non
-    basta che la funzione esista, deve essere chiamata al punto giusto."""
-    with open("app.py") as f:
+def test_require_auth_check_runs_inside_bootstrap_before_anything_else():
+    """Regressione strutturale: auth_required_but_missing() deve stare,
+    nel sorgente di router.bootstrap_page, PRIMA di qualunque rendering —
+    non basta che la funzione esista, deve essere chiamata per prima."""
+    with open("portfolio_intelligence/router.py") as f:
         source = f.read()
-    gate_pos = source.index("auth_required_but_missing()")
-    sidebar_pos = source.index("render_sidebar(advisor)")
+    def_pos = source.index("def bootstrap_page(")
+    gate_pos = source.index("auth_required_but_missing()", def_pos)
+    # dopo il gate, bootstrap_page non fa più nient'altro che st.stop()
+    next_def_pos = source.index("\ndef ", gate_pos)
+    assert def_pos < gate_pos < next_def_pos
+
+
+@pytest.mark.parametrize("entry_point", ["app_advisor.py", "app_investor.py"])
+def test_entry_points_bootstrap_before_gate_before_sidebar(entry_point):
+    """Regressione strutturale: ciascun entry point deve chiamare
+    bootstrap_page() (che include il gate REQUIRE_AUTH) PRIMA del gate di
+    onboarding, PRIMA della sidebar — l'ordine conta, non solo la presenza."""
+    with open(entry_point) as f:
+        source = f.read()
+    bootstrap_pos = source.index("bootstrap_page(")
     onboarding_pos = source.index("gate.render_gate()")
-    assert gate_pos < onboarding_pos < sidebar_pos
+    sidebar_pos = source.index("render_sidebar(")
+    assert bootstrap_pos < onboarding_pos < sidebar_pos
 
 
 # ---------------------------------------------------- (b)/(c) isolamento advisor

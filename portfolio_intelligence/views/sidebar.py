@@ -56,8 +56,14 @@ def _add_holding() -> None:
     st.session_state.add_ticker = None
 
 
-def render_sidebar(advisor: str) -> SidebarSettings:
-    """Disegna la sidebar e restituisce le impostazioni scelte."""
+def render_sidebar(advisor: str, *, advisor_mode: bool = True) -> SidebarSettings:
+    """Disegna la sidebar e restituisce le impostazioni scelte.
+
+    `advisor_mode=False` (app_investor.py): niente UI di identità/login
+    (l'utente è anonimo per design) e niente "Saved portfolios" — il
+    portafoglio vive solo in `st.session_state`, mai in
+    `list_portfolios`/`save_portfolio`/`log_audit`.
+    """
     with st.sidebar:
         st.markdown(
             '<div class="brand" style="font-size:.9rem">◆ SMARTEE<b>FINANCE</b></div>',
@@ -66,18 +72,21 @@ def render_sidebar(advisor: str) -> SidebarSettings:
 
         language_selector("lang_sidebar")
 
-        # identità consulente + login/logout (B2B multi-tenant)
-        if auth_configured():
-            if is_authenticated():
-                st.caption(t("side.advisor", advisor=advisor))
-                if st.button(t("side.logout"), width="stretch"):
-                    st.logout()
+        # identità consulente + login/logout (B2B multi-tenant) — l'utente
+        # Investor è anonimo per design: nessuna UI di identità per lui, e
+        # nessun avviso di isolamento dati (concetto che non lo riguarda)
+        if advisor_mode:
+            if auth_configured():
+                if is_authenticated():
+                    st.caption(t("side.advisor", advisor=advisor))
+                    if st.button(t("side.logout"), width="stretch"):
+                        st.logout()
+                else:
+                    st.caption(t("side.login_hint"))
+                    if st.button(t("side.login"), type="primary", width="stretch"):
+                        st.login()
             else:
-                st.caption(t("side.login_hint"))
-                if st.button(t("side.login"), type="primary", width="stretch"):
-                    st.login()
-        else:
-            st.warning(t("side.advisor_demo", advisor=advisor))
+                st.warning(t("side.advisor_demo", advisor=advisor))
 
         sec(t("side.add_stock"))
 
@@ -243,23 +252,29 @@ def render_sidebar(advisor: str) -> SidebarSettings:
                     except ValueError as exc:
                         st.error(t("side.import_failed", err=exc))
 
-        saved = list_portfolios(advisor)
-        with st.expander(t("side.saved_portfolios")):
-            portfolio_name = st.text_input(t("side.name"), value="My portfolio")
-            if st.button(t("side.save_composition"), width="stretch") and positions:
-                save_portfolio(advisor, portfolio_name, positions)
-                log_audit(advisor, "save_portfolio", portfolio_name)
-                st.toast(t("side.saved_toast", name=portfolio_name))
-            if saved:
-                selected_saved = st.selectbox(
-                    t("side.load"),
-                    sorted(saved),
-                    index=None,
-                    placeholder=t("side.load_placeholder"),
-                )
-                if selected_saved and st.button(t("side.load_btn"), width="stretch"):
-                    st.session_state.positions = normalize_portfolio(saved[selected_saved])
-                    st.rerun()
+        if advisor_mode:
+            saved = list_portfolios(advisor)
+            with st.expander(t("side.saved_portfolios")):
+                portfolio_name = st.text_input(t("side.name"), value="My portfolio")
+                if st.button(t("side.save_composition"), width="stretch") and positions:
+                    save_portfolio(advisor, portfolio_name, positions)
+                    log_audit(advisor, "save_portfolio", portfolio_name)
+                    st.toast(t("side.saved_toast", name=portfolio_name))
+                if saved:
+                    selected_saved = st.selectbox(
+                        t("side.load"),
+                        sorted(saved),
+                        index=None,
+                        placeholder=t("side.load_placeholder"),
+                    )
+                    if selected_saved and st.button(t("side.load_btn"), width="stretch"):
+                        st.session_state.positions = normalize_portfolio(saved[selected_saved])
+                        st.rerun()
+        else:
+            # stateless: nessuna lettura/scrittura su store.py, nessun nome
+            # da assegnare — "My portfolio" basta per titolo PDF e log_analysis
+            # (mai chiamato comunque in questa modalità).
+            portfolio_name = "My portfolio"
 
         with st.expander(t("side.settings")):
             period = st.selectbox(

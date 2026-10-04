@@ -30,3 +30,7 @@ class ViewContext:
     pos: pd.DataFrame | None = None
     pnl_totals: dict | None = None
     irr: float | None = None
+    # False in app_investor.py: le viste non devono leggere/scrivere portafogli,
+    # analisi o audit log sul DB — tutto resta in st.session_state e sparisce
+    # con la sessione. True (default) per app_advisor.py.
+    stateful: bool = True

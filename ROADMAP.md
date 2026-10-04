@@ -35,10 +35,16 @@ identità consulente multi-tenant (B2B).
 
 ## Stato attuale
 
-- ~9.000 righe Python (`app.py` 224 righe, solo router; pacchetto `portfolio_intelligence/` ~8.800
-  righe su `data / portfolio / analytics / fundamentals / ui / views /
-  visualization`), 198 test unitari verdi su 31 file, CI GitHub Actions (ruff
-  lint + format + pytest).
+- ~9.500 righe Python; pacchetto installabile `portfolio_intelligence/` su
+  `data / portfolio / analytics / fundamentals / ui / views / visualization`
+  + `router.py` (logica condivisa di bootstrap/pipeline/nav). **Due prodotti
+  Streamlit distinti** (2026-10-04) sullo stesso motore: `app_investor.py`
+  (B2C, anonimo, stateless — niente login, niente scrittura su DB, nav
+  ridotta al check-up) e `app_advisor.py` (B2B, OIDC obbligatoria di default,
+  multi-tenant, nav completa inclusa vista Admin); `app.py` resta un alias
+  retrocompatibile selezionabile via `APP_MODE`. 245 test verdi, coverage
+  86% con soglia all'80%, mypy pulito, CI GitHub Actions (ruff lint+format,
+  mypy, coverage, matrice Python 3.11/3.12/3.13).
 - Dati: catena di provider con fallback (`portfolio_intelligence/data/providers.py`) — EODHD (se
   configurata `EODHD_API_KEY`) → Yahoo chart diretto → yfinance → Stooq;
   storico Nasdaq-100 in SQLite/Postgres (~122k righe) con merge incrementale.

@@ -330,6 +330,12 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "prof.Moderate": ("Moderate", "Moderato"),
     "prof.Aggressive": ("Aggressive", "Aggressivo"),
     # ---------------------------------------------------------------- app chrome
+    "investor.disclaimer": (
+        "Independent informational and analysis tool. It does not constitute "
+        "personalized financial advice under Italian law (TUF).",
+        "Strumento informativo e di analisi indipendente. Non costituisce "
+        "consulenza finanziaria personalizzata ai sensi del TUF.",
+    ),
     "app.disclaimer": (
         "Information tool only, not financial advice. The analyses describe "
         "measurable characteristics of the portfolio based on historical data and "

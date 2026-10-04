@@ -296,7 +296,12 @@ def render(ctx: ViewContext) -> None:
         st.caption(t("chk.no_scenario"))
 
     st.divider()
-    col_pdf, col_log, col_hist = st.columns([1.2, 1, 1.8], gap="large")
+    if ctx.stateful:
+        col_pdf, col_log, col_hist = st.columns([1.2, 1, 1.8], gap="large")
+    else:
+        # Investor è stateless: solo il download PDF, niente "salva analisi"
+        # né storico (log_analysis/load_analyses toccano il DB per advisor).
+        (col_pdf,) = st.columns([1])
     with col_pdf:
         insights = generate_insights(
             period,
@@ -485,49 +490,50 @@ def render(ctx: ViewContext) -> None:
             width="stretch",
             type="primary",
         )
-    with col_log:
-        if st.button(t("chk.save_btn"), width="stretch"):
-            log_analysis(
-                advisor,
-                portfolio_name,
-                period,
-                total,
-                c["cum_return"],
-                c["risk_score"],
-                health=c["health"],
-            )
-            log_audit(advisor, "run_analysis", portfolio_name)
-            st.toast(t("chk.saved_toast"))
-    with col_hist:
-        history = load_analyses(advisor)
-        if not history.empty:
-            with st.expander(t("chk.history", n=len(history))):
-                trend = history.dropna(subset=["health"])
-                trend = trend[trend["portfolio"] == portfolio_name]
-                if len(trend) >= 2:
-                    series = pd.Series(
-                        trend["health"].to_numpy(dtype=float),
-                        index=pd.to_datetime(trend["timestamp"]),
-                    ).sort_index()
-                    st.altair_chart(simple_line(series, y_format=".0f"), width="stretch")
-                    delta_h = int(series.iloc[-1] - series.iloc[0])
-                    st.caption(
-                        t("chk.history_caption", name=portfolio_name, delta=f"{delta_h:+d}")
-                    )
-                st.dataframe(
-                    history,
-                    column_config={
-                        "timestamp": st.column_config.TextColumn(t("chk.hist_date")),
-                        "portfolio": st.column_config.TextColumn(t("chk.hist_portfolio")),
-                        "period": st.column_config.TextColumn(t("chk.hist_period")),
-                        "invested": st.column_config.NumberColumn(
-                            t("chk.hist_invested"), format="%.0f €"
-                        ),
-                        "cum_return": st.column_config.NumberColumn(
-                            t("chk.hist_return"), format="percent"
-                        ),
-                        "risk_score": st.column_config.NumberColumn("Risk /100"),
-                        "health": st.column_config.NumberColumn("Health /100"),
-                    },
-                    hide_index=True,
+    if ctx.stateful:
+        with col_log:
+            if st.button(t("chk.save_btn"), width="stretch"):
+                log_analysis(
+                    advisor,
+                    portfolio_name,
+                    period,
+                    total,
+                    c["cum_return"],
+                    c["risk_score"],
+                    health=c["health"],
                 )
+                log_audit(advisor, "run_analysis", portfolio_name)
+                st.toast(t("chk.saved_toast"))
+        with col_hist:
+            history = load_analyses(advisor)
+            if not history.empty:
+                with st.expander(t("chk.history", n=len(history))):
+                    trend = history.dropna(subset=["health"])
+                    trend = trend[trend["portfolio"] == portfolio_name]
+                    if len(trend) >= 2:
+                        series = pd.Series(
+                            trend["health"].to_numpy(dtype=float),
+                            index=pd.to_datetime(trend["timestamp"]),
+                        ).sort_index()
+                        st.altair_chart(simple_line(series, y_format=".0f"), width="stretch")
+                        delta_h = int(series.iloc[-1] - series.iloc[0])
+                        st.caption(
+                            t("chk.history_caption", name=portfolio_name, delta=f"{delta_h:+d}")
+                        )
+                    st.dataframe(
+                        history,
+                        column_config={
+                            "timestamp": st.column_config.TextColumn(t("chk.hist_date")),
+                            "portfolio": st.column_config.TextColumn(t("chk.hist_portfolio")),
+                            "period": st.column_config.TextColumn(t("chk.hist_period")),
+                            "invested": st.column_config.NumberColumn(
+                                t("chk.hist_invested"), format="%.0f €"
+                            ),
+                            "cum_return": st.column_config.NumberColumn(
+                                t("chk.hist_return"), format="percent"
+                            ),
+                            "risk_score": st.column_config.NumberColumn("Risk /100"),
+                            "health": st.column_config.NumberColumn("Health /100"),
+                        },
+                        hide_index=True,
+                    )

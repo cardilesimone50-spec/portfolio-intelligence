@@ -1,11 +1,17 @@
 # Portfolio Intelligence
 
-Dashboard Python per l'analisi di portafogli azionari: rendimento/rischio in
-euro (Sharpe, Sortino, max drawdown, VaR, beta/alpha vs Nasdaq-100),
-correlazioni, fondamentali, ottimizzazione di Markowitz con frontiera
-efficiente, backtest di strategie, alert automatici, report PDF, import
-CSV/Excel dal broker, vista consulente multi-cliente e salvataggio
-portafogli/storico analisi in SQLite.
+Motore di analisi di portafogli azionari — rendimento/rischio in euro
+(Sharpe, Sortino, max drawdown, VaR, beta/alpha vs Nasdaq-100), correlazioni,
+fondamentali, ottimizzazione di Markowitz, backtest di strategie, report PDF
+— condiviso da **due prodotti Streamlit distinti**:
+
+- **Smarteefinance Investor** (`app_investor.py`) — B2C, anonimo, stateless:
+  check-up in 60 secondi, nessun login, nessun dato salvato da nessuna
+  parte. Funnel ridotto: input → Health Score/problemi → metriche EUR → PDF.
+- **Smarteefinance Advisor** (`app_advisor.py`) — B2B professionale: login
+  OIDC, multi-cliente, portafogli a lotti con IRR reale, backtest con costi,
+  overlay di opzioni protettive, audit log, vista Admin. Stateful su DB
+  (SQLite in locale, Postgres in produzione), isolato per consulente.
 
 I prezzi arrivano da una **catena di provider dati** con fallback
 (`portfolio_intelligence/data/providers.py`): EODHD — dati con licenza commerciale, attivo con
@@ -22,18 +28,30 @@ esponga le funzionalità principali. Vedi [LICENSE](LICENSE).
 
 ```bash
 source venv/bin/activate
-streamlit run app.py                              # dashboard web
-python main.py -p AAPL:0.5 -p MSFT:0.5 --period 1y  # report CLI
-python fundamentals_report.py AAPL MSFT NVDA      # fondamentali CLI
-python download_nasdaq100.py                      # scarica/aggiorna il database prezzi
-python -m pytest                                  # test
+streamlit run app_investor.py                       # Smarteefinance Investor (B2C, anonimo)
+streamlit run app_advisor.py                         # Smarteefinance Advisor (B2B, login OIDC)
+streamlit run app.py                                 # alias retrocompatibile → Advisor
+APP_MODE=investor streamlit run app.py               # ...o Investor, via env var
+
+python main.py -p AAPL:0.5 -p MSFT:0.5 --period 1y   # report CLI
+python fundamentals_report.py AAPL MSFT NVDA         # fondamentali CLI
+python download_nasdaq100.py                         # scarica/aggiorna il database prezzi
+python -m pytest                                      # test
 ```
+
+`app.py` esiste solo per non rompere deploy esistenti che puntano a
+`streamlit run app.py` e non possono cambiare il comando di avvio ma possono
+impostare una variabile d'ambiente: sceglie il profilo da `APP_MODE`
+(default `advisor`, il comportamento storico di questo file). Per un deploy
+nuovo, punta direttamente ad `app_investor.py` o `app_advisor.py`.
 
 ## Deploy
 
 **Streamlit Community Cloud (gratuito):** vai su [share.streamlit.io](https://share.streamlit.io),
 accedi con GitHub, "Create app" → repo `portfolio-intelligence`, branch `main`,
-file `app.py`. Il database prezzi si scarica dal bottone in-app alla prima visita.
+file `app_investor.py` o `app_advisor.py` (un'app Streamlit Cloud per
+profilo, se vuoi offrirli entrambi come deploy separati). Il database prezzi
+si scarica dal bottone in-app alla prima visita.
 
 **Docker:**
 ```bash
@@ -109,6 +127,10 @@ portfolio_intelligence/
 ├── views/           una vista per sezione della dashboard (check-up, backtest, admin, ...)
 ├── config.py        costanti condivise (TRADING_DAYS, soglie di scoring, min_periods)
 ├── logging_config.py  logger strutturato condiviso
+├── router.py        logica condivisa tra app_investor.py e app_advisor.py
 ├── cli.py           parsing argomenti CLI
 └── report.py        report testuale di portafoglio
 ```
+
+I tre entry point alla radice del repo: `app_investor.py`, `app_advisor.py`
+(i due prodotti) e `app.py` (alias retrocompatibile, vedi "Avvio").

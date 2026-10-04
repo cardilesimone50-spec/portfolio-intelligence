@@ -28,13 +28,13 @@ jobs:
       - run: pip install -e ".[dev]"
 
       - name: Lint
-        run: ruff check portfolio_intelligence/ app.py tests/ migrations/ main.py analyze_nasdaq100.py download_nasdaq100.py fundamentals_report.py
+        run: ruff check portfolio_intelligence/ app.py app_advisor.py app_investor.py tests/ migrations/ main.py analyze_nasdaq100.py download_nasdaq100.py fundamentals_report.py
 
       - name: Format check
-        run: ruff format --check portfolio_intelligence/ app.py tests/ migrations/ main.py analyze_nasdaq100.py download_nasdaq100.py fundamentals_report.py
+        run: ruff format --check portfolio_intelligence/ app.py app_advisor.py app_investor.py tests/ migrations/ main.py analyze_nasdaq100.py download_nasdaq100.py fundamentals_report.py
 
       - name: Type check
-        run: mypy portfolio_intelligence/
+        run: mypy portfolio_intelligence/ app.py app_advisor.py app_investor.py main.py analyze_nasdaq100.py download_nasdaq100.py fundamentals_report.py
 
       - name: Tests (con coverage, soglia e config in pyproject.toml)
         run: pytest -v

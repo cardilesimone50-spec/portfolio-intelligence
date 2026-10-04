@@ -6,6 +6,18 @@
       "runtimeExecutable": "/Applications/portfolio-intelligence/venv/bin/python",
       "runtimeArgs": ["-m", "streamlit", "run", "app.py", "--server.headless", "true", "--server.port", "8501"],
       "port": 8501
+    },
+    {
+      "name": "streamlit-investor",
+      "runtimeExecutable": "/Applications/portfolio-intelligence/venv/bin/python",
+      "runtimeArgs": ["-m", "streamlit", "run", "app_investor.py", "--server.headless", "true", "--server.port", "8502"],
+      "port": 8502
+    },
+    {
+      "name": "streamlit-advisor",
+      "runtimeExecutable": "/Applications/portfolio-intelligence/venv/bin/python",
+      "runtimeArgs": ["-m", "streamlit", "run", "app_advisor.py", "--server.headless", "true", "--server.port", "8503"],
+      "port": 8503
     }
   ]
 }
