@@ -234,41 +234,77 @@ def test_app_advisor_keeps_admin_gate_and_multi_tenant_identity():
     assert "stateful=True" in source
 
 
-def test_app_dispatcher_defaults_to_advisor_for_backward_compat():
+def _resolve_app_profile(namespace: dict) -> None:
+    """Esegue solo la logica di risoluzione del profilo in app.py (fino a
+    "if run_app is not None:"), senza eseguire il dispatch/rendering reale —
+    stesso principio dei test precedenti su questo file, adattato alla nuova
+    struttura (router con schermata di scelta, non più dispatch diretto)."""
     with open("app.py") as f:
         source = f.read()
-    assert 'os.getenv("APP_MODE", "advisor")' in source
+    setup_source = source.split("if run_app is not None:")[0]
+    exec(compile(setup_source, "app.py", "exec"), namespace)
 
 
-def test_app_dispatcher_without_app_mode_does_not_force_require_auth(monkeypatch):
-    """Regressione: `streamlit run app.py` senza APP_MODE impostato (il modo
-    in cui questo file veniva lanciato prima dello split) non deve imporre di
-    soppiatto il REQUIRE_AUTH=true di app_advisor.py — altrimenti un deploy
-    esistente senza secrets OIDC, che prima funzionava, smette di avviarsi."""
+def test_app_router_no_profile_falls_through_to_chooser(monkeypatch):
+    """Senza APP_MODE e senza ?profile= in query_params, il router non deve
+    scegliere un profilo da solo — run_app resta None, che nel resto del
+    file fa renderizzare render_profile_chooser() invece di saltare a un
+    'advisor' silenzioso (comportamento storico, ora sostituito dalla
+    schermata di scelta esplicita)."""
     monkeypatch.delenv("APP_MODE", raising=False)
-    monkeypatch.delenv("REQUIRE_AUTH", raising=False)
+    import streamlit as st
 
-    with open("app.py") as f:
-        source = f.read()
-    namespace: dict = {"os": __import__("os")}
-    # esegue solo la logica di scelta del profilo (le righe prima di "if
-    # _MODE =="), non l'import/avvio reale dell'app
-    setup_source = source.split("if _MODE ==")[0]
-    exec(compile(setup_source, "app.py", "exec"), namespace)
+    st.query_params.clear()
 
-    assert namespace["os"].environ.get("REQUIRE_AUTH") == "false"
+    namespace: dict = {"os": __import__("os"), "st": st}
+    _resolve_app_profile(namespace)
+
+    assert not namespace["profile"]
+    assert namespace["run_app"] is None
 
 
-def test_app_dispatcher_with_explicit_app_mode_lets_profile_default_apply(monkeypatch):
-    """Se l'operatore sceglie APP_MODE esplicitamente, il profilo scelto
-    applica il proprio default — niente rete di sicurezza di compatibilità."""
+def test_app_router_app_mode_env_var_skips_chooser(monkeypatch):
+    """APP_MODE impostato esplicitamente (deploy automatizzato) salta la
+    schermata di scelta e va dritto al profilo — comportamento invariato
+    per chi già lo usa così."""
     monkeypatch.setenv("APP_MODE", "advisor")
-    monkeypatch.delenv("REQUIRE_AUTH", raising=False)
+    import streamlit as st
 
+    st.query_params.clear()
+
+    namespace: dict = {"os": __import__("os"), "st": st}
+    _resolve_app_profile(namespace)
+
+    assert namespace["profile"] == "advisor"
+    assert namespace["run_app"] is not None
+
+
+def test_app_router_query_param_selects_profile_like_a_click_would(monkeypatch):
+    """Cliccare una card della chooser imposta ?profile= in query_params
+    (vedi _go_investor/_go_advisor) — qui si verifica che il router onori
+    quel valore esattamente come onorerebbe APP_MODE."""
+    monkeypatch.delenv("APP_MODE", raising=False)
+    import streamlit as st
+
+    st.query_params.clear()
+    st.query_params["profile"] = "investor"
+
+    namespace: dict = {"os": __import__("os"), "st": st}
+    _resolve_app_profile(namespace)
+
+    assert namespace["profile"] == "investor"
+    assert namespace["run_app"] is not None
+
+    st.query_params.clear()
+
+
+def test_app_router_renders_chooser_without_forcing_require_auth(monkeypatch):
+    """Il router non deve più toccare REQUIRE_AUTH per conto proprio: la
+    rete di sicurezza del fix precedente serviva a non bloccare un dispatch
+    silenzioso ad Advisor, dispatch che ora non esiste più (serve un click
+    esplicito). Se la chooser venisse mai rimossa per errore senza
+    rimuovere anche questa garanzia, questo test lo segnalerebbe."""
     with open("app.py") as f:
         source = f.read()
-    namespace: dict = {"os": __import__("os")}
-    setup_source = source.split("if _MODE ==")[0]
-    exec(compile(setup_source, "app.py", "exec"), namespace)
-
-    assert "REQUIRE_AUTH" not in namespace["os"].environ
+    assert "resolve_require_auth" not in source
+    assert "render_profile_chooser" in source

@@ -376,6 +376,44 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "nav.nasdaq": ("Nasdaq-100", "Nasdaq-100"),
     "nav.correlations": ("Correlations", "Correlazioni"),
     "nav.fundamentals": ("Fundamentals", "Fondamentali"),
+    # ------------------------------------------------------- profile chooser
+    "chooser.eyebrow": ("SMARTEEFINANCE", "SMARTEEFINANCE"),
+    "chooser.title": (
+        "Two different stories, one engine.",
+        "Due storie diverse, un solo motore.",
+    ),
+    "chooser.sub": (
+        "Pick the experience built for how you actually use it.",
+        "Scegli l'esperienza pensata per come la usi davvero.",
+    ),
+    "chooser.investor_badge": ("PUBLIC · NO SIGN-UP", "PUBBLICO · SENZA REGISTRAZIONE"),
+    "chooser.investor_title": ("Explore as Investor", "Esplora come Investor"),
+    "chooser.investor_desc": (
+        "Instant and anonymous, no sign-up. A 60-second check-up, risk "
+        "measured in euros, market overview. Nothing is saved, nothing is "
+        "written to any database.",
+        "Immediato e anonimo, senza registrazione. Check-up in 60 secondi, "
+        "rischio misurato in euro, panoramica di mercato. Niente viene "
+        "salvato, niente scrittura su database.",
+    ),
+    "chooser.investor_cta": ("Start as Investor →", "Inizia come Investor →"),
+    "chooser.advisor_badge": ("PROFESSIONAL · OIDC LOGIN", "PROFESSIONALE · LOGIN OIDC"),
+    "chooser.advisor_title": ("Sign in as Advisor", "Accedi come Advisor"),
+    "chooser.advisor_desc": (
+        "Secure OIDC login, saved client portfolios, multi-tenant analysis "
+        "history, admin tools. Built for professional use, data isolated "
+        "per advisor.",
+        "Login sicuro OIDC, portafogli clienti salvati, storico analisi "
+        "multi-tenant, strumenti di amministrazione. Pensato per l'uso "
+        "professionale, dati isolati per consulente.",
+    ),
+    "chooser.advisor_cta": ("Sign in as Advisor →", "Accedi come Advisor →"),
+    "chooser.footer": (
+        "Not sure which one? Investor costs nothing to try — switch anytime "
+        "by returning to this page.",
+        "Non sai quale scegliere? Investor non costa nulla da provare — "
+        "puoi cambiare in qualsiasi momento tornando su questa pagina.",
+    ),
     # ---------------------------------------------------------------- gate
     "gate.step": ("Step 1 of 2 · Build your portfolio", "Passo 1 di 2 · Componi il portafoglio"),
     "gate.title": ("Which stocks do you hold?", "Quali titoli possiedi?"),

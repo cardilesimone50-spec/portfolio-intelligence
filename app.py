@@ -1,41 +1,71 @@
-"""Alias retrocompatibile: sceglie il profilo con APP_MODE=investor|advisor.
+"""Router pubblico: due storie diverse, una scelta esplicita.
 
-Storicamente `app.py` ERA l'unico entry point (quello che oggi è
-`app_advisor.py`). Resta qui per non rompere deploy esistenti che puntano a
-`streamlit run app.py` — su piattaforme dove si può impostare una variabile
-d'ambiente ma non cambiare il comando di avvio, questo basta a scegliere il
-profilo. Default "advisor": è il comportamento storico di questo file.
+Senza APP_MODE impostato (il caso normale per il deploy pubblico), questo
+file mostra una schermata di scelta — Investor (anonimo, immediato, nessuna
+scrittura su DB) o Advisor (login OIDC, multi-tenant, nav completa) — invece
+di saltare direttamente a un profilo. La scelta si ricorda nell'URL
+(`?profile=investor|advisor`): bookmarkabile, sopravvive a un refresh, e
+tornando sull'URL senza query string si torna alla schermata di scelta.
 
-Se nessuno imposta APP_MODE, questo file deve restare quello che era: niente
-sorprese per un deploy che faceva già `streamlit run app.py` senza secrets
-OIDC configurati. Per questo, SOLO se il profilo è scelto esplicitamente,
-app_advisor.py applica il suo default più severo (REQUIRE_AUTH=true); senza
-APP_MODE il default è quello storico (REQUIRE_AUTH=false) — ma resta
-sovrascrivibile da REQUIRE_AUTH nell'ambiente o da `require_auth` in
-[auth] nei secrets (stessa precedenza di `resolve_require_auth`, riusata
-qui apposta: un `require_auth = true` nei secrets deve valere anche per chi
-lancia `app.py` senza scegliere un profilo).
-Chi vuole il gate forzato senza toccare i secrets: `streamlit run
-app_advisor.py` direttamente, o APP_MODE=advisor esplicito.
+Cliccare "Sign in as Advisor" È una scelta esplicita tanto quanto impostare
+APP_MODE=advisor: da qui in poi il profilo applica il suo default reale
+(REQUIRE_AUTH=true per Advisor) senza reti di sicurezza — chi clicca quella
+card si aspetta un vero login, non un bypass silenzioso.
 
-Avvio diretto per nome, più esplicito:
+APP_MODE=investor|advisor resta per deploy automatizzati che vogliono
+saltare la schermata di scelta e andare dritti a un profilo (es. un
+deployment interno pensato per essere solo-Advisor).
+
+Avvio diretto per nome, senza passare da qui:
     streamlit run app_investor.py
     streamlit run app_advisor.py
 """
 
 import os
+from collections.abc import Callable
 
-from portfolio_intelligence.ui.identity import resolve_require_auth
+import streamlit as st
 
-_mode_chosen_explicitly = "APP_MODE" in os.environ
-_MODE = os.getenv("APP_MODE", "advisor").strip().lower()
+from portfolio_intelligence.i18n import set_language
+from portfolio_intelligence.ui.components import render_profile_chooser
+from portfolio_intelligence.ui.theme import inject_theme
+from portfolio_intelligence.views.common import language_selector
 
-if not _mode_chosen_explicitly:
-    resolve_require_auth(default_if_unset=False)
+_MODE = os.getenv("APP_MODE", "").strip().lower()
 
-if _MODE == "investor":
-    from app_investor import main
+
+def _go_investor() -> None:
+    st.query_params["profile"] = "investor"
+
+
+def _go_advisor() -> None:
+    st.query_params["profile"] = "advisor"
+
+
+profile = _MODE if _MODE in ("investor", "advisor") else st.query_params.get("profile")
+
+run_app: Callable[[], None] | None
+if profile == "investor":
+    from app_investor import main as run_app
+elif profile == "advisor":
+    from app_advisor import main as run_app
 else:
-    from app_advisor import main
+    run_app = None
 
-main()
+if run_app is not None:
+    run_app()
+else:
+    st.set_page_config(
+        page_title="Smarteefinance | Choose your profile",
+        page_icon="◆",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+    inject_theme()
+    set_language(st.session_state.get("language", "en"))
+
+    _spacer, lang_col = st.columns([6, 1])
+    with lang_col:
+        language_selector("lang_chooser")
+
+    render_profile_chooser(on_investor=_go_investor, on_advisor=_go_advisor)

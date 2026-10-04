@@ -319,3 +319,107 @@ def render_landing(on_start) -> None:
         "Analysis in euros with EUR/USD currency risk included · shareable "
         "PDF report · no sign-up required. Not financial advice."
     )
+
+
+CHOOSER_CSS = """
+<style>
+.chooser-hero {
+    text-align: center; padding: 56px 20px 8px; animation: fadeUp .5s ease-out both;
+}
+.chooser-eyebrow {
+    display: inline-block; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.16em; color: #1E40AF; background: #EEF2FF;
+    border: 1px solid #C7D2FE; border-radius: 999px; padding: 4px 14px;
+    margin-bottom: 18px;
+}
+.chooser-title {
+    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-size: 2.4rem; font-weight: 700; letter-spacing: -0.02em;
+    line-height: 1.15; margin: 0 auto 12px; max-width: 640px; color: #14171e;
+}
+.chooser-sub { font-size: 1.04rem; color: #5a6270; margin: 0 auto 36px; }
+.profile-card {
+    height: 100%; background: #ffffff; border: 1px solid #E2E8F0;
+    border-radius: 16px; padding: 30px 28px 22px;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+    animation: fadeUp .6s ease-out both;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.profile-card.advisor { animation-delay: .1s; }
+.profile-card-badge {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #94a3b8;
+}
+.profile-card-title {
+    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-size: 1.4rem; font-weight: 700; color: #14171e;
+}
+.profile-card-desc { font-size: 0.92rem; color: #5a6270; line-height: 1.55; flex: 1; }
+.chooser-footer {
+    text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 28px;
+}
+</style>
+"""
+
+
+def render_profile_chooser(on_investor, on_advisor) -> None:
+    """Prima schermata pubblica: scegli Investor (anonimo) o Advisor (login).
+
+    Due card affiancate, stesso linguaggio visivo di `render_landing`. I
+    bottoni sono widget nativi (non si può mettere un st.button dentro HTML
+    arbitrario) renderizzati subito sotto ciascuna card — stesso pattern già
+    usato da `render_landing` per il CTA principale.
+    """
+    st.markdown(CHOOSER_CSS, unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="chooser-hero">
+          <div class="chooser-eyebrow">{t("chooser.eyebrow")}</div>
+          <div class="chooser-title">{t("chooser.title")}</div>
+          <div class="chooser-sub">{t("chooser.sub")}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_investor, col_advisor = st.columns(2, gap="large")
+    with col_investor:
+        st.markdown(
+            f"""
+            <div class="profile-card investor">
+              <div class="profile-card-badge">{t("chooser.investor_badge")}</div>
+              <div class="profile-card-title">{t("chooser.investor_title")}</div>
+              <div class="profile-card-desc">{t("chooser.investor_desc")}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.button(
+            t("chooser.investor_cta"),
+            key="chooser_investor",
+            type="primary",
+            width="stretch",
+            on_click=on_investor,
+        )
+    with col_advisor:
+        st.markdown(
+            f"""
+            <div class="profile-card advisor">
+              <div class="profile-card-badge">{t("chooser.advisor_badge")}</div>
+              <div class="profile-card-title">{t("chooser.advisor_title")}</div>
+              <div class="profile-card-desc">{t("chooser.advisor_desc")}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.button(
+            t("chooser.advisor_cta"),
+            key="chooser_advisor",
+            width="stretch",
+            on_click=on_advisor,
+        )
+
+    st.markdown(
+        f'<div class="chooser-footer">{t("chooser.footer")}</div>',
+        unsafe_allow_html=True,
+    )

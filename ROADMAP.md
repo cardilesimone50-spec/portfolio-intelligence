@@ -41,8 +41,12 @@ identità consulente multi-tenant (B2B).
   Streamlit distinti** (2026-10-04) sullo stesso motore: `app_investor.py`
   (B2C, anonimo, stateless — niente login, niente scrittura su DB, nav
   ridotta al check-up) e `app_advisor.py` (B2B, OIDC obbligatoria di default,
-  multi-tenant, nav completa inclusa vista Admin); `app.py` resta un alias
-  retrocompatibile selezionabile via `APP_MODE`. 245 test verdi, coverage
+  multi-tenant, nav completa inclusa vista Admin). `app.py` è ora il router
+  pubblico: senza `APP_MODE` mostra una schermata di scelta a due card
+  ("Due storie diverse", bilingue EN/IT) invece di saltare direttamente ad
+  Advisor; la scelta vive in `?profile=investor|advisor` nell'URL
+  (bookmarkabile, sopravvive al refresh). `APP_MODE` resta per deploy
+  automatizzati che vogliono saltare la schermata. 254 test verdi, coverage
   86% con soglia all'80%, mypy pulito, CI GitHub Actions (ruff lint+format,
   mypy, coverage, matrice Python 3.11/3.12/3.13).
 - Dati: catena di provider con fallback (`portfolio_intelligence/data/providers.py`) — EODHD (se
