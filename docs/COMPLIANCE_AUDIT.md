@@ -12,7 +12,7 @@ Legenda: ✅ conforme · 🔧 corretto in questo intervento · ⚠️ serve una 
 ## Priorità per te (in ordine)
 
 1. ⚠️ **Nome e contatto del titolare**: anche senza società né attività commerciale, l'informativa privacy deve indicare chi è il titolare e come contattarlo (art. 13 GDPR). Bastano nome e un'email, nella sezione `[legal]` dei secrets di Streamlit Cloud: così non finiscono nel repository. Partita IVA, REA e PEC non servono finché non c'è un'attività economica: quelle righe non compaiono.
-2. ⚠️ **Dati Yahoo nel repository pubblico**: `data/nasdaq100_prices.csv` e `data/nasdaq100_fundamentals.csv` ridistribuiscono a chiunque dati Yahoo Finance. Le condizioni di Yahoo ne limitano l'uso a fini personali. Il repository è pubblico su GitHub. Vedi §19.
+2. 🔧 **Dati Yahoo nel repository**: `data/nasdaq100_prices.csv` e `data/nasdaq100_fundamentals.csv` contengono dati Yahoo Finance, che Yahoo concede solo per uso personale. Il repository era pubblico ed è stato **reso privato il 2026-10-05**, quindi i file non sono più ridistribuiti. ⚠️ Per un eventuale uso commerciale serve una fonte con licenza. Vedi §19.
 3. ⚠️ **Parere legale MiFID/TUF** prima di qualunque uso commerciale, in particolare per l'ottimizzazione media-varianza dell'area Advisor, che propone pesi di portafoglio.
 4. ⚠️ **Accordo sul trattamento dei dati (DPA, art. 28 GDPR)** da far firmare ai consulenti prima dell'uso professionale: per i dati dei loro clienti tu sei responsabile del trattamento.
 5. ⚠️ **Durata di conservazione del registro di sicurezza** (audit log): va decisa e poi applicata con una cancellazione periodica, che oggi non esiste.
@@ -139,11 +139,10 @@ L'app non invia email: non c'è SMTP, newsletter o email transazionali. Se in fu
 - **Font**: Source Sans e Source Code (OFL 1.1) serviti da Streamlit ✅. Helvetica nel PDF è un font standard non incorporato ✅. Inter e Space Grotesk non sono più usati.
 - **Icone**: Material Symbols (Apache 2.0) ✅. Gli emoji nell'interfaccia sono resi dai font del sistema operativo ✅.
 - **Immagini**: nessuna immagine nel progetto ✅.
-- **Dati di mercato** ⚠️: Yahoo Finance non concede licenza per uso commerciale né per ridistribuzione. Con il repository pubblico, i due CSV in `data/` sono di fatto ridistribuiti. Opzioni:
-  - **(a)** rendere privato il repository (Streamlit Cloud supporta i repo privati);
-  - **(b)** passare a EODHD, già supportato con `EODHD_API_KEY`, prima del lancio commerciale.
-  
-  Consiglio entrambe.
+- **Dati di mercato** 🔧 / ⚠️: Yahoo Finance non concede licenza per uso commerciale né per ridistribuzione.
+  - **Fatto (2026-10-05)**: il repository GitHub è stato reso privato, quindi i due CSV in `data/` non sono più scaricabili da chiunque. Restano le copie eventualmente clonate quando era pubblico.
+  - **Da fare prima di un uso commerciale**: passare a EODHD, già supportato con `EODHD_API_KEY`, o a un'altra fonte con licenza.
+  - **Da verificare**: che Streamlit Community Cloud abbia il permesso di leggere i repository privati (Settings → Linked accounts), altrimenti l'app smette di aggiornarsi ai nuovi push.
 - **Marchio** ⚠️: verifica su EUIPO/UIBM che "Smarteefinance" non confligga con marchi registrati nel settore finanziario.
 - **Codice**: Elastic License 2.0 ✅. Le dipendenze hanno licenze permissive (§8).
 
