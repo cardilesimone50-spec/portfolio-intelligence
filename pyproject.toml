@@ -53,6 +53,9 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# app.py importa app_investor/app_advisor dalla radice del repo: `pytest`
+# (CI) non la mette nel path, `python -m pytest` sì. Esplicito, così vale per entrambi.
+pythonpath = ["."]
 addopts = "--cov=portfolio_intelligence --cov-report=term-missing --cov-fail-under=80"
 
 [tool.coverage.run]
