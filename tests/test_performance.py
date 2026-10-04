@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analytics.performance import (
+from portfolio_intelligence.analytics.performance import (
     annualized_geometric_return,
     annualized_sharpe,
     beta_alpha,
@@ -13,7 +13,7 @@ from src.analytics.performance import (
     sortino_ratio,
     value_at_risk,
 )
-from src.portfolio.returns import compute_daily_returns
+from portfolio_intelligence.portfolio.returns import compute_daily_returns
 
 PRICES = pd.DataFrame(
     {

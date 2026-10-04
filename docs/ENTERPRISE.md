@@ -8,12 +8,12 @@
 
 **Oggi**: inserimento manuale, import CSV/Excel della posizione titoli,
 portafogli salvati in SQLite, aggiornamento prezzi incrementale. I prezzi
-passano da una **catena di provider astratta** (`src/data/providers.py`):
+passano da una **catena di provider astratta** (`portfolio_intelligence/data/providers.py`):
 EODHD (licenza commerciale, si attiva con `EODHD_API_KEY`) → Yahoo → Stooq.
 Sostituire la sorgente con il feed licenziato della banca è cambiare un
 provider nella catena, non riscrivere l'app.
 **Per una banca**: serve un'API `POST /portfolios/{client_id}` alimentata dai
-sistemi della banca. L'engine è già separato dalla UI (package `src/`), quindi
+sistemi della banca. L'engine è già separato dalla UI (package `portfolio_intelligence/`), quindi
 esporlo via FastAPI è un lavoro di settimane, non mesi. Il collo di bottiglia
 non è tecnico: è l'accordo con la banca su tracciato dati e autenticazione.
 
@@ -31,7 +31,7 @@ non è tecnico: è l'accordo con la banca su tracciato dati e autenticazione.
 - **Algoritmi documentati**: ogni punteggio è una formula dichiarata nel codice
   e nella UI (tooltip). Nessun modello generativo nel percorso di analisi: il
   testo "da analista" è composto da regole deterministiche testate
-  (`src/analytics/insights.py`, riproducibilità coperta da test).
+  (`portfolio_intelligence/analytics/insights.py`, riproducibilità coperta da test).
 
 ## 3. Sicurezza
 
@@ -54,7 +54,7 @@ prodotto B2B: "chi dei miei 200 clienti devo chiamare oggi".
 **Oggi**: PDF brandizzato Portfolio Intelligence con disclaimer.
 **Da fare**: logo/colori/ragione sociale della banca parametrici, firma del
 consulente, archivio report. Lavoro di giorni sul generatore esistente
-(`src/visualization/pdf_report.py`).
+(`portfolio_intelligence/visualization/pdf_report.py`).
 
 ## 6. Benchmark contro il profilo cliente
 

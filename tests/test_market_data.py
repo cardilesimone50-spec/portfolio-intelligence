@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.data import yahoo_client
+from portfolio_intelligence.data import yahoo_client
 
 
 def _chain_returning(df: pd.DataFrame, source: str = "Fake"):

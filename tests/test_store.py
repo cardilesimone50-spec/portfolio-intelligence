@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.data.store import (
+from portfolio_intelligence.data.store import (
     get_engine,
     known_tickers,
     last_date,

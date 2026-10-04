@@ -7,7 +7,7 @@ SQLite su file temporaneo e mock di `streamlit.secrets`/`streamlit.stop`.
 import pandas as pd
 import pytest
 
-from src.data.store import (
+from portfolio_intelligence.data.store import (
     delete_portfolio,
     get_engine,
     list_portfolios,
@@ -16,9 +16,9 @@ from src.data.store import (
     platform_stats,
     save_portfolio,
 )
-from src.ui import identity
-from src.views import admin as admin_view
-from src.views.context import ViewContext
+from portfolio_intelligence.ui import identity
+from portfolio_intelligence.views import admin as admin_view
+from portfolio_intelligence.views.context import ViewContext
 
 ADVISOR_A = "advisor_a@example.com"
 ADVISOR_B = "advisor_b@example.com"

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.data.providers import (
+from portfolio_intelligence.data.providers import (
     EODHDProvider,
     ProviderChain,
     ProviderError,
@@ -73,7 +73,7 @@ def test_chain_logs_fallback_instead_of_failing_silently(caplog):
     secondary = _StubProvider("Secondary", result=good)
     chain = ProviderChain([primary, secondary])
 
-    with caplog.at_level("WARNING", logger="src.data.providers"):
+    with caplog.at_level("WARNING", logger="portfolio_intelligence.data.providers"):
         chain.fetch(["AAPL"], "1y")
 
     assert any("Primary" in r.message for r in caplog.records)
@@ -108,7 +108,7 @@ def test_default_chain_without_key_starts_with_yahoo_chart(monkeypatch):
 
 def test_yahoo_chart_parses_adjusted_close(monkeypatch):
     monkeypatch.setattr(
-        "src.data.providers.requests.get",
+        "portfolio_intelligence.data.providers.requests.get",
         lambda *a, **k: _ChartResp(_chart_payload(adjclose=[99.0, 100.5])),
     )
     df = YahooChartProvider(backoff=0).fetch(["AAPL"], "1y")
@@ -117,7 +117,7 @@ def test_yahoo_chart_parses_adjusted_close(monkeypatch):
 
 def test_yahoo_chart_falls_back_to_close_without_adjclose(monkeypatch):
     monkeypatch.setattr(
-        "src.data.providers.requests.get",
+        "portfolio_intelligence.data.providers.requests.get",
         lambda *a, **k: _ChartResp(_chart_payload(close=[10.0, 11.0])),
     )
     df = YahooChartProvider(backoff=0).fetch(["AAPL"], "1y")
@@ -133,7 +133,7 @@ def test_yahoo_chart_retries_on_429_then_succeeds(monkeypatch):
             return _ChartResp({}, status=429)
         return _ChartResp(_chart_payload(adjclose=[5.0, 6.0]))
 
-    monkeypatch.setattr("src.data.providers.requests.get", fake_get)
+    monkeypatch.setattr("portfolio_intelligence.data.providers.requests.get", fake_get)
     df = YahooChartProvider(backoff=0).fetch(["AAPL"], "1y")
     assert calls["n"] == 2
     assert df["AAPL"].tolist() == [5.0, 6.0]
@@ -141,7 +141,7 @@ def test_yahoo_chart_retries_on_429_then_succeeds(monkeypatch):
 
 def test_yahoo_chart_raises_when_no_result(monkeypatch):
     monkeypatch.setattr(
-        "src.data.providers.requests.get",
+        "portfolio_intelligence.data.providers.requests.get",
         lambda *a, **k: _ChartResp({"chart": {"result": None}}),
     )
     with pytest.raises(ProviderError):
@@ -161,6 +161,8 @@ def test_eodhd_parses_adjusted_close(monkeypatch):
                 {"date": "2026-01-03", "close": 101.0, "adjusted_close": 100.5},
             ]
 
-    monkeypatch.setattr("src.data.providers.requests.get", lambda *a, **k: FakeResp())
+    monkeypatch.setattr(
+        "portfolio_intelligence.data.providers.requests.get", lambda *a, **k: FakeResp()
+    )
     df = provider.fetch(["AAPL"], "1y")
     assert df["AAPL"].tolist() == [99.0, 100.5]  # usa adjusted_close

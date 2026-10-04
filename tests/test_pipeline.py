@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analytics.pipeline import analyze_portfolio
+from portfolio_intelligence.analytics.pipeline import analyze_portfolio
 
 RNG = np.random.default_rng(21)
 DAYS = 260

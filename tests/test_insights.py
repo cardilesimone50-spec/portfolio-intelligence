@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analytics.insights import (
+from portfolio_intelligence.analytics.insights import (
     concentration_score,
     dna_label,
     dna_scores,
@@ -98,7 +98,7 @@ def test_monthly_returns_compound_correctly():
 
 
 def test_health_breakdown_and_score_direction():
-    from src.analytics.insights import health_breakdown, portfolio_health_score
+    from portfolio_intelligence.analytics.insights import health_breakdown, portfolio_health_score
 
     healthy = health_breakdown(
         {"Quality": 80},
@@ -124,7 +124,7 @@ def test_health_breakdown_and_score_direction():
 
 
 def test_usd_exposure_by_suffix():
-    from src.analytics.insights import usd_exposure
+    from portfolio_intelligence.analytics.insights import usd_exposure
 
     pf = [
         {"ticker": "AAPL", "weight": 0.6},
@@ -134,7 +134,7 @@ def test_usd_exposure_by_suffix():
 
 
 def test_executive_summary_is_deterministic_and_grounded():
-    from src.analytics.insights import executive_summary, health_breakdown
+    from portfolio_intelligence.analytics.insights import executive_summary, health_breakdown
 
     contrib = pd.Series({"NVDA": 0.55, "AAPL": 0.30, "KO": 0.15})
     breakdown = health_breakdown(
@@ -172,7 +172,7 @@ def test_executive_summary_is_deterministic_and_grounded():
 
 
 def test_find_problems_flags_weight_correlation_and_dividends():
-    from src.analytics.insights import find_problems
+    from portfolio_intelligence.analytics.insights import find_problems
 
     pf = [{"ticker": "TSLA", "weight": 0.30}, {"ticker": "KO", "weight": 0.70}]
     fund = pd.DataFrame(
@@ -190,7 +190,7 @@ def test_find_problems_flags_weight_correlation_and_dividends():
 
 
 def test_find_opportunities_flags_missing_defensive_sectors_and_cheap_stock():
-    from src.analytics.insights import find_opportunities
+    from portfolio_intelligence.analytics.insights import find_opportunities
 
     pf = [{"ticker": "NVDA", "weight": 0.5}, {"ticker": "INTC", "weight": 0.5}]
     fund = pd.DataFrame(
@@ -207,7 +207,7 @@ def test_find_opportunities_flags_missing_defensive_sectors_and_cheap_stock():
 
 
 def test_reduce_position_renormalizes():
-    from src.analytics.insights import reduce_position
+    from portfolio_intelligence.analytics.insights import reduce_position
 
     pf = [{"ticker": "A", "weight": 0.6}, {"ticker": "B", "weight": 0.4}]
     reduced = reduce_position(pf, "A", reduction=0.5)
@@ -218,14 +218,14 @@ def test_reduce_position_renormalizes():
 
 
 def test_reduce_position_unknown_ticker_raises():
-    from src.analytics.insights import reduce_position
+    from portfolio_intelligence.analytics.insights import reduce_position
 
     with pytest.raises(ValueError, match="ZZZ"):
         reduce_position([{"ticker": "A", "weight": 1.0}], "ZZZ")
 
 
 def test_equal_weight_portfolio():
-    from src.analytics.insights import equal_weight_portfolio
+    from portfolio_intelligence.analytics.insights import equal_weight_portfolio
 
     pf = [{"ticker": "A", "weight": 0.9}, {"ticker": "B", "weight": 0.1}]
     equal = equal_weight_portfolio(pf)

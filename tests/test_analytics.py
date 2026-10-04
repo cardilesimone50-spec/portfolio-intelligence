@@ -1,16 +1,16 @@
 import pandas as pd
 import pytest
 
-from src.analytics.performance import (
+from portfolio_intelligence.analytics.performance import (
     annualized_geometric_return,
     per_ticker_annualized_stats,
 )
-from src.portfolio.returns import (
+from portfolio_intelligence.portfolio.returns import (
     compute_daily_returns,
     per_ticker_cumulative_return,
     portfolio_expected_return,
 )
-from src.portfolio.risk import portfolio_volatility
+from portfolio_intelligence.portfolio.risk import portfolio_volatility
 
 PRICES = pd.DataFrame(
     {

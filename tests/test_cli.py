@@ -2,7 +2,7 @@ import argparse
 
 import pytest
 
-from src.cli import build_arg_parser, parse_position, portfolio_from_args
+from portfolio_intelligence.cli import build_arg_parser, parse_position, portfolio_from_args
 
 
 def test_parse_position_valid():

@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from src.data.yahoo_client import get_nasdaq100_tickers
+from portfolio_intelligence.data.yahoo_client import get_nasdaq100_tickers
 
 FAKE_HTML = """
 <table>
@@ -22,7 +22,8 @@ class FakeResponse:
 
 def test_get_nasdaq100_tickers_parses_symbols(monkeypatch):
     monkeypatch.setattr(
-        "src.data.yahoo_client.requests.get", lambda url, headers, timeout: FakeResponse(FAKE_HTML)
+        "portfolio_intelligence.data.yahoo_client.requests.get",
+        lambda url, headers, timeout: FakeResponse(FAKE_HTML),
     )
     tickers = get_nasdaq100_tickers()
     assert tickers == ["EXMP", "SMPL"]
@@ -32,7 +33,7 @@ def test_get_nasdaq100_tickers_network_error_raises(monkeypatch):
     def fake_get(url, headers, timeout):
         raise requests.exceptions.ConnectionError("boom")
 
-    monkeypatch.setattr("src.data.yahoo_client.requests.get", fake_get)
+    monkeypatch.setattr("portfolio_intelligence.data.yahoo_client.requests.get", fake_get)
 
     with pytest.raises(ValueError, match="Network error"):
         get_nasdaq100_tickers()

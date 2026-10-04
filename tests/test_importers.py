@@ -3,7 +3,7 @@ import io
 import pandas as pd
 import pytest
 
-from src.data.importers import parse_positions
+from portfolio_intelligence.data.importers import parse_positions
 
 
 def test_parse_csv_basic():

@@ -3,27 +3,27 @@
 Avvio: streamlit run app.py
 
 app.py è solo il router: tema, gate di onboarding, sidebar, pipeline di calcolo
-e dispatch alle viste in src/views/. La logica sta nei moduli, non qui.
+e dispatch alle viste in portfolio_intelligence/views/. La logica sta nei moduli, non qui.
 """
 
 import os
 
 import streamlit as st
 
-from src.analytics.pipeline import analyze_portfolio
-from src.data import yahoo_client
-from src.data.fx import convert_to_eur
-from src.i18n import set_language, t
-from src.portfolio.positions import (
+from portfolio_intelligence.analytics.pipeline import analyze_portfolio
+from portfolio_intelligence.data import yahoo_client
+from portfolio_intelligence.data.fx import convert_to_eur
+from portfolio_intelligence.i18n import set_language, t
+from portfolio_intelligence.portfolio.positions import (
     normalize_portfolio,
     portfolio_xirr,
     position_table,
     totals,
 )
-from src.ui.components import compliance_footer, empty_state
-from src.ui.identity import auth_required_but_missing, current_advisor, is_admin
-from src.ui.theme import inject_theme
-from src.views import (
+from portfolio_intelligence.ui.components import compliance_footer, empty_state
+from portfolio_intelligence.ui.identity import auth_required_but_missing, current_advisor, is_admin
+from portfolio_intelligence.ui.theme import inject_theme
+from portfolio_intelligence.views import (
     admin,
     backtest,
     checkup,
@@ -37,9 +37,14 @@ from src.views import (
     options_overlay,
     visual,
 )
-from src.views.common import BENCHMARK, cached_eurusd, cached_fundamentals, cached_prices
-from src.views.context import ViewContext
-from src.views.sidebar import render_sidebar
+from portfolio_intelligence.views.common import (
+    BENCHMARK,
+    cached_eurusd,
+    cached_fundamentals,
+    cached_prices,
+)
+from portfolio_intelligence.views.context import ViewContext
+from portfolio_intelligence.views.sidebar import render_sidebar
 
 # ponte secrets→ambiente: i secrets di Streamlit non diventano env var da soli.
 # Impostando DATABASE_URL nei secrets, lo store passa da SQLite a Postgres.

@@ -1,6 +1,10 @@
 import pandas as pd
 
-from src.data.validators import safe_load_positions, validate_price_rows, weights_sum_to_one
+from portfolio_intelligence.data.validators import (
+    safe_load_positions,
+    validate_price_rows,
+    weights_sum_to_one,
+)
 
 
 def test_weights_sum_to_one_valid():

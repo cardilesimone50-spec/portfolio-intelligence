@@ -2,7 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analytics.backtest import buy_and_hold, equal_weight, momentum_top, run_backtest
+from portfolio_intelligence.analytics.backtest import (
+    buy_and_hold,
+    equal_weight,
+    momentum_top,
+    run_backtest,
+)
 
 rng = np.random.default_rng(31)
 

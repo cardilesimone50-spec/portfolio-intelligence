@@ -5,10 +5,11 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# il progetto non è installato come package: serve sys.path per `src.data.store`
+# funziona sia con l'editable install (pip install -e .) sia senza: in CI
+# il pacchetto non è installato, serve sys.path per `portfolio_intelligence.data.store`
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.data.store import _metadata, _resolve_url  # noqa: E402
+from portfolio_intelligence.data.store import _metadata, _resolve_url  # noqa: E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -20,7 +21,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # stessa risoluzione URL dell'app: DATABASE_URL se presente, altrimenti SQLite
-# locale (vedi src/data/store._resolve_url) — una sola fonte di verità
+# locale (vedi portfolio_intelligence/data/store._resolve_url) — una sola fonte di verità
 config.set_main_option("sqlalchemy.url", _resolve_url(None))
 
 target_metadata = _metadata

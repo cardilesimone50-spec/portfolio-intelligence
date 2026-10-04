@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "portfolio-intelligence"
 version = "0.4.0"
@@ -22,7 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9.1", "ruff>=0.15"]
+dev = ["pytest>=9.1", "pytest-cov>=5", "ruff>=0.15", "mypy>=1.13"]
 # feed dati/persistenza B2B: Postgres via psycopg (attivato da DATABASE_URL)
 postgres = ["psycopg[binary]>=3.1"]
 
@@ -30,7 +34,7 @@ postgres = ["psycopg[binary]>=3.1"]
 Repository = "https://github.com/cardilesimone50-spec/portfolio-intelligence"
 
 [tool.setuptools.packages.find]
-include = ["src*"]
+include = ["portfolio_intelligence*"]
 
 [tool.ruff]
 line-length = 99
@@ -49,3 +53,22 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=portfolio_intelligence --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+branch = true
+# views/ui/visualization sono superficie di rendering Streamlit: non
+# unit-testabili senza streamlit.testing.AppTest (iniziativa separata,
+# vedi ROADMAP.md). Il gate dell'80% copre l'engine (data/portfolio/
+# analytics/fundamentals) che è dove vivono i bug di calcolo reali.
+omit = [
+    "portfolio_intelligence/views/*",
+    "portfolio_intelligence/ui/*",
+    "portfolio_intelligence/visualization/charts.py",
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = true
+exclude = ["migrations/", "venv/"]

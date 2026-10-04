@@ -8,7 +8,7 @@ CSV/Excel dal broker, vista consulente multi-cliente e salvataggio
 portafogli/storico analisi in SQLite.
 
 I prezzi arrivano da una **catena di provider dati** con fallback
-(`src/data/providers.py`): EODHD — dati con licenza commerciale, attivo con
+(`portfolio_intelligence/data/providers.py`): EODHD — dati con licenza commerciale, attivo con
 `EODHD_API_KEY` — poi Yahoo Finance, poi Stooq. Pensata per sostituire la
 sorgente senza toccare il resto del codice.
 
@@ -95,13 +95,20 @@ Una volta configurato, il banner "Auth not configured" in sidebar sparisce e
 
 ## Struttura
 
+Pacchetto Python installabile (`pip install -e .`), import stabili via
+`portfolio_intelligence.*`:
+
 ```
-src/
-├── data/            accesso rete (yahoo_client), database SQLite (store), validazione
+portfolio_intelligence/
+├── data/            accesso rete (yahoo_client), catena provider, database (store), validazione
 ├── portfolio/       tipi base, rendimenti, rischio, ottimizzazione e frontiera efficiente
-├── analytics/       performance: Sharpe, Sortino, drawdown, VaR, beta/alpha
+├── analytics/       performance: Sharpe, Sortino, drawdown, VaR, beta/alpha, insight e alert
 ├── fundamentals/    bilanci e multipli di valutazione
-├── visualization/   grafici Altair riusabili
+├── visualization/   grafici Altair e report PDF
+├── ui/              identità/auth, componenti e tema Streamlit
+├── views/           una vista per sezione della dashboard (check-up, backtest, admin, ...)
+├── config.py        costanti condivise (TRADING_DAYS, soglie di scoring, min_periods)
+├── logging_config.py  logger strutturato condiviso
 ├── cli.py           parsing argomenti CLI
 └── report.py        report testuale di portafoglio
 ```

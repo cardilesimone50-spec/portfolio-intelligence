@@ -3,7 +3,12 @@
 import pandas as pd
 import pytest
 
-from src.data.options_chain import days_to, mid_price, nearest_expiry, nearest_strike_row
+from portfolio_intelligence.data.options_chain import (
+    days_to,
+    mid_price,
+    nearest_expiry,
+    nearest_strike_row,
+)
 
 TODAY = "2026-07-17"
 

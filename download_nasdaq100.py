@@ -4,9 +4,9 @@ del Nasdaq-100: scarica tutto al primo avvio, poi solo i giorni mancanti."""
 import pandas as pd
 import yfinance as yf
 
-from src.data.cache import load_nasdaq100_prices
-from src.data.store import DB_PATH, known_tickers, last_date, save_prices
-from src.data.yahoo_client import get_nasdaq100_tickers
+from portfolio_intelligence.data.cache import load_nasdaq100_prices
+from portfolio_intelligence.data.store import DB_PATH, known_tickers, last_date, save_prices
+from portfolio_intelligence.data.yahoo_client import get_nasdaq100_tickers
 
 FULL_PERIOD = "5y"
 
@@ -47,7 +47,8 @@ def update_nasdaq100() -> None:
             save_prices(_download(new_tickers, period=FULL_PERIOD))
 
     final = last_date()
-    print(f"Database aggiornato al {final.date()} ({len(known_tickers())} ticker) in {DB_PATH}")
+    final_label = final.date() if final is not None else "—"
+    print(f"Database aggiornato al {final_label} ({len(known_tickers())} ticker) in {DB_PATH}")
 
 
 if __name__ == "__main__":

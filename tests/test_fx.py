@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.data.fx import convert_to_eur, is_usd_listing
+from portfolio_intelligence.data.fx import convert_to_eur, is_usd_listing
 
 INDEX = pd.to_datetime(["2026-01-02", "2026-01-05", "2026-01-06"])
 

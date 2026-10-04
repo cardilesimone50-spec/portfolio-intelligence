@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pdfplumber
 
-from src.visualization.pdf_report import build_report
+from portfolio_intelligence.visualization.pdf_report import build_report
 
 METRIC_ROWS = [
     ("Return (1y)", "+12.3%", "+10.0%", "Total change over the observation window."),

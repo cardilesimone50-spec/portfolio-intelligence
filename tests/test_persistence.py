@@ -1,6 +1,6 @@
 import pytest
 
-from src.data.store import (
+from portfolio_intelligence.data.store import (
     delete_portfolio,
     get_engine,
     list_portfolios,

@@ -1,6 +1,6 @@
-from src.analytics.performance import TRADING_DAYS as performance_trading_days
-from src.analytics.pipeline import TRADING_DAYS as pipeline_trading_days
-from src.config import (
+from portfolio_intelligence.analytics.performance import TRADING_DAYS as performance_trading_days
+from portfolio_intelligence.analytics.pipeline import TRADING_DAYS as pipeline_trading_days
+from portfolio_intelligence.config import (
     BETA_HIGH,
     BETA_LOW,
     HEALTH_SCORE_FAIR,
@@ -10,17 +10,17 @@ from src.config import (
     TRADING_DAYS,
     rolling_min_periods,
 )
-from src.portfolio.optimization import TRADING_DAYS as optimization_trading_days
-from src.portfolio.risk import correlation_matrix
-from src.ui.components import AMBER, _status_color
-from src.views.common import TRADING_DAYS as common_trading_days
-from src.visualization.charts import GAIN, LOSS
+from portfolio_intelligence.portfolio.optimization import TRADING_DAYS as optimization_trading_days
+from portfolio_intelligence.portfolio.risk import correlation_matrix
+from portfolio_intelligence.ui.components import AMBER, _status_color
+from portfolio_intelligence.views.common import TRADING_DAYS as common_trading_days
+from portfolio_intelligence.visualization.charts import GAIN, LOSS
 
 
 def test_trading_days_is_a_single_source_of_truth():
     assert TRADING_DAYS == 252
     # ogni modulo che lo re-importa deve puntare alla stessa costante,
-    # non a una copia locale (src.config.TRADING_DAYS in 6 moduli era il bug)
+    # non a una copia locale (portfolio_intelligence.config.TRADING_DAYS in 6 moduli era il bug)
     assert performance_trading_days is TRADING_DAYS
     assert pipeline_trading_days is TRADING_DAYS
     assert optimization_trading_days is TRADING_DAYS

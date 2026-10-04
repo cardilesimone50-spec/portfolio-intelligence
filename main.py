@@ -1,7 +1,7 @@
 import sys
 
-from src.cli import build_arg_parser, portfolio_from_args
-from src.report import generate_report
+from portfolio_intelligence.cli import build_arg_parser, portfolio_from_args
+from portfolio_intelligence.report import generate_report
 
 
 def main() -> None:

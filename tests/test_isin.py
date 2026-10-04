@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from src.data.isin import IsinError, resolve_isin, resolve_isins
+from portfolio_intelligence.data.isin import IsinError, resolve_isin, resolve_isins
 
 
 class _FakeResp:

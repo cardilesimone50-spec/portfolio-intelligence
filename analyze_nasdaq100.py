@@ -6,9 +6,9 @@ from pathlib import Path
 import pandas as pd
 
 from download_nasdaq100 import update_nasdaq100
-from src.analytics.performance import per_ticker_annualized_stats
-from src.data.store import load_prices
-from src.portfolio.returns import compute_daily_returns
+from portfolio_intelligence.analytics.performance import per_ticker_annualized_stats
+from portfolio_intelligence.data.store import load_prices
+from portfolio_intelligence.portfolio.returns import compute_daily_returns
 
 RESULT_PATH = Path("data/nasdaq100_returns.csv")
 

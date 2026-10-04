@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from src.portfolio.positions import (
+from portfolio_intelligence.portfolio.positions import (
     add_lot,
     aggregate,
     cost_basis_native,

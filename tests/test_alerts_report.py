@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from src.analytics.alerts import evaluate_alerts
-from src.analytics.insights import generate_suggestions, risk_contributions
-from src.visualization.pdf_report import build_report
+from portfolio_intelligence.analytics.alerts import evaluate_alerts
+from portfolio_intelligence.analytics.insights import generate_suggestions, risk_contributions
+from portfolio_intelligence.visualization.pdf_report import build_report
 
 rng = np.random.default_rng(41)
 RETURNS = pd.DataFrame(

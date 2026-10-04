@@ -1,4 +1,4 @@
-from src.ui import identity
+from portfolio_intelligence.ui import identity
 
 
 def test_is_admin_false_without_secrets():

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.analytics.interpret import (
+from portfolio_intelligence.analytics.interpret import (
     interpret_beta,
     interpret_correlation,
     interpret_drawdown,

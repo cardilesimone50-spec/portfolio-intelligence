@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analytics.backtest import equal_weight, run_backtest
-from src.analytics.factors import (
+from portfolio_intelligence.analytics.backtest import equal_weight, run_backtest
+from portfolio_intelligence.analytics.factors import (
     composite_scores,
     low_volatility,
     momentum_12_1,

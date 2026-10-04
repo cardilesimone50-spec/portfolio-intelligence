@@ -1,9 +1,9 @@
 import pandas as pd
 import pytest
 
-from src.data import rates
+from portfolio_intelligence.data import rates
 
-_CHART = "src.data.providers.YahooChartProvider.fetch"
+_CHART = "portfolio_intelligence.data.providers.YahooChartProvider.fetch"
 
 
 def _chart_returns(values):

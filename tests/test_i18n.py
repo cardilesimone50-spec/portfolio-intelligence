@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.analytics.interpret import interpret_drawdown, interpret_sharpe
-from src.i18n import get_language, set_language, t, t_in
+from portfolio_intelligence.analytics.interpret import interpret_drawdown, interpret_sharpe
+from portfolio_intelligence.i18n import get_language, set_language, t, t_in
 
 
 @pytest.fixture(autouse=True)

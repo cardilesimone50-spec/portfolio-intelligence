@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from src.data.price_lookup import price_on_frame
+from portfolio_intelligence.data.price_lookup import price_on_frame
 
 PRICES = pd.DataFrame(
     {"AAPL": [100.0, 102.0, 104.0, 110.0]},

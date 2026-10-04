@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analytics.simulation import simulate_shock
+from portfolio_intelligence.analytics.simulation import simulate_shock
 
 rng = np.random.default_rng(21)
 

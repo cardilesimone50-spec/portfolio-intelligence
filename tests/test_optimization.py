@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.portfolio.optimization import (
+from portfolio_intelligence.portfolio.optimization import (
     efficient_frontier,
     max_sharpe_weights,
     minimum_variance_weights,

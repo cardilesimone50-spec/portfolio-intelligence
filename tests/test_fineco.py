@@ -6,8 +6,8 @@ Nessun dato personale e nessun PDF reale nel repo: si testa la funzione pura
 
 import pytest
 
-from src.data.fineco import extract_holdings, resolve_to_positions
-from src.data.isin import SecurityRef
+from portfolio_intelligence.data.fineco import extract_holdings, resolve_to_positions
+from portfolio_intelligence.data.isin import SecurityRef
 
 # imita la pagina «Strumenti finanziari», comprese le intestazioni di pagina
 # che si intromettono nella tabella e una riga DOPO il totale (da ignorare).

@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.analytics.options import (
+from portfolio_intelligence.analytics.options import (
     bs_price,
     covered_call,
     income_table,
