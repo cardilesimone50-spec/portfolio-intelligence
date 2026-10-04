@@ -20,6 +20,7 @@ import streamlit as st
 from portfolio_intelligence.data.store import last_date, list_portfolios, load_analyses
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.ui.identity import auth_configured, is_authenticated
+from portfolio_intelligence.ui.legal import legal_footer
 from portfolio_intelligence.views.common import SAMPLE_PORTFOLIO
 
 WELCOME_CSS = """
@@ -32,7 +33,7 @@ WELCOME_CSS = """
     margin-bottom: 14px;
 }
 .aw-title {
-    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-family: var(--font-display) !important;
     font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; color: #14171e;
     margin: 0 0 10px;
 }
@@ -51,7 +52,7 @@ WELCOME_CSS = """
     padding: 28px 26px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); height: 100%;
 }
 .aw-login-title {
-    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-family: var(--font-display) !important;
     font-weight: 700; font-size: 1.1rem; color: #14171e; margin-bottom: 14px;
 }
 .aw-kpi-row { display: flex; gap: 16px; margin: 20px 0 28px; flex-wrap: wrap; }
@@ -60,7 +61,7 @@ WELCOME_CSS = """
     border-radius: 14px; padding: 16px 18px;
 }
 .aw-kpi-num {
-    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-family: var(--font-display) !important;
     font-size: 1.5rem; font-weight: 700; color: #1E40AF;
 }
 .aw-kpi-label {
@@ -136,6 +137,7 @@ def _render_login_state() -> None:
                 _continue_dev()
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
+    legal_footer()
     st.stop()
 
 
@@ -201,6 +203,7 @@ def _render_welcome_state(advisor: str) -> None:
     with col_c:
         st.button(t("advisorw.quick_stress"), width="stretch", on_click=_go_stress_test)
 
+    legal_footer()
     st.stop()
 
 

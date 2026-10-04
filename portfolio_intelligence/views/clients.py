@@ -23,7 +23,7 @@ from portfolio_intelligence.portfolio.risk import (
     average_pairwise_correlation,
     portfolio_volatility,
 )
-from portfolio_intelligence.ui.components import empty_state, eur, sec
+from portfolio_intelligence.ui.components import empty_state, eur, sec, text_safe
 from portfolio_intelligence.ui.theme import AMBER
 from portfolio_intelligence.views.common import (
     TRADING_DAYS,
@@ -132,7 +132,7 @@ def render(ctx: ViewContext) -> None:
               </div>
               <div style="flex:1" class="kpi-sub">{a["problem"]}</div>
               <div style="font-family:var(--font-display);font-size:1.5rem;
-                   font-weight:700;color:{color}">{a["health"]}
+                   font-weight:700;color:{text_safe(color)}">{a["health"]}
                    <span style="font-size:.7rem;color:var(--muted)">/100</span>
               </div>
             </div>"""

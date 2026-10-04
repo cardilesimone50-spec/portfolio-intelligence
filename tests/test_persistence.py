@@ -75,3 +75,57 @@ def test_positions_with_cost_basis_roundtrip(tmp_path):
     save_portfolio("adv@a", "Con carico", rich, engine=engine)
     loaded = list_portfolios("adv@a", engine=engine)["Con carico"]
     assert loaded == rich
+
+
+def test_delete_portfolio_erases_history_and_client_name_in_audit(tmp_path):
+    """Art. 17 GDPR: cancellare un cliente rimuove anche il suo storico analisi
+    e il suo nome dall'audit log; i dati di altri clienti e advisor restano."""
+    from sqlalchemy import select
+
+    from portfolio_intelligence.data.store import REDACTED, audit_log_table, log_audit
+
+    engine = _engine(tmp_path)
+    for advisor in ("adv@a", "adv@b"):
+        save_portfolio(advisor, "Client Rossi", {"AAPL": 1000.0}, engine=engine)
+        log_analysis(advisor, "Client Rossi", "1y", 1000.0, 0.1, 40, health=70, engine=engine)
+        log_audit(advisor, "save_portfolio", "Client Rossi", engine=engine)
+    log_analysis("adv@a", "Client Bianchi", "1y", 500.0, 0.0, 30, health=60, engine=engine)
+
+    delete_portfolio("adv@a", "Client Rossi", engine=engine)
+
+    assert list(load_analyses("adv@a", engine=engine)["portfolio"]) == ["Client Bianchi"]
+    assert list(load_analyses("adv@b", engine=engine)["portfolio"]) == ["Client Rossi"]
+    with engine.connect() as conn:
+        rows = conn.execute(select(audit_log_table.c.advisor, audit_log_table.c.detail)).all()
+    assert ("adv@a", REDACTED) in rows
+    assert ("adv@b", "Client Rossi") in rows
+
+
+def test_delete_advisor_data_removes_everything_and_pseudonymizes_audit(tmp_path):
+    from sqlalchemy import select
+
+    from portfolio_intelligence.data.store import (
+        REDACTED,
+        audit_log_table,
+        delete_advisor_data,
+        log_audit,
+    )
+
+    engine = _engine(tmp_path)
+    save_portfolio("adv@a", "Client Rossi", {"AAPL": 1000.0}, engine=engine)
+    log_analysis("adv@a", "Client Rossi", "1y", 1000.0, 0.1, 40, health=70, engine=engine)
+    log_audit("adv@a", "save_portfolio", "Client Rossi", engine=engine)
+    save_portfolio("adv@b", "Client Verdi", {"MSFT": 1000.0}, engine=engine)
+
+    counts = delete_advisor_data("adv@a", engine=engine)
+
+    assert counts == {"portfolios": 1, "analyses": 1, "audit_pseudonymized": 1}
+    assert list_portfolios("adv@a", engine=engine) == {}
+    assert load_analyses("adv@a", engine=engine).empty
+    assert list_portfolios("adv@b", engine=engine) == {"Client Verdi": {"MSFT": 1000.0}}
+    with engine.connect() as conn:
+        advisor, detail = conn.execute(
+            select(audit_log_table.c.advisor, audit_log_table.c.detail)
+        ).one()
+    assert advisor.startswith("deleted:") and "adv@a" not in advisor
+    assert detail == REDACTED

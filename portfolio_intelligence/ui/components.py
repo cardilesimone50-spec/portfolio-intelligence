@@ -4,7 +4,7 @@ import streamlit as st
 
 from portfolio_intelligence.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD
 from portfolio_intelligence.i18n import t
-from portfolio_intelligence.visualization.charts import GAIN, LOSS
+from portfolio_intelligence.visualization.charts import AMBER_TEXT, GAIN, GAIN_TEXT, LOSS
 
 AMBER = "#d97706"  # status mid-band (gauge/health)
 ACCENT = "#1E40AF"  # brand primary
@@ -29,6 +29,32 @@ def _status_color(score: float) -> str:
     return GAIN if score >= HEALTH_SCORE_GOOD else AMBER if score >= HEALTH_SCORE_FAIR else LOSS
 
 
+def text_safe(color: str) -> str:
+    """Variante del colore di stato leggibile come testo su bianco (WCAG AA)."""
+    return {GAIN: GAIN_TEXT, AMBER: AMBER_TEXT}.get(color, color)
+
+
+def _luminance(hex_color: str) -> float:
+    channels = [int(hex_color.lstrip("#")[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    r, g, b = (c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def on_color(background: str) -> str:
+    """Testo bianco o scuro sopra `background`: quello a contrasto più alto."""
+    lum = _luminance(background)
+    white_contrast = 1.05 / (lum + 0.05)
+    ink_contrast = (lum + 0.05) / (_luminance("#0F172A") + 0.05)
+    return "#ffffff" if white_contrast >= ink_contrast else "#0F172A"
+
+
+def _avatar(ticker: str, color: str) -> str:
+    return (
+        f'<div class="avatar" aria-hidden="true" '
+        f'style="background:{color};color:{on_color(color)}">{ticker[:4]}</div>'
+    )
+
+
 def position_card_html(
     ticker: str,
     amount: float,
@@ -49,7 +75,7 @@ def position_card_html(
     right = right_label if right_label is not None else f"{weight:.0%}"
     return (
         f'<div class="pos-row">'
-        f'<div class="avatar" style="background:{color}">{ticker[:4]}</div>'
+        f"{_avatar(ticker, color)}"
         f'<div class="pos-main">'
         f'<div class="pos-ticker">{ticker}<span class="pos-amt">· {shown_amount}'
         f"</span></div>{name}"
@@ -61,7 +87,7 @@ def position_card_html(
 
 def ticker_preview_html(ticker: str, color: str, preview: dict | None) -> str:
     """Anteprima del titolo cercato (nome, settore, prezzo, variazione). HTML flat."""
-    avatar = f'<div class="avatar" style="background:{color}">{ticker[:4]}</div>'
+    avatar = _avatar(ticker, color)
     if not preview:
         return (
             f'<div class="ticker-preview">{avatar}<div class="tp-main">'
@@ -160,7 +186,7 @@ def breakdown_html(breakdown: dict[str, float]) -> str:
             f'<div class="dna-row"><div class="dna-name" style="width:110px">{_comp_name(name)}'
             f'</div><div class="dna-track"><div class="dna-fill" '
             f'style="width:{score:.0f}%;background:{color}"></div></div>'
-            f'<div class="dna-value" style="color:{color}">{score:.0f}</div></div>'
+            f'<div class="dna-value" style="color:{text_safe(color)}">{score:.0f}</div></div>'
         )
     return f'<div class="panel"><div class="dna-title">{t("hero.score_built")}</div>{rows}</div>'
 
@@ -183,8 +209,8 @@ _ICONS = {
 
 def _icon_svg(name: str) -> str:
     return (
-        f'<svg viewBox="0 0 24 24" width="19" height="19" '
-        f'xmlns="http://www.w3.org/2000/svg">{_ICONS[name]}</svg>'
+        f'<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" '
+        f'focusable="false" xmlns="http://www.w3.org/2000/svg">{_ICONS[name]}</svg>'
     )
 
 
@@ -208,10 +234,13 @@ def kpi_row_html(cards: list[dict]) -> str:
 
 def compliance_footer() -> None:
     """Informativa MiFID persistente, visibile in ogni schermata."""
+    from portfolio_intelligence.ui.legal import legal_footer
+
     st.markdown(
         f'<div class="compliance">{t("app.disclaimer")}</div>',
         unsafe_allow_html=True,
     )
+    legal_footer()
 
 
 def empty_state(title: str, hint: str, icon: str = "search") -> None:
@@ -343,7 +372,7 @@ CHOOSER_CSS = """
     margin-bottom: 18px;
 }
 .chooser-title {
-    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-family: var(--font-display) !important;
     font-size: 2.4rem; font-weight: 700; letter-spacing: -0.02em;
     line-height: 1.15; margin: 0 auto 12px; max-width: 640px; color: #14171e;
 }
@@ -358,15 +387,15 @@ CHOOSER_CSS = """
 .profile-card.advisor { animation-delay: .1s; }
 .profile-card-badge {
     font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; color: #94a3b8;
+    text-transform: uppercase; color: #64748b;
 }
 .profile-card-title {
-    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-family: var(--font-display) !important;
     font-size: 1.4rem; font-weight: 700; color: #14171e;
 }
 .profile-card-desc { font-size: 0.92rem; color: #5a6270; line-height: 1.55; flex: 1; }
 .chooser-footer {
-    text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 28px;
+    text-align: center; color: #64748b; font-size: 0.85rem; margin-top: 28px;
 }
 </style>
 """

@@ -215,10 +215,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     # ---------------------------------------------------------------- opportunities
     "opp.defensive_sectors": (
-        "Uncovered defensive sectors (**{sectors}**): "
-        "adding them would reduce reliance on the tech cycle.",
-        "Settori difensivi scoperti (**{sectors}**): includerli ridurrebbe "
-        "la dipendenza dal ciclo tecnologico.",
+        "No exposure to defensive sectors (**{sectors}**): the portfolio's "
+        "behaviour depends more on the economic cycle.",
+        "Nessuna esposizione ai settori difensivi (**{sectors}**): l'andamento "
+        "del portafoglio dipende di più dal ciclo economico.",
     ),
     "opp.cheap": (
         "Among the holdings, **{ticker}** has the lowest multiples (P/E {pe}, P/S {ps}).",
@@ -331,9 +331,9 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "prof.Aggressive": ("Aggressive", "Aggressivo"),
     # ---------------------------------------------------------------- app chrome
     "investor.disclaimer": (
-        "Independent informational and analysis tool. It does not constitute "
+        "Informational portfolio-analysis tool. It does not constitute "
         "personalized financial advice under Italian law (TUF).",
-        "Strumento informativo e di analisi indipendente. Non costituisce "
+        "Strumento informativo di analisi del portafoglio. Non costituisce "
         "consulenza finanziaria personalizzata ai sensi del TUF.",
     ),
     "app.disclaimer": (
@@ -389,12 +389,12 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "chooser.investor_badge": ("PUBLIC · NO SIGN-UP", "PUBBLICO · SENZA REGISTRAZIONE"),
     "chooser.investor_title": ("Explore as Investor", "Esplora come Investor"),
     "chooser.investor_desc": (
-        "Instant and anonymous, no sign-up. A 60-second check-up, risk "
-        "measured in euros, market overview. Nothing is saved, nothing is "
-        "written to any database.",
-        "Immediato e anonimo, senza registrazione. Check-up in 60 secondi, "
-        "rischio misurato in euro, panoramica di mercato. Niente viene "
-        "salvato, niente scrittura su database.",
+        "No sign-up. A portfolio check-up in about a minute, risk measured "
+        "in euros, market overview. Your positions stay in the browser "
+        "session and are not saved to any database.",
+        "Senza registrazione. Check-up del portafoglio in circa un minuto, "
+        "rischio misurato in euro, panoramica di mercato. Le posizioni restano "
+        "nella sessione del browser e non vengono salvate in alcun database.",
     ),
     "chooser.investor_cta": ("Start as Investor →", "Inizia come Investor →"),
     "chooser.advisor_badge": ("PROFESSIONAL · OIDC LOGIN", "PROFESSIONALE · LOGIN OIDC"),
@@ -418,10 +418,9 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "advisorw.eyebrow": ("PORTFOLIO INTELLIGENCE PRO", "PORTFOLIO INTELLIGENCE PRO"),
     "advisorw.title": ("Console Consulenti", "Console Consulenti"),
     "advisorw.sub": (
-        "Reserved platform for advanced client portfolio management, "
-        "robustness analysis and institutional reporting.",
-        "Piattaforma riservata per la gestione avanzata dei portafogli "
-        "client, analisi di robustezza e reportistica istituzionale.",
+        "Reserved platform for client portfolio analysis, robustness checks and client reporting.",
+        "Piattaforma riservata per l'analisi dei portafogli dei clienti, "
+        "verifiche di robustezza e reportistica per il cliente.",
     ),
     "advisorw.badge_sso": ("OIDC / Enterprise SSO", "OIDC / Enterprise SSO"),
     "advisorw.badge_tenant": (
@@ -431,18 +430,18 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "advisorw.badge_audit": ("Audit log", "Audit log"),
     "advisorw.feature1_title": ("Portfolios & clients", "Portafogli & clienti"),
     "advisorw.feature1_desc": (
-        "Save, version and compare client portfolios over time.",
-        "Salvataggio, versione storica e confronto scenari nel tempo.",
+        "Save client portfolios and keep the history of their analyses.",
+        "Salvataggio dei portafogli clienti e storico delle loro analisi.",
     ),
     "advisorw.feature2_title": ("Advanced quantitative analysis", "Analisi quantitativa avanzata"),
     "advisorw.feature2_desc": (
         "Correlation matrix, scenario shocks and mean-variance optimization.",
         "Matrice di correlazione, scenari di shock e ottimizzazione media-varianza.",
     ),
-    "advisorw.feature3_title": ("Custom reporting", "Reportistica custom"),
+    "advisorw.feature3_title": ("Client reporting", "Reportistica per il cliente"),
     "advisorw.feature3_desc": (
-        "Branded PDF reports for the end client, with your own disclaimers.",
-        "Report PDF brandizzati per il cliente finale, con disclaimer personalizzati.",
+        "PDF report for the end client, with methodology and risk warnings.",
+        "Report PDF per il cliente finale, con metodologia e avvertenze.",
     ),
     "advisorw.login_title": ("Secure access", "Accesso sicuro"),
     "advisorw.login_cta": (
@@ -484,11 +483,21 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "I dati di bilancio delle società non sono al momento disponibili: rischio, "
         "rendimento e diversificazione sono completi, valutazione e qualità no.",
     ),
+    # ---------------------------------------------------------------- legal
+    "legal.privacy": ("Privacy policy", "Informativa privacy"),
+    "legal.terms": ("Terms of service", "Termini di servizio"),
+    "legal.cookies": ("Cookie policy", "Cookie policy"),
+    "legal.imprint": ("Legal notice", "Note legali"),
+    "legal.nav_label": ("Legal information", "Informazioni legali"),
+    "legal.italian_only": (
+        "Legal documents are published in Italian, the authoritative version.",
+        "I documenti legali sono pubblicati in italiano, che è la versione di riferimento.",
+    ),
     # ---------------------------------------------------------------- landing
     "landing.eyebrow": ("Portfolio check-up", "Check-up di portafoglio"),
     "landing.title": (
-        "An independent analysis of your equity portfolio",
-        "Analisi indipendente del portafoglio azionario",
+        "Your equity portfolio, measured on your own data",
+        "Il tuo portafoglio azionario, misurato sui tuoi dati",
     ),
     "landing.sub": (
         "Risk, concentration, currency exposure and company quality, measured "
@@ -633,6 +642,31 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "side.amount": ("Amount (€)", "Importo (€)"),
     "side.save": ("Save", "Salva"),
     "side.remove": ("Remove", "Rimuovi"),
+    "side.edit": ("Edit", "Modifica"),
+    "side.delete_confirm": (
+        'Permanently delete "{name}" and its analysis history',
+        'Elimina definitivamente "{name}" e il suo storico analisi',
+    ),
+    "side.delete_btn": ("Delete client portfolio", "Elimina portafoglio cliente"),
+    "side.deleted_toast": ("Client portfolio deleted", "Portafoglio cliente eliminato"),
+    "side.privacy": ("Privacy and data", "Privacy e dati"),
+    "side.erase_all_hint": (
+        "Deletes all your saved portfolios and analyses. Security log entries "
+        "are kept but anonymized. The action cannot be undone.",
+        "Elimina tutti i portafogli e le analisi salvate. Le voci del registro "
+        "di sicurezza restano ma vengono anonimizzate. L'operazione non è reversibile.",
+    ),
+    "side.erase_all_confirm": (
+        "I understand that all my data will be deleted",
+        "Ho capito che tutti i miei dati verranno eliminati",
+    ),
+    "side.erase_all_btn": ("Delete all my data", "Elimina tutti i miei dati"),
+    "side.erase_all_done": (
+        "Deleted {portfolios} portfolios and {analyses} analyses; "
+        "{audit_pseudonymized} log entries anonymized.",
+        "Eliminati {portfolios} portafogli e {analyses} analisi; "
+        "{audit_pseudonymized} voci di registro anonimizzate.",
+    ),
     "side.empty_title": ("Empty portfolio", "Portafoglio vuoto"),
     "side.empty_hint": (
         "Search a stock above and add it with its amount.",

@@ -23,6 +23,7 @@ from portfolio_intelligence.portfolio import Portfolio
 from portfolio_intelligence.portfolio.positions import portfolio_xirr, position_table, totals
 from portfolio_intelligence.ui.components import empty_state
 from portfolio_intelligence.ui.identity import auth_required_but_missing, resolve_require_auth
+from portfolio_intelligence.ui.legal import render_legal_page_if_requested, sync_document_language
 from portfolio_intelligence.ui.theme import inject_theme
 from portfolio_intelligence.views.common import (
     BENCHMARK,
@@ -60,6 +61,8 @@ def bootstrap_page(page_title: str, require_auth_default: bool) -> None:
         initial_sidebar_state="expanded",
     )
     inject_theme()
+    # i documenti legali devono essere leggibili anche senza login
+    render_legal_page_if_requested()
 
     # gate duro: un deploy pubblico può imporre REQUIRE_AUTH=true per rifiutare
     # di servire richieste finché l'OIDC non isola davvero i dati per advisor
@@ -79,6 +82,7 @@ def init_session() -> None:
     from portfolio_intelligence.i18n import set_language
 
     set_language(st.session_state.get("language", "en"))
+    sync_document_language(st.session_state.get("language", "en"))
 
 
 @dataclass

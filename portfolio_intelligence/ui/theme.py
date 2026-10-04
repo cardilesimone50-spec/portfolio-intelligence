@@ -5,7 +5,7 @@ Estratto da app.py per tenere il router sottile; nessuna logica, solo stile.
 
 import streamlit as st
 
-from portfolio_intelligence.visualization.charts import GAIN, LOSS
+from portfolio_intelligence.visualization.charts import GAIN_TEXT, LOSS
 
 AMBER = "#d97706"  # status mid-band only (gauge/health)
 ACCENT = "#1E40AF"  # brand primary (Stripe/Mercury blue)
@@ -16,7 +16,6 @@ def inject_theme() -> None:
     st.markdown(
         f"""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
         :root {{
             --panel: #ffffff;
@@ -27,10 +26,12 @@ def inject_theme() -> None:
             --accent: {ACCENT};
             --accent-soft: rgba(30, 64, 175, 0.08);
             --accent-border: rgba(30, 64, 175, 0.28);
-            --gain: {GAIN};
+            --gain: {GAIN_TEXT};
             --loss: {LOSS};
-            --font-ui: 'Inter', -apple-system, 'Segoe UI', sans-serif;
-            --font-display: 'Space Grotesk', 'Inter', sans-serif;
+            /* font serviti da Streamlit stesso (stessa origine, licenza OFL): nessuna
+               richiesta a Google Fonts, che trasferirebbe l'IP dell'utente a terzi */
+            --font-ui: 'Source Sans', -apple-system, 'Segoe UI', sans-serif;
+            --font-display: 'Source Sans', -apple-system, 'Segoe UI', sans-serif;
         }}
         html, body, p, div, span, label, input, button, textarea, select, li {{
             font-family: var(--font-ui) !important;
@@ -191,6 +192,14 @@ def inject_theme() -> None:
         }}
 
         .brand-product {{ white-space: nowrap; }}
+
+        /* ---- footer legale ---- */
+        .legal-footer {{
+            margin: 28px 0 8px; padding-top: 14px; border-top: 1px solid var(--line);
+            font-size: 0.78rem; color: var(--muted); line-height: 1.7;
+        }}
+        .legal-footer a {{ color: var(--muted); text-decoration: underline; }}
+        .legal-footer a:hover, .legal-footer a:focus-visible {{ color: var(--accent); }}
 
         /* ---- responsive ---- */
         @media (max-width: 920px) {{

@@ -310,3 +310,58 @@ def test_app_router_renders_chooser_without_forcing_require_auth(monkeypatch):
         source = f.read()
     assert "resolve_require_auth" not in source
     assert "render_profile_chooser" in source
+
+
+# -------------------------------------------------------- cancellazione dati (art. 17 GDPR)
+
+
+def _advisor_sidebar_app():
+    import streamlit as st
+
+    from portfolio_intelligence.views.sidebar import render_sidebar
+
+    st.session_state.setdefault("positions", {})
+    render_sidebar("adv@x", advisor_mode=True)
+
+
+def _button(at, label):
+    return next(b for b in at.button if b.label == label)
+
+
+def test_advisor_deletes_a_client_portfolio_only_after_confirming(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    from portfolio_intelligence.data.store import list_portfolios, save_portfolio
+    from portfolio_intelligence.i18n import t_in
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'del.db'}")
+    save_portfolio("adv@x", "Cliente A", {"AAPL": 100.0})
+    save_portfolio("adv@x", "Cliente B", {"MSFT": 100.0})
+
+    at = AppTest.from_function(_advisor_sidebar_app).run()
+    next(s for s in at.selectbox if s.label == t_in("en", "side.load")).select("Cliente A").run()
+    delete_btn = _button(at, t_in("en", "side.delete_btn"))
+    assert delete_btn.disabled  # niente cancellazioni senza conferma esplicita
+
+    at.checkbox(key="del_confirm").check().run()
+    _button(at, t_in("en", "side.delete_btn")).click().run()
+
+    assert set(list_portfolios("adv@x")) == {"Cliente B"}
+
+
+def test_advisor_erases_all_own_data_from_sidebar(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    from portfolio_intelligence.data.store import list_portfolios, save_portfolio
+    from portfolio_intelligence.i18n import t_in
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'erase.db'}")
+    save_portfolio("adv@x", "Cliente A", {"AAPL": 100.0})
+    save_portfolio("adv@y", "Cliente Z", {"MSFT": 100.0})
+
+    at = AppTest.from_function(_advisor_sidebar_app).run()
+    at.checkbox(key="erase_all_confirm").check().run()
+    _button(at, t_in("en", "side.erase_all_btn")).click().run()
+
+    assert list_portfolios("adv@x") == {}
+    assert set(list_portfolios("adv@y")) == {"Cliente Z"}  # gli altri consulenti non toccati

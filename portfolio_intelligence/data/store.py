@@ -12,6 +12,7 @@ su Postgres usare `alembic upgrade head` (DB nuovo) o `alembic stamp head`
 (DB già esistente) — vedi README.
 """
 
+import hashlib
 import json
 import os
 from datetime import datetime
@@ -31,6 +32,7 @@ from sqlalchemy import (
     inspect,
     select,
     text,
+    update,
 )
 from sqlalchemy.dialects.postgresql import insert as _pg_insert
 from sqlalchemy.dialects.sqlite import insert as _sqlite_insert
@@ -256,7 +258,13 @@ def list_portfolios(advisor: str, engine: Engine | None = None) -> dict[str, dic
     return result
 
 
+REDACTED = "[deleted]"
+
+
 def delete_portfolio(advisor: str, name: str, engine: Engine | None = None) -> None:
+    """Cancellazione (art. 17 GDPR) di un portafoglio cliente: composizione,
+    storico delle analisi e nome del cliente nell'audit log (gli eventi restano,
+    senza il dato personale)."""
     engine = engine or get_engine()
     with engine.begin() as conn:
         conn.execute(
@@ -264,6 +272,40 @@ def delete_portfolio(advisor: str, name: str, engine: Engine | None = None) -> N
                 portfolios_table.c.advisor == advisor, portfolios_table.c.name == name
             )
         )
+        conn.execute(
+            delete(analyses_table).where(
+                analyses_table.c.advisor == advisor, analyses_table.c.portfolio == name
+            )
+        )
+        conn.execute(
+            update(audit_log_table)
+            .where(audit_log_table.c.advisor == advisor, audit_log_table.c.detail == name)
+            .values(detail=REDACTED)
+        )
+
+
+def delete_advisor_data(advisor: str, engine: Engine | None = None) -> dict[str, int]:
+    """Cancella tutti i dati di un consulente (richiesta di cancellazione account).
+
+    Portafogli e analisi vengono eliminati. Le righe di audit restano per
+    finalità di sicurezza ma vengono pseudonimizzate: l'identità diventa un
+    hash non reversibile e il dettaglio (nomi dei clienti) viene oscurato.
+    """
+    engine = engine or get_engine()
+    pseudonym = "deleted:" + hashlib.sha256(advisor.encode()).hexdigest()[:16]
+    with engine.begin() as conn:
+        portfolios = conn.execute(
+            delete(portfolios_table).where(portfolios_table.c.advisor == advisor)
+        ).rowcount
+        analyses = conn.execute(
+            delete(analyses_table).where(analyses_table.c.advisor == advisor)
+        ).rowcount
+        audit = conn.execute(
+            update(audit_log_table)
+            .where(audit_log_table.c.advisor == advisor)
+            .values(advisor=pseudonym, detail=REDACTED)
+        ).rowcount
+    return {"portfolios": portfolios, "analyses": analyses, "audit_pseudonymized": audit}
 
 
 # ---------------------------------------------------------------- storico analisi (per advisor)

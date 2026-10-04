@@ -6,7 +6,14 @@ from datetime import date
 import streamlit as st
 
 from portfolio_intelligence.data.importers import parse_positions
-from portfolio_intelligence.data.store import list_portfolios, log_audit, save_portfolio
+from portfolio_intelligence.data.store import (
+    REDACTED,
+    delete_advisor_data,
+    delete_portfolio,
+    list_portfolios,
+    log_audit,
+    save_portfolio,
+)
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from portfolio_intelligence.ui.components import (
@@ -184,7 +191,7 @@ def render_sidebar(advisor: str, *, advisor_mode: bool = True) -> SidebarSetting
                     if agg is not None
                     else eur(costs[ticker])
                 )
-                col_card, col_menu = st.columns([5, 1], gap="small")
+                col_card, col_menu = st.columns([3.3, 1.7], gap="small")
                 with col_card:
                     st.markdown(
                         position_card_html(
@@ -192,7 +199,7 @@ def render_sidebar(advisor: str, *, advisor_mode: bool = True) -> SidebarSetting
                         ),
                         unsafe_allow_html=True,
                     )
-                with col_menu, st.popover("···"):
+                with col_menu, st.popover(t("side.edit")):
                     current = (
                         agg if agg is not None else {"qty": 0.0, "price": 0.0, "first_date": None}
                     )
@@ -283,6 +290,25 @@ def render_sidebar(advisor: str, *, advisor_mode: bool = True) -> SidebarSetting
                     if selected_saved and st.button(t("side.load_btn"), width="stretch"):
                         st.session_state.positions = normalize_portfolio(saved[selected_saved])
                         st.rerun()
+                    # cancellazione del cliente (art. 17 GDPR): composizione,
+                    # storico analisi e nome nell'audit log
+                    if selected_saved:
+                        confirm = st.checkbox(
+                            t("side.delete_confirm", name=selected_saved), key="del_confirm"
+                        )
+                        if st.button(t("side.delete_btn"), width="stretch", disabled=not confirm):
+                            delete_portfolio(advisor, selected_saved)
+                            log_audit(advisor, "delete_portfolio", REDACTED)
+                            st.toast(t("side.deleted_toast"))
+                            st.rerun()
+            with st.expander(t("side.privacy")):
+                st.caption(t("side.erase_all_hint"))
+                confirm_all = st.checkbox(t("side.erase_all_confirm"), key="erase_all_confirm")
+                if st.button(t("side.erase_all_btn"), width="stretch", disabled=not confirm_all):
+                    counts = delete_advisor_data(advisor)
+                    st.session_state.positions = {}
+                    st.toast(t("side.erase_all_done", **counts))
+                    st.rerun()
         else:
             # stateless: nessuna lettura/scrittura su store.py, nessun nome
             # da assegnare — "My portfolio" basta per titolo PDF e log_analysis

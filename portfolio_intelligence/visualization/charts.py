@@ -5,12 +5,16 @@ import numpy as np
 import pandas as pd
 
 # Palette categorica validata per superficie chiara (dataviz skill, light mode)
-PALETTE = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"]
+PALETTE = ["#2470d0", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"]
 # Correlazione: blu = opposti, neutro chiaro = zero, rosso = si muovono insieme
 DIVERGING = ["#2a78d6", "#e5e7eb", "#e34948"]
 # Rendimenti: convenzione finanza — rosso = perdita, verde = guadagno
 LOSS = "#dc2626"
 GAIN = "#0ea371"
+# varianti per il TESTO: GAIN/AMBER come colore di testo su bianco non arrivano
+# a 4.5:1 (WCAG AA). Nei grafici (elementi non testuali, soglia 3:1) restano.
+GAIN_TEXT = "#047857"
+AMBER_TEXT = "#b45309"
 RETURNS_DIVERGING = [LOSS, "#e5e7eb", GAIN]
 TEXT_COLOR = "#1a1d24"
 ACCENT = "#b57400"

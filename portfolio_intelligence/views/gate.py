@@ -12,6 +12,7 @@ from portfolio_intelligence.data.importers import parse_positions
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from portfolio_intelligence.ui.components import render_landing
+from portfolio_intelligence.ui.legal import legal_footer
 from portfolio_intelligence.views.common import (
     BENCHMARK,
     SAMPLE_PORTFOLIO,
@@ -37,7 +38,8 @@ GATE_CSS = """
 [data-testid="collapsedControl"] { display: none !important; }
 
 /* ---- header: brand + stepper ---- */
-.gate-bar { display: flex; align-items: center; gap: 28px; min-height: 40px; }
+.gate-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; min-height: 40px; }
+.gate-bar .brand { white-space: nowrap; }
 .stepper { display: flex; align-items: center; gap: 10px; }
 .step {
     display: flex; align-items: center; gap: 8px;
@@ -214,11 +216,13 @@ def render_gate() -> None:
     if st.session_state.stage == "landing":
         _topbar(step=None)
         render_landing(on_start=_go_input)
+        legal_footer()
 
     # ---- stage 2: portfolio composition ----------------------------------
     elif st.session_state.stage == "input":
         _topbar(step=1)
         _render_input()
+        legal_footer()
 
     # ---- stage 3: real data fetch with progress, then the platform -------
     elif st.session_state.stage == "loading":
@@ -433,7 +437,7 @@ def _positions_table() -> None:
         ("r", t("gate.col_cost")),
         ("r", t("gate.col_weight")),
     ]
-    widths = [14, 1]  # griglia dati | azione di rimozione
+    widths = [12, 1.6]  # griglia dati | azione di rimozione
     with st.container(key="gate_thead"):
         st.columns(widths, gap="small")[0].markdown(
             '<div class="tbl-grid head">'
@@ -462,11 +466,11 @@ def _positions_table() -> None:
                 + "</div>",
                 unsafe_allow_html=True,
             )
+            # etichetta testuale, non "✕": è il nome letto dai lettori di schermo
             action_col.button(
-                "✕",
+                t("side.remove"),
                 key=f"gate_del_{ticker}",
                 type="tertiary",
-                help=t("side.remove"),
                 on_click=_remove_position,
                 args=(ticker,),
             )

@@ -28,6 +28,12 @@ import streamlit as st
 
 from portfolio_intelligence.i18n import set_language
 from portfolio_intelligence.ui.components import render_profile_chooser
+from portfolio_intelligence.ui.legal import DOCS as LEGAL_DOCS
+from portfolio_intelligence.ui.legal import (
+    legal_footer,
+    render_legal_page_if_requested,
+    sync_document_language,
+)
 from portfolio_intelligence.ui.theme import inject_theme
 from portfolio_intelligence.views.common import language_selector
 
@@ -41,6 +47,12 @@ def _go_investor() -> None:
 def _go_advisor() -> None:
     st.query_params["profile"] = "advisor"
 
+
+if st.query_params.get("legal") in LEGAL_DOCS:
+    # pagina legale aperta dal footer (nuova scheda): niente routing per profilo
+    st.set_page_config(page_title="Smarteefinance | Legal", page_icon="◆", layout="wide")
+    inject_theme()
+    render_legal_page_if_requested()
 
 profile = _MODE if _MODE in ("investor", "advisor") else st.query_params.get("profile")
 
@@ -63,9 +75,11 @@ else:
     )
     inject_theme()
     set_language(st.session_state.get("language", "en"))
+    sync_document_language(st.session_state.get("language", "en"))
 
     _spacer, lang_col = st.columns([6, 1])
     with lang_col:
         language_selector("lang_chooser")
 
     render_profile_chooser(on_investor=_go_investor, on_advisor=_go_advisor)
+    legal_footer()
