@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from src.config import MIN_PERIODS_CORRELATION
 from src.portfolio import Portfolio, weights_series
 
 
@@ -13,7 +14,9 @@ def portfolio_volatility(returns: pd.DataFrame, portfolio: Portfolio) -> float:
     return float(variance**0.5)
 
 
-def correlation_matrix(returns: pd.DataFrame, min_periods: int = 40) -> pd.DataFrame:
+def correlation_matrix(
+    returns: pd.DataFrame, min_periods: int = MIN_PERIODS_CORRELATION
+) -> pd.DataFrame:
     """Matrice di correlazione (Pearson) dei rendimenti giornalieri.
 
     min_periods evita correlazioni spurie tra titoli con poco storico in comune:
@@ -22,7 +25,9 @@ def correlation_matrix(returns: pd.DataFrame, min_periods: int = 40) -> pd.DataF
     return returns.corr(min_periods=min_periods)
 
 
-def correlations_with(returns: pd.DataFrame, ticker: str, min_periods: int = 40) -> pd.Series:
+def correlations_with(
+    returns: pd.DataFrame, ticker: str, min_periods: int = MIN_PERIODS_CORRELATION
+) -> pd.Series:
     """Correlazione di ogni altro titolo con `ticker`, ordinata dalla più alta.
 
     Esclude il titolo stesso e le coppie senza abbastanza storico in comune.
@@ -33,7 +38,9 @@ def correlations_with(returns: pd.DataFrame, ticker: str, min_periods: int = 40)
     return corr.drop(index=ticker).dropna().sort_values(ascending=False)
 
 
-def average_pairwise_correlation(returns: pd.DataFrame, min_periods: int = 40) -> float:
+def average_pairwise_correlation(
+    returns: pd.DataFrame, min_periods: int = MIN_PERIODS_CORRELATION
+) -> float:
     """Correlazione media tra tutte le coppie distinte di titoli del portafoglio."""
     corr = correlation_matrix(returns, min_periods=min_periods)
     n = len(corr)

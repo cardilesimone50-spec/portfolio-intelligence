@@ -12,6 +12,7 @@ from src.analytics.insights import (
     usd_exposure,
 )
 from src.analytics.performance import max_drawdown
+from src.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD, rolling_min_periods
 from src.data.fx import convert_to_eur
 from src.data.store import list_portfolios
 from src.i18n import t
@@ -50,7 +51,7 @@ def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict
     value_c = (1 + daily_c).cumprod()
     vol_c = portfolio_volatility(returns_c, pf_c) * TRADING_DAYS**0.5
     dd_c = max_drawdown(value_c)
-    mp_c = max(15, min(60, len(returns_c) // 2))
+    mp_c = rolling_min_periods(len(returns_c))
     corr_c = average_pairwise_correlation(returns_c, min_periods=mp_c)
     radar_c = radar_scores(vol_c, pf_c, dd_c, corr_c)
     fund_c = cached_fundamentals(tuple(sorted(amounts_c)))
@@ -98,7 +99,13 @@ def render(ctx: ViewContext) -> None:
             except ValueError as exc:
                 failures.append(f"{client_name}: {exc}")
                 continue
-            color = GAIN if a["health"] >= 67 else AMBER if a["health"] >= 34 else LOSS
+            color = (
+                GAIN
+                if a["health"] >= HEALTH_SCORE_GOOD
+                else AMBER
+                if a["health"] >= HEALTH_SCORE_FAIR
+                else LOSS
+            )
             # badge: P&L dal carico se noto, altrimenti il rendimento del periodo
             shown_chg = a["pnl_pct"] if a["pnl_pct"] == a["pnl_pct"] else a["cum"]
             chg_css = "up" if shown_chg >= 0 else "down"

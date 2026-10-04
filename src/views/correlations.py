@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from src.analytics.interpret import interpret_correlation
+from src.config import CORRELATION_ELEVATED, CORRELATION_LOW, rolling_min_periods
 from src.portfolio.returns import compute_daily_returns
 from src.portfolio.risk import correlation_matrix, correlations_with
 from src.ui.components import sec
@@ -36,7 +37,7 @@ def render(ctx: ViewContext) -> None:
         if corr_ticker:
             cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[corr_period])
             window_returns = compute_daily_returns(all_prices.loc[all_prices.index >= cutoff])
-            mp = max(15, min(60, len(window_returns) // 2))
+            mp = rolling_min_periods(len(window_returns))
             corr = correlations_with(window_returns, corr_ticker, min_periods=mp)
 
             col_top, col_bottom = st.columns(2, gap="large")
@@ -62,9 +63,9 @@ def render(ctx: ViewContext) -> None:
         col_metric, col_heat = st.columns([1, 2], gap="large")
         with col_metric:
             st.metric("Average correlation", f"{avg_corr:.2f}")
-            if avg_corr > 0.6:
+            if avg_corr > CORRELATION_ELEVATED:
                 st.warning(interpret_correlation(avg_corr))
-            elif avg_corr > 0.3:
+            elif avg_corr > CORRELATION_LOW:
                 st.info(interpret_correlation(avg_corr))
             else:
                 st.success(interpret_correlation(avg_corr))

@@ -10,6 +10,25 @@ Tutte le frasi passano dal catalogo i18n: la lingua segue set_language().
 
 import pandas as pd
 
+from src.config import (
+    BETA_HIGH,
+    BETA_LOW,
+    CORRELATION_ELEVATED,
+    CORRELATION_HIGH,
+    CORRELATION_LOW,
+    DRAWDOWN_INTERPRET_BEAR,
+    DRAWDOWN_INTERPRET_CORRECTION,
+    DRAWDOWN_INTERPRET_NORMAL,
+    SHARPE_GOOD,
+    SHARPE_INLINE,
+    SHARPE_MODEST,
+    SHARPE_NEGATIVE,
+    SORTINO_DOWNSIDE_RATIO,
+    SORTINO_UPSIDE_RATIO,
+    VOLATILITY_HIGH,
+    VOLATILITY_LOW,
+    VOLATILITY_MID,
+)
 from src.i18n import t
 
 
@@ -24,11 +43,11 @@ def universe_percentile(value: float, universe: pd.Series) -> float:
 def interpret_volatility(annual_vol: float, universe_vols: pd.Series | None = None) -> str:
     if annual_vol != annual_vol:
         return ""
-    if annual_vol < 0.12:
+    if annual_vol < VOLATILITY_LOW:
         text = t("vol.low")
-    elif annual_vol < 0.22:
+    elif annual_vol < VOLATILITY_MID:
         text = t("vol.mid")
-    elif annual_vol < 0.35:
+    elif annual_vol < VOLATILITY_HIGH:
         text = t("vol.high")
     else:
         text = t("vol.extreme")
@@ -42,13 +61,13 @@ def interpret_volatility(annual_vol: float, universe_vols: pd.Series | None = No
 def interpret_sharpe(sharpe: float) -> str:
     if sharpe != sharpe:
         return ""
-    if sharpe < 0:
+    if sharpe < SHARPE_NEGATIVE:
         return t("sharpe.negative")
-    if sharpe < 0.5:
+    if sharpe < SHARPE_MODEST:
         return t("sharpe.modest")
-    if sharpe < 1:
+    if sharpe < SHARPE_INLINE:
         return t("sharpe.inline")
-    if sharpe < 2:
+    if sharpe < SHARPE_GOOD:
         return t("sharpe.good")
     return t("sharpe.exceptional")
 
@@ -56,9 +75,9 @@ def interpret_sharpe(sharpe: float) -> str:
 def interpret_sortino(sortino: float, sharpe: float) -> str:
     if sortino != sortino or sharpe != sharpe or sharpe == 0:
         return ""
-    if sortino > sharpe * 1.25:
+    if sortino > sharpe * SORTINO_UPSIDE_RATIO:
         return t("sortino.upside")
-    if sortino < sharpe * 0.9:
+    if sortino < sharpe * SORTINO_DOWNSIDE_RATIO:
         return t("sortino.downside")
     return t("sortino.symmetric")
 
@@ -66,11 +85,11 @@ def interpret_sortino(sortino: float, sharpe: float) -> str:
 def interpret_drawdown(drawdown: float) -> str:
     if drawdown != drawdown:
         return ""
-    if drawdown > -0.10:
+    if drawdown > DRAWDOWN_INTERPRET_NORMAL:
         return t("dd.normal")
-    if drawdown > -0.20:
+    if drawdown > DRAWDOWN_INTERPRET_CORRECTION:
         return t("dd.correction")
-    if drawdown > -0.35:
+    if drawdown > DRAWDOWN_INTERPRET_BEAR:
         return t("dd.bear")
     return t("dd.severe")
 
@@ -78,9 +97,9 @@ def interpret_drawdown(drawdown: float) -> str:
 def interpret_beta(beta: float, benchmark: str) -> str:
     if beta != beta:
         return ""
-    if beta < 0.85:
+    if beta < BETA_LOW:
         return t("beta.defensive", benchmark=benchmark)
-    if beta <= 1.15:
+    if beta <= BETA_HIGH:
         return t("beta.inline", benchmark=benchmark)
     return t("beta.amplify", benchmark=benchmark)
 
@@ -88,10 +107,10 @@ def interpret_beta(beta: float, benchmark: str) -> str:
 def interpret_correlation(avg_correlation: float) -> str:
     if avg_correlation != avg_correlation:
         return ""
-    if avg_correlation > 0.75:
+    if avg_correlation > CORRELATION_HIGH:
         return t("corr.identical")
-    if avg_correlation > 0.6:
+    if avg_correlation > CORRELATION_ELEVATED:
         return t("corr.close")
-    if avg_correlation > 0.3:
+    if avg_correlation > CORRELATION_LOW:
         return t("corr.average")
     return t("corr.independent")

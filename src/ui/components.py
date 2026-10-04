@@ -2,6 +2,7 @@
 
 import streamlit as st
 
+from src.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD
 from src.i18n import t
 from src.visualization.charts import GAIN, LOSS
 
@@ -25,7 +26,7 @@ def sec(title: str) -> None:
 
 
 def _status_color(score: float) -> str:
-    return GAIN if score >= 67 else AMBER if score >= 34 else LOSS
+    return GAIN if score >= HEALTH_SCORE_GOOD else AMBER if score >= HEALTH_SCORE_FAIR else LOSS
 
 
 def position_card_html(

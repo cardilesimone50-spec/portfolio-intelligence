@@ -22,7 +22,7 @@ from src.analytics.performance import (
     max_drawdown,
     value_at_risk,
 )
-from src.config import TRADING_DAYS
+from src.config import TRADING_DAYS, rolling_min_periods
 from src.portfolio import Portfolio
 from src.portfolio.returns import compute_daily_returns, portfolio_daily_returns
 from src.portfolio.risk import average_pairwise_correlation, portfolio_volatility
@@ -51,7 +51,7 @@ def analyze_portfolio(
     annual_vol = portfolio_volatility(returns, portfolio) * TRADING_DAYS**0.5
     drawdown = max_drawdown(pf_value)
     var_95 = value_at_risk(pf_daily)
-    min_periods = max(15, min(60, len(returns) // 2))
+    min_periods = rolling_min_periods(len(returns))
     avg_corr = average_pairwise_correlation(returns, min_periods=min_periods)
 
     bench_daily = compute_daily_returns(bench_prices)[benchmark]

@@ -29,6 +29,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from src.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD
 from src.i18n import t_in
 
 _ACCENT = colors.HexColor("#1E40AF")
@@ -483,7 +484,13 @@ def _breakdown_drawing(breakdown: dict[str, float], width: float = _CONTENT_W) -
     plot_w = width - left - 14 * mm
     for i, (label, score) in enumerate(breakdown.items()):
         base_y = height - row_h * (i + 1) + 1.5 * mm
-        color = _GREEN if score >= 67 else _AMBER if score >= 34 else _RED
+        color = (
+            _GREEN
+            if score >= HEALTH_SCORE_GOOD
+            else _AMBER
+            if score >= HEALTH_SCORE_FAIR
+            else _RED
+        )
         drawing.add(
             String(
                 left - 2 * mm,
@@ -646,7 +653,13 @@ def build_report(
     )
     names = names or {}
     weights = pd.Series(positions, dtype=float) / total if total else pd.Series(dtype=float)
-    health_color = _GREEN if health_score >= 67 else _AMBER if health_score >= 34 else _RED
+    health_color = (
+        _GREEN
+        if health_score >= HEALTH_SCORE_GOOD
+        else _AMBER
+        if health_score >= HEALTH_SCORE_FAIR
+        else _RED
+    )
     return_color = _GREEN if cum_return >= 0 else _RED
 
     def page_header(topic: str) -> list:

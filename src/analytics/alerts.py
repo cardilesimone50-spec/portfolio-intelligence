@@ -2,6 +2,13 @@
 
 import pandas as pd
 
+from src.config import (
+    CONCENTRATION_FAIR_SHARE_MULT,
+    CONCENTRATION_MIN_ABS,
+    CORRELATION_HIGH,
+    DAILY_MOVE_ALERT,
+    DRAWDOWN_ALERT,
+)
 from src.i18n import t
 from src.portfolio import Portfolio, weights_series
 
@@ -20,7 +27,7 @@ def evaluate_alerts(
     # 40%: with two equally weighted holdings, 50% is physiological
     if len(contributions):
         fair_share = 1 / len(contributions)
-        threshold = max(0.40, 1.5 * fair_share)
+        threshold = max(CONCENTRATION_MIN_ABS, CONCENTRATION_FAIR_SHARE_MULT * fair_share)
         if contributions.iloc[0] > threshold:
             alerts.append(
                 t(
@@ -30,17 +37,17 @@ def evaluate_alerts(
                 )
             )
 
-    if avg_correlation == avg_correlation and avg_correlation > 0.75:
+    if avg_correlation == avg_correlation and avg_correlation > CORRELATION_HIGH:
         alerts.append(t("alert.correlation", corr=f"{avg_correlation:.2f}"))
 
-    if drawdown == drawdown and drawdown < -0.30:
+    if drawdown == drawdown and drawdown < DRAWDOWN_ALERT:
         alerts.append(t("alert.drawdown", dd=f"{drawdown:.0%}"))
 
     # last available session move
     weights = weights_series(portfolio)
     last_day = returns[weights.index].iloc[-1]
     day_move = float((last_day * weights).sum())
-    if day_move < -0.02:
+    if day_move < DAILY_MOVE_ALERT:
         contribution_today = last_day * weights
         worst = contribution_today.idxmin()
         alerts.append(
