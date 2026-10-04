@@ -18,7 +18,11 @@ Smarteefinance è uno strumento informativo di analisi di portafoglio. Non è un
 
 ## Fonti dei dati
 
-Prezzi, cambi e dati di bilancio provengono da Yahoo Finance e, se attivati, da Stooq ed EODHD. I marchi citati appartengono ai rispettivi titolari e sono usati a solo scopo identificativo.
+- **Cambio EUR/USD**: tassi di riferimento della Banca Centrale Europea (fonte: BCE).
+- **Tasso privo di rischio**: rendimenti dei titoli di Stato a breve termine del Dipartimento del Tesoro degli Stati Uniti.
+- **Prezzi e dati di bilancio**: Yahoo Finance e, se attivati, Stooq ed EODHD.
+
+I marchi citati appartengono ai rispettivi titolari e sono usati a solo scopo identificativo.
 
 ## Licenze
 

@@ -48,7 +48,7 @@ I dati possono essere trattati da fornitori che agiscono come responsabili del t
 
 - **Hosting dell'applicazione**: {{hosting}}. Se il fornitore ha sede negli Stati Uniti, il trasferimento avviene sulla base dell'EU-U.S. Data Privacy Framework o delle Clausole Contrattuali Standard della Commissione europea.
 - **Login (solo Advisor)**: il fornitore di identità scelto per l'accesso (ad esempio Google LLC), che riceve i dati necessari all'autenticazione secondo la propria informativa.
-- **Fornitori di dati di mercato** (Yahoo Finance e, se attivati, Stooq ed EODHD): ricevono dal nostro server **solo i simboli dei titoli** da quotare, mai dati che ti identificano.
+- **Fornitori di dati di mercato** (Yahoo Finance, Banca Centrale Europea, Tesoro degli Stati Uniti e, se attivati, Stooq ed EODHD): ricevono dal nostro server **solo le richieste di dati di mercato** (per esempio i simboli dei titoli), mai dati che ti identificano.
 
 I dati non vengono venduti né usati per pubblicità o profilazione.
 

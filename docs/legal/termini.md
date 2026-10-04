@@ -31,7 +31,7 @@ Il Servizio è riservato a persone maggiorenni. L'area Advisor è destinata a pr
 
 ## 5. Dati di mercato
 
-Prezzi, cambi e dati di bilancio provengono da fonti terze (tra cui Yahoo Finance) e sono forniti "così come sono", **senza garanzia** di esattezza, completezza o tempestività. Possono essere temporaneamente non disponibili.
+Prezzi, cambi e dati di bilancio provengono da fonti terze (tra cui Yahoo Finance, la Banca Centrale Europea e il Tesoro degli Stati Uniti) e sono forniti "così come sono", **senza garanzia** di esattezza, completezza o tempestività. Possono essere temporaneamente non disponibili.
 
 ## 6. Uso consentito
 
