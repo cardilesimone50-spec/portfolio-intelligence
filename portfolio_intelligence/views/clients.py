@@ -90,7 +90,6 @@ def render(ctx: ViewContext) -> None:
             "No clients in the book",
             "Save at least one portfolio (sidebar → Saved portfolios) "
             "to see it appear here with status light and main problem.",
-            icon="folder",
         )
         return
 
@@ -114,31 +113,23 @@ def render(ctx: ViewContext) -> None:
             shown_chg = a["pnl_pct"] if a["pnl_pct"] == a["pnl_pct"] else a["cum"]
             chg_css = "up" if shown_chg >= 0 else "down"
             rows_html += f"""
-            <div class="kpi" style="display:flex;align-items:center;
-                 gap:16px;margin-bottom:10px;min-width:100%">
-              <div style="width:10px;height:10px;border-radius:50%;
-                   background:{color};flex-shrink:0"></div>
-              <div style="min-width:150px">
-                <div style="font-weight:700">{client_name}</div>
-                <div class="kpi-sub">{eur(a["invested"])} invested ·
-                     vol. {a["vol"]:.0%}</div>
+            <div class="client-row">
+              <div class="client-dot" style="background:{color}"></div>
+              <div class="client-name">
+                <div class="client-strong">{client_name}</div>
+                <div class="kpi-sub">{eur(a["invested"])} invested · vol. {a["vol"]:.0%}</div>
               </div>
-              <div style="min-width:120px">
-                <div class="kpi-sub">VALUE</div>
-                <div style="font-weight:700;font-variant-numeric:tabular-nums">
-                     {eur(a["value"])}
-                     <span class="chg {chg_css}" style="font-size:.8rem">
-                     {shown_chg:+.1%}</span></div>
+              <div class="client-value">
+                <div class="kpi-label">Value</div>
+                <div class="client-strong">{eur(a["value"])}
+                  <span class="chg {chg_css}">{shown_chg:+.1%}</span></div>
               </div>
-              <div style="flex:1" class="kpi-sub">{a["problem"]}</div>
-              <div style="font-family:var(--font-display);font-size:1.5rem;
-                   font-weight:700;color:{text_safe(color)}">{a["health"]}
-                   <span style="font-size:.7rem;color:var(--muted)">/100</span>
-              </div>
+              <div class="client-problem kpi-sub">{a["problem"]}</div>
+              <div class="client-health" style="color:{text_safe(color)}">{a["health"]}<span>/100</span></div>
             </div>"""
-    st.markdown(rows_html, unsafe_allow_html=True)
+    st.markdown(f'<div class="client-list">{rows_html}</div>', unsafe_allow_html=True)
     for failure in failures:
-        st.warning(f"Analysis failed — {failure}")
+        st.warning(f"Analysis failed: {failure}")
     st.caption(
         f"{len(book)} clients · horizon {period} · "
         + ("EUR values, currency included" if in_eur else "original currencies")

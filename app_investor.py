@@ -25,7 +25,7 @@ from portfolio_intelligence.router import (
     render_header,
     render_nav_and_dispatch,
 )
-from portfolio_intelligence.ui.components import compliance_footer
+from portfolio_intelligence.ui.components import compliance_footer, notice
 from portfolio_intelligence.ui.identity import current_advisor
 from portfolio_intelligence.views import checkup as checkup_view
 from portfolio_intelligence.views import correlations, fundamentals, gate, market, metrics, visual
@@ -51,7 +51,7 @@ def main() -> None:
     cp = compute_portfolio(positions, settings)
 
     render_header(settings.in_eur, "Investor")
-    st.info(t("investor.disclaimer"), icon="ℹ️")
+    notice(t("investor.disclaimer"))
 
     # nav ridotta al funnel retail: niente Strategies (opzioni/backtest),
     # niente Clients, niente Admin — quelle sono power feature B2B

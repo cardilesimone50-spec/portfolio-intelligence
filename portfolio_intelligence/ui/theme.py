@@ -1,6 +1,12 @@
 """Design system dell'app: CSS iniettato una volta per run.
 
 Estratto da app.py per tenere il router sottile; nessuna logica, solo stile.
+
+Principi: superfici piatte con bordi sottili, nessun effetto decorativo
+(gradienti, vetro, animazioni d'ingresso, card che si sollevano), una sola
+scala di spaziature (--s-*) e di raggi (--r-*). Tipografia: Source Serif per
+i titoli, Source Sans per interfaccia e numeri; entrambi serviti da Streamlit
+(stessa origine, licenza OFL), nessuna richiesta a font di terze parti.
 """
 
 import streamlit as st
@@ -8,30 +14,37 @@ import streamlit as st
 from portfolio_intelligence.visualization.charts import GAIN_TEXT, LOSS
 
 AMBER = "#d97706"  # status mid-band only (gauge/health)
-ACCENT = "#1E40AF"  # brand primary (Stripe/Mercury blue)
+ACCENT = "#1E40AF"  # brand primary
+ACCENT_HOVER = "#1E3A8A"
 
 
 def inject_theme() -> None:
-    """Applica il design system (font, nav, card, sidebar, responsive)."""
+    """Applica il design system (font, nav, card, widget, sidebar, responsive)."""
     st.markdown(
         f"""
         <style>
 
         :root {{
+            --bg: #F8FAFC;
             --panel: #ffffff;
-            --panel-2: #ffffff;
+            --subtle: #F1F5F9;
             --line: #E2E8F0;
+            --line-strong: #CBD5E1;
             --muted: #64748b;
+            --ink-2: #334155;
             --ink: #0F172A;
             --accent: {ACCENT};
+            --accent-hover: {ACCENT_HOVER};
             --accent-soft: rgba(30, 64, 175, 0.08);
             --accent-border: rgba(30, 64, 175, 0.28);
             --gain: {GAIN_TEXT};
             --loss: {LOSS};
-            /* font serviti da Streamlit stesso (stessa origine, licenza OFL): nessuna
-               richiesta a Google Fonts, che trasferirebbe l'IP dell'utente a terzi */
             --font-ui: 'Source Sans', -apple-system, 'Segoe UI', sans-serif;
-            --font-display: 'Source Sans', -apple-system, 'Segoe UI', sans-serif;
+            --font-display: 'Source Serif', Georgia, 'Times New Roman', serif;
+            /* scala unica: ogni margine/padding del CSS custom usa questi passi */
+            --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;
+            --s-5: 24px; --s-6: 32px; --s-7: 48px;
+            --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
         }}
         html, body, p, div, span, label, input, button, textarea, select, li {{
             font-family: var(--font-ui) !important;
@@ -40,44 +53,54 @@ def inject_theme() -> None:
         [data-testid="stIconMaterial"], [class*="material-symbols"] {{
             font-family: 'Material Symbols Rounded' !important;
         }}
-        .block-container {{ padding-top: 1.1rem; max-width: 1320px; }}
+        .block-container {{ padding-top: var(--s-4); max-width: 1320px; }}
         h1, h2, h3 {{
-            font-family: var(--font-display) !important; letter-spacing: -0.01em;
+            font-family: var(--font-display) !important; font-weight: 600 !important;
+            letter-spacing: -0.005em; color: var(--ink);
         }}
+        /* Streamlit avvolge il testo dei titoli in uno span: eredita il serif */
+        h1 *, h2 *, h3 * {{ font-family: inherit !important; }}
+        /* titoli di pagina custom: niente icona-ancora né padding di Streamlit */
+        .page-title {{ padding: 0 !important; margin: 0 !important; }}
+        .page-title [data-testid="stHeaderActionElements"] {{ display: none; }}
 
         /* ---- barra superiore ---- */
         .topbar {{
             display: flex; justify-content: space-between; align-items: baseline;
-            padding: 2px 2px 10px;
+            padding: 0 0 var(--s-3);
         }}
         .brand {{
-            font-family: var(--font-display) !important;
-            font-size: 1.02rem; letter-spacing: 0.14em; color: var(--ink);
+            font-size: 1rem; letter-spacing: 0.14em; color: var(--ink);
             text-transform: uppercase; font-weight: 500;
         }}
         .brand b {{ color: var(--accent); font-weight: 700; }}
         .brand-product {{
-            font-family: var(--font-ui) !important; text-transform: none;
-            font-size: 0.7rem; font-weight: 600; color: var(--muted);
-            letter-spacing: 0.01em; margin-left: 10px; padding-left: 10px;
+            text-transform: none; white-space: nowrap;
+            font-size: 0.75rem; font-weight: 600; color: var(--muted);
+            letter-spacing: 0.01em; margin-left: var(--s-3); padding-left: var(--s-3);
             border-left: 1px solid var(--line);
         }}
-        .brand-tag {{ font-size: 0.72rem; color: var(--muted); letter-spacing: 0.04em; }}
+        .brand-tag {{ font-size: 0.75rem; color: var(--muted); }}
 
-        /* ---- menu di navigazione (segmented control) ---- */
+        /* ---- navigazione primaria (segmented control) ---- */
+        .st-key-navbar {{
+            border-bottom: 1px solid var(--line);
+            position: sticky; top: 0; z-index: 99; background: var(--bg);
+        }}
         .st-key-navbar [data-testid="stSegmentedControl"] button,
         .st-key-navbar [role="radiogroup"] button {{
             background: transparent !important;
             border: none !important;
             border-radius: 0 !important;
             border-bottom: 2px solid transparent !important;
-            padding: 6px 14px 10px !important;
+            padding: var(--s-2) var(--s-4) var(--s-3) !important;
         }}
         .st-key-navbar button p {{
-            font-size: 0.78rem !important; font-weight: 600;
-            letter-spacing: 0.07em; text-transform: uppercase;
+            font-size: 0.8rem !important; font-weight: 600;
+            letter-spacing: 0.06em; text-transform: uppercase;
             color: var(--muted) !important;
         }}
+        .st-key-navbar button:hover p {{ color: var(--ink) !important; }}
         .st-key-navbar button[aria-checked="true"],
         .st-key-navbar button[kind="segmented_controlActive"] {{
             border-bottom-color: var(--accent) !important;
@@ -86,22 +109,16 @@ def inject_theme() -> None:
         .st-key-navbar button[kind="segmented_controlActive"] p {{
             color: var(--ink) !important;
         }}
-        .st-key-navbar {{
-            border-bottom: 1px solid var(--line);
-            position: sticky; top: 0; z-index: 99;
-            background: rgba(247, 248, 250, 0.85);
-            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-        }}
-        /* sub-nav contestuale: chip discrete sotto la nav primaria */
-        .st-key-subnav {{ margin: 4px 0 2px; }}
+        /* sub-nav contestuale */
+        .st-key-subnav {{ margin: var(--s-1) 0 var(--s-1); }}
         .st-key-subnav [data-testid="stSegmentedControl"] button {{
             background: transparent !important; border: 1px solid var(--line) !important;
-            border-radius: 8px !important; padding: 3px 14px !important;
-            margin-right: 6px;
+            border-radius: var(--r-md) !important; padding: var(--s-1) var(--s-4) !important;
+            margin-right: var(--s-2);
         }}
         .st-key-subnav button p {{
-            font-size: 0.72rem !important; font-weight: 600; letter-spacing: 0.04em;
-            text-transform: none; color: var(--muted) !important;
+            font-size: 0.8rem !important; font-weight: 600;
+            color: var(--muted) !important;
         }}
         .st-key-subnav button[aria-checked="true"],
         .st-key-subnav button[kind="segmented_controlActive"] {{
@@ -113,148 +130,148 @@ def inject_theme() -> None:
             color: var(--accent) !important;
         }}
 
-        /* ---- profondità e hover ---- */
-        .panel, .hero-panel {{
-            box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04);
-            transition: transform 0.18s ease, border-color 0.18s ease;
+        /* ---- widget di Streamlit, adattati al marchio ---- */
+        .stButton button, .stDownloadButton button, [data-testid="stPopover"] > button {{
+            border-radius: var(--r-md); font-weight: 600; box-shadow: none;
         }}
-        .panel:hover, .hero-panel:hover {{
-            transform: translateY(-2px);
-            border-color: rgba(30,64,175,0.28);
+        [data-testid="stBaseButton-primary"] {{
+            background: var(--accent); border: 1px solid var(--accent); color: #fff;
         }}
-        .pos-row {{ transition: background 0.15s ease; border-radius: 8px; }}
-        .pos-row:hover {{ background: rgba(20, 25, 35, 0.03); }}
-        .stButton button, .stDownloadButton button {{
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        [data-testid="stBaseButton-primary"]:hover {{
+            background: var(--accent-hover); border-color: var(--accent-hover); color: #fff;
         }}
-        .stButton button:hover, .stDownloadButton button:hover {{
-            transform: translateY(-1px);
-            box-shadow: 0 4px 14px rgba(30,64,175,0.14);
+        [data-testid="stBaseButton-secondary"] {{
+            background: var(--panel); border: 1px solid var(--line-strong); color: var(--ink);
         }}
-
-        /* ---- KPI card con icona ---- */
-        .kpi-row {{ display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 6px; }}
-        .kpi {{
-            flex: 1; min-width: 210px;
-            background: var(--panel); border: 1px solid var(--line);
-            border-radius: 18px; padding: 20px 22px;
-            box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04);
-            transition: transform 0.18s ease, border-color 0.18s ease;
-            animation: fadeUpSubtle 0.3s ease-out both;
+        [data-testid="stBaseButton-secondary"]:hover {{
+            background: var(--subtle); border-color: var(--ink-2); color: var(--ink);
         }}
-        .kpi:hover {{ transform: translateY(-2px); border-color: rgba(30,64,175,0.3); }}
-        .kpi-top {{ display: flex; justify-content: space-between; align-items: center; }}
-        .kpi-icon {{
-            width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center;
+        [data-testid="stBaseButton-tertiary"]:hover {{ color: var(--accent); }}
+        [data-testid^="stBaseButton"]:disabled {{
+            background: var(--subtle); border-color: var(--line); color: var(--muted);
         }}
-        .kpi-label {{
-            font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em;
-            color: var(--muted); font-weight: 600; padding-right: 8px;
+        [data-testid^="stBaseButton"]:focus-visible,
+        [data-testid="stPopover"] > button:focus-visible {{
+            outline: 2px solid var(--accent); outline-offset: 2px;
         }}
-        .kpi-value {{
-            font-size: 1.7rem; font-weight: 700; margin-top: 8px;
-            font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+        div[data-baseweb="input"], div[data-baseweb="select"] > div,
+        div[data-baseweb="textarea"] {{
+            border-radius: var(--r-md) !important;
         }}
-        .kpi-sub {{ font-size: 0.75rem; color: var(--muted); margin-top: 4px;
-                    line-height: 1.45; }}
-        @keyframes fadeUpSubtle {{
-            from {{ opacity: 0; transform: translateY(6px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
+        [data-baseweb="tab-list"] {{ gap: var(--s-5); border-bottom: 1px solid var(--line); }}
+        [data-baseweb="tab"] p {{ font-weight: 600; font-size: 0.9rem; }}
+        [data-testid="stExpander"] {{
+            border: 1px solid var(--line); border-radius: var(--r-md); background: transparent;
         }}
-
-        /* ---- empty state ---- */
-        .empty {{
-            text-align: center; padding: 54px 30px;
-            border: 1.5px dashed rgba(20, 25, 35, 0.14);
-            border-radius: 18px; margin: 20px 0;
+        [data-testid="stExpander"] summary p {{ font-weight: 600; }}
+        [data-testid="stAlert"] > div {{ border-radius: var(--r-md); }}
+        header[data-testid="stHeader"] {{ background: transparent; }}
+        [data-testid="stMainMenu"] {{ display: none; }}
+        [data-testid="stPopover"] > button {{
+            border: none !important; background: transparent !important;
+            color: var(--muted) !important;
         }}
-        .empty-icon {{
-            width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(30,64,175,0.1); color: var(--accent);
-        }}
-        .compliance {{
-            margin: 42px auto 8px; max-width: 900px; text-align: center;
-            font-size: 0.72rem; line-height: 1.5; color: #6b7280;
-            border-top: 1px solid var(--line); padding-top: 16px;
-        }}
-        .empty-title {{ font-weight: 700; font-size: 1.05rem; }}
-        .empty-hint {{
-            color: var(--muted); font-size: 0.9rem; margin-top: 6px;
-            max-width: 430px; margin-left: auto; margin-right: auto; line-height: 1.5;
-        }}
-
-        /* ---- spinner brandizzato ---- */
+        [data-testid="stPopover"] > button:hover {{ color: var(--ink) !important; }}
         [data-testid="stSpinner"] i {{
             border-top-color: var(--accent) !important;
-            border-right-color: rgba(30,64,175,0.25) !important;
+            border-right-color: var(--accent-border) !important;
         }}
 
-        .brand-product {{ white-space: nowrap; }}
+        /* ---- avviso informativo neutro (al posto di st.info con icona) ---- */
+        .notice {{
+            background: var(--subtle); border: 1px solid var(--line);
+            border-radius: var(--r-md); padding: var(--s-3) var(--s-4);
+            font-size: 0.85rem; color: var(--ink-2); margin: var(--s-2) 0 var(--s-3);
+        }}
+
+        /* ---- pannelli ---- */
+        .panel {{
+            background: var(--panel); border: 1px solid var(--line);
+            border-radius: var(--r-lg); padding: var(--s-5); height: 100%;
+        }}
+
+        /* ---- striscia KPI: un solo pannello, celle separate da filetti ---- */
+        .kpi-row {{
+            display: flex; flex-wrap: wrap; margin: var(--s-1) 0 var(--s-2);
+            background: var(--panel); border: 1px solid var(--line);
+            border-radius: var(--r-lg);
+        }}
+        .kpi {{
+            flex: 1; min-width: 210px; padding: var(--s-4) var(--s-5);
+            border-left: 1px solid var(--line);
+        }}
+        .kpi:first-child {{ border-left: none; }}
+        .kpi-label {{
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--muted); font-weight: 600;
+        }}
+        .kpi-value {{
+            font-size: 1.7rem; font-weight: 700; margin-top: var(--s-2); color: var(--ink);
+            font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+        }}
+        .kpi-sub {{
+            font-size: 0.8rem; color: var(--muted); margin-top: var(--s-1); line-height: 1.45;
+        }}
+
+        /* ---- libro clienti (Advisor) ---- */
+        .client-list {{
+            background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+        }}
+        .client-row {{
+            display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap;
+            padding: var(--s-3) var(--s-5); border-top: 1px solid var(--line);
+        }}
+        .client-row:first-child {{ border-top: none; }}
+        .client-dot {{ width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }}
+        .client-name {{ min-width: 150px; }}
+        .client-value {{ min-width: 120px; }}
+        .client-strong {{ font-weight: 700; font-variant-numeric: tabular-nums; }}
+        .client-value .chg {{ font-size: 0.8rem; margin-left: var(--s-1); }}
+        .client-problem {{ flex: 1; margin-top: 0; }}
+        .client-health {{
+            font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums;
+        }}
+        .client-health span {{ font-size: 0.75rem; color: var(--muted); font-weight: 600; }}
+
+        /* ---- stato vuoto ---- */
+        .empty {{
+            text-align: center; padding: var(--s-7) var(--s-6);
+            border: 1px dashed var(--line-strong);
+            border-radius: var(--r-lg); margin: var(--s-4) 0;
+        }}
+        .empty-title {{ font-weight: 700; font-size: 1.05rem; color: var(--ink); }}
+        .empty-hint {{
+            color: var(--muted); font-size: 0.9rem; margin: var(--s-2) auto 0;
+            max-width: 430px; line-height: 1.5;
+        }}
+        .compliance {{
+            margin: var(--s-7) auto var(--s-2); max-width: 900px; text-align: center;
+            font-size: 0.75rem; line-height: 1.5; color: var(--muted);
+            border-top: 1px solid var(--line); padding-top: var(--s-4);
+        }}
 
         /* ---- footer legale ---- */
         .legal-footer {{
-            margin: 28px 0 8px; padding-top: 14px; border-top: 1px solid var(--line);
-            font-size: 0.78rem; color: var(--muted); line-height: 1.7;
+            margin: var(--s-6) 0 var(--s-2); padding-top: var(--s-4);
+            border-top: 1px solid var(--line);
+            font-size: 0.8rem; color: var(--muted); line-height: 1.7;
         }}
         .legal-footer a {{ color: var(--muted); text-decoration: underline; }}
         .legal-footer a:hover, .legal-footer a:focus-visible {{ color: var(--accent); }}
 
-        /* ---- responsive ---- */
-        @media (max-width: 920px) {{
-            .hero-panel {{ flex-direction: column; text-align: center; gap: 16px; }}
-            .kpi {{ min-width: 100%; }}
-        }}
-        @media (max-width: 640px) {{
-            .block-container {{ padding-left: 0.6rem; padding-right: 0.6rem; }}
-            .topbar {{ flex-direction: column; align-items: flex-start; gap: 2px; }}
-            .brand {{ font-size: 0.92rem; letter-spacing: 0.08em; }}
-            .brand-product {{
-                display: block; margin: 3px 0 0; padding: 0; border-left: none;
-            }}
-            .brand-tag {{ font-size: 0.66rem; }}
-            /* nav: horizontal scroll instead of wrapping onto 2 rows */
-            .st-key-navbar [role="radiogroup"] {{
-                flex-wrap: nowrap !important; overflow-x: auto; width: 100%;
-                -webkit-overflow-scrolling: touch; scrollbar-width: none;
-            }}
-            .st-key-navbar [role="radiogroup"]::-webkit-scrollbar {{ display: none; }}
-            .st-key-navbar button {{
-                flex: 0 0 auto !important; padding: 6px 12px 10px !important;
-            }}
-            .st-key-navbar button p {{
-                font-size: 0.72rem !important; letter-spacing: 0.04em;
-                white-space: nowrap !important; overflow: visible !important;
-                text-overflow: clip !important;
-            }}
-            .hero-panel {{ padding: 20px 18px; }}
-            .hero-meta .big {{ font-size: 2.1rem; }}
-            .gauge {{ width: 112px; height: 112px; }}
-            .gauge-inner {{ width: 90px; height: 90px; }}
-            .kpi-value {{ font-size: 1.5rem; }}
-            [data-testid="stMetricValue"] {{ font-size: 1.4rem !important; }}
-            .sec {{ margin: 20px 0 8px; }}
-        }}
-
-        /* ---- metriche flat: niente scatole, solo numeri e separatori ---- */
-        .panel {{
-            background: var(--panel); border: 1px solid var(--line);
-            border-radius: 18px; padding: 22px 26px; height: 100%;
-        }}
+        /* ---- metriche native: niente scatole, solo numeri e filetti ---- */
         [data-testid="stMetric"] {{
             background: transparent; border: none;
-            border-left: 2px solid var(--line);
-            border-radius: 0; padding: 2px 0 2px 14px;
+            border-left: 1px solid var(--line);
+            border-radius: 0; padding: var(--s-1) 0 var(--s-1) var(--s-4);
         }}
         [data-testid="stMetricLabel"] p {{
-            font-size: 0.68rem !important; text-transform: uppercase;
-            letter-spacing: 0.1em; color: var(--muted) !important; font-weight: 600;
+            font-size: 0.72rem !important; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--muted) !important; font-weight: 600;
         }}
         [data-testid="stMetricValue"] {{
-            font-family: var(--font-ui) !important; font-weight: 700;
-            font-variant-numeric: tabular-nums; font-size: 1.65rem;
-            letter-spacing: -0.02em;
+            font-weight: 700; font-variant-numeric: tabular-nums; font-size: 1.65rem;
+            letter-spacing: -0.01em;
         }}
         [data-testid="stMetricDelta"] {{
             font-variant-numeric: tabular-nums; font-size: 0.85rem; font-weight: 600;
@@ -262,163 +279,167 @@ def inject_theme() -> None:
 
         /* ---- etichette di sezione ---- */
         .sec {{
-            display: flex; align-items: center; gap: 10px;
-            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em;
+            font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
             text-transform: uppercase; color: var(--muted);
-            margin: 26px 0 10px;
-        }}
-        .sec::before {{
-            content: ""; display: block; width: 3px; height: 14px;
-            background: var(--accent); border-radius: 2px;
+            margin: var(--s-5) 0 var(--s-3);
         }}
 
-        /* ---- hero con gauge ---- */
+        /* ---- hero con indicatore circolare ---- */
         .hero-panel {{
-            display: flex; align-items: center; gap: 28px;
+            display: flex; align-items: center; gap: var(--s-6);
             background: var(--panel); border: 1px solid var(--line);
-            border-radius: 12px; padding: 22px 28px;
+            border-radius: var(--r-lg); padding: var(--s-5) var(--s-6);
         }}
         .gauge {{
             width: 128px; height: 128px; border-radius: 50%; flex-shrink: 0;
-            background: conic-gradient(var(--gcol) calc(var(--val) * 3.6deg),
-                                       rgba(20,25,35,0.08) 0);
+            background: conic-gradient(var(--gcol) calc(var(--val) * 3.6deg), var(--line) 0);
             display: flex; align-items: center; justify-content: center;
         }}
         .gauge-inner {{
-            width: 102px; height: 102px; border-radius: 50%; background: var(--panel);
+            width: 104px; height: 104px; border-radius: 50%; background: var(--panel);
             display: flex; flex-direction: column; align-items: center;
             justify-content: center;
         }}
         .gauge-num {{
-            font-family: var(--font-display) !important;
-            font-size: 2.2rem; font-weight: 700;
-            line-height: 1; color: var(--gcol);
+            font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums;
+            line-height: 1; color: var(--ink);
         }}
-        .gauge-sub {{ font-size: 0.64rem; color: var(--muted); letter-spacing: 0.12em; }}
+        .gauge-sub {{
+            font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em;
+            margin-top: var(--s-1);
+        }}
         .hero-meta .label {{
-            font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em;
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
             color: var(--muted); font-weight: 600;
         }}
         .hero-meta .big {{
-            font-family: var(--font-display) !important;
-            font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em;
-            font-variant-numeric: tabular-nums; margin: 2px 0;
+            font-size: 2.5rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink);
+            font-variant-numeric: tabular-nums; margin: var(--s-1) 0;
         }}
-        .chg {{
-            font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums;
-        }}
+        .chg {{ font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }}
+        .chg-line {{ font-size: 0.95rem; margin-top: 2px; }}
+        .chg-line.small {{ font-size: 0.85rem; }}
         .up {{ color: var(--gain); }}
         .down {{ color: var(--loss); }}
 
-        /* ---- DNA card ---- */
+        /* ---- profilo e scomposizione dello score ---- */
         .dna-title {{
-            font-size: 0.72rem; letter-spacing: 0.16em; color: var(--muted);
-            font-weight: 700; margin-bottom: 14px;
+            font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--muted); font-weight: 700; margin-bottom: var(--s-3);
         }}
-        .dna-row {{ display: flex; align-items: center; margin: 9px 0; gap: 10px; }}
-        .dna-name {{ width: 72px; font-size: 0.86rem; color: #3a4150; }}
-        .dna-track {{
-            flex: 1; background: rgba(20,25,35,0.08); border-radius: 4px; height: 6px;
-        }}
-        .dna-fill {{ height: 100%; border-radius: 4px; background: #3987e5; }}
+        .dna-row {{ display: flex; align-items: center; margin: var(--s-2) 0; gap: var(--s-3); }}
+        .dna-name {{ width: 76px; font-size: 0.88rem; color: var(--ink-2); }}
+        .dna-track {{ flex: 1; background: var(--subtle); border-radius: 3px; height: 6px; }}
+        .dna-fill {{ height: 100%; border-radius: 3px; background: var(--ink-2); }}
         .dna-fill.risk {{ background: var(--accent); }}
         .dna-value {{
             width: 36px; text-align: right; font-size: 0.88rem; font-weight: 700;
             font-variant-numeric: tabular-nums;
         }}
-        .dna-status {{ margin-top: 14px; font-weight: 600; font-size: 0.98rem; }}
+        .dna-status {{ margin-top: var(--s-3); font-weight: 600; font-size: 0.95rem; }}
 
-        .ai-card p {{ margin: 0 0 10px; line-height: 1.55; font-size: 0.95rem; }}
+        .ai-card p {{ margin: 0 0 var(--s-3); line-height: 1.55; font-size: 0.95rem; }}
 
-        /* ---- card posizioni (sidebar) ---- */
+        /* ---- posizioni (sidebar) ---- */
         .pos-row {{
-            display: flex; align-items: center; gap: 11px;
-            padding: 9px 2px;
-            border-bottom: 1px solid rgba(20,25,35,0.06);
+            display: flex; align-items: center; gap: var(--s-3);
+            padding: var(--s-2) 0; border-bottom: 1px solid var(--line);
         }}
         .avatar {{
-            width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+            width: 34px; height: 34px; border-radius: var(--r-md); flex-shrink: 0;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.7rem; font-weight: 800; color: #ffffff;
-            letter-spacing: 0.02em;
+            font-size: 0.7rem; font-weight: 700; color: #ffffff; letter-spacing: 0.02em;
         }}
         .pos-main {{ flex: 1; min-width: 0; }}
         .pos-ticker {{ font-weight: 700; font-size: 0.9rem; line-height: 1.2; }}
         .pos-name {{
-            font-size: 0.7rem; color: var(--muted); max-width: 160px;
+            font-size: 0.75rem; color: var(--muted); max-width: 160px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }}
         .pos-amt {{
-            font-size: 0.78rem; color: var(--muted);
-            font-variant-numeric: tabular-nums;
+            font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums;
         }}
         .pos-weight-track {{
-            margin-top: 4px; height: 3px; border-radius: 2px;
-            background: rgba(20,25,35,0.08);
+            margin-top: var(--s-1); height: 3px; border-radius: 2px; background: var(--subtle);
         }}
         .pos-weight-fill {{ height: 100%; border-radius: 2px; }}
         .pos-pct {{
-            font-size: 0.82rem; font-weight: 700; color: #3a4150;
+            font-size: 0.85rem; font-weight: 700; color: var(--ink-2);
             font-variant-numeric: tabular-nums;
         }}
 
         /* ---- anteprima titolo (aggiungi) ---- */
         .ticker-preview {{
-            display: flex; align-items: center; gap: 12px;
-            background: var(--accent-soft);
-            border: 1px solid var(--accent-border);
-            border-radius: 14px; padding: 12px 14px; margin: 4px 0 10px;
-            animation: fadeUpSubtle 0.25s ease-out both;
+            display: flex; align-items: center; gap: var(--s-3);
+            background: var(--panel); border: 1px solid var(--line);
+            border-radius: var(--r-md); padding: var(--s-3);
+            margin: var(--s-1) 0 var(--s-3);
         }}
         .tp-main {{ flex: 1; min-width: 0; }}
         .tp-name {{
             font-weight: 700; font-size: 0.92rem; line-height: 1.2;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }}
-        .tp-meta {{
-            font-size: 0.7rem; color: var(--muted); text-transform: uppercase;
-            letter-spacing: 0.04em; margin-top: 1px;
-        }}
+        .tp-meta {{ font-size: 0.75rem; color: var(--muted); margin-top: 2px; }}
         .tp-price {{
-            font-size: 0.9rem; font-weight: 700; margin-top: 4px;
+            font-size: 0.9rem; font-weight: 700; margin-top: var(--s-1);
             font-variant-numeric: tabular-nums;
         }}
-        .tp-chg {{ font-size: 0.8rem; font-weight: 600; margin-left: 6px; }}
+        .tp-chg {{ font-size: 0.8rem; font-weight: 600; margin-left: var(--s-2); }}
         .tp-chg.up {{ color: var(--gain); }}
         .tp-chg.down {{ color: var(--loss); }}
 
         /* ---- sidebar ---- */
         [data-testid="stSidebar"] {{
-            background: var(--panel-2); border-right: 1px solid var(--line);
+            background: var(--panel); border-right: 1px solid var(--line);
         }}
-        [data-testid="stSidebar"] .sec {{ margin: 10px 0 6px; }}
-        [data-testid="stSidebar"] hr {{ margin: 12px 0; }}
-
-        /* ---- bottoni ed expander ---- */
-        .stButton button, .stDownloadButton button {{
-            border-radius: 8px; border: 1px solid rgba(20,25,35,0.12);
-        }}
-        [data-testid="stExpander"] {{
-            border: 1px solid var(--line); border-radius: 10px; background: transparent;
-        }}
-        header[data-testid="stHeader"] {{ background: transparent; }}
-        [data-testid="stMainMenu"] {{ display: none; }}
-        [data-testid="stPopover"] > button {{
-            border: none !important; background: transparent !important;
-            color: var(--muted) !important; font-weight: 700;
-        }}
-        [data-testid="stPopover"] > button:hover {{ color: var(--ink) !important; }}
+        [data-testid="stSidebar"] .sec {{ margin: var(--s-3) 0 var(--s-2); }}
+        [data-testid="stSidebar"] hr {{ margin: var(--s-3) 0; }}
 
         /* ---- context switcher Advisor (sidebar) ---- */
         .side-context-switch {{
-            font-size: 0.72rem; color: var(--muted); margin: 2px 0 12px;
-            padding-bottom: 10px; border-bottom: 1px solid var(--line);
+            font-size: 0.75rem; color: var(--muted); margin: 2px 0 var(--s-3);
+            padding-bottom: var(--s-3); border-bottom: 1px solid var(--line);
         }}
-        .side-context-switch span {{
-            font-weight: 700; letter-spacing: 0.04em; color: var(--accent);
+        .side-context-switch span {{ font-weight: 700; color: var(--ink-2); }}
+        .side-context-switch a {{ color: var(--muted); text-decoration: underline; }}
+        .side-context-switch a:hover {{ color: var(--accent); }}
+
+        /* ---- responsive ---- */
+        @media (max-width: 920px) {{
+            .hero-panel {{ flex-direction: column; text-align: center; gap: var(--s-4); }}
+            .kpi {{ min-width: 100%; border-left: none; border-top: 1px solid var(--line); }}
+            .kpi:first-child {{ border-top: none; }}
         }}
-        .side-context-switch a {{ color: var(--muted); text-decoration: none; }}
-        .side-context-switch a:hover {{ color: var(--accent); text-decoration: underline; }}
+        @media (max-width: 640px) {{
+            .block-container {{ padding-left: var(--s-3); padding-right: var(--s-3); }}
+            .topbar {{ flex-direction: column; align-items: flex-start; gap: 2px; }}
+            .brand {{ font-size: 0.92rem; letter-spacing: 0.08em; }}
+            .brand-product {{
+                display: block; margin: var(--s-1) 0 0; padding: 0; border-left: none;
+            }}
+            /* nav: scorrimento orizzontale invece di andare a capo */
+            .st-key-navbar [role="radiogroup"] {{
+                flex-wrap: nowrap !important; overflow-x: auto; width: 100%;
+                -webkit-overflow-scrolling: touch; scrollbar-width: none;
+            }}
+            .st-key-navbar [role="radiogroup"]::-webkit-scrollbar {{ display: none; }}
+            .st-key-navbar button {{
+                flex: 0 0 auto !important; padding: var(--s-2) var(--s-3) var(--s-3) !important;
+            }}
+            .st-key-navbar button p {{
+                font-size: 0.75rem !important; letter-spacing: 0.04em;
+                white-space: nowrap !important; overflow: visible !important;
+                text-overflow: clip !important;
+            }}
+            .hero-panel {{ padding: var(--s-5) var(--s-4); }}
+            .hero-meta .big {{ font-size: 2.1rem; }}
+            .gauge {{ width: 112px; height: 112px; }}
+            .gauge-inner {{ width: 90px; height: 90px; }}
+            .kpi-value {{ font-size: 1.5rem; }}
+            [data-testid="stMetricValue"] {{ font-size: 1.4rem !important; }}
+            .sec {{ margin: var(--s-5) 0 var(--s-2); }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,

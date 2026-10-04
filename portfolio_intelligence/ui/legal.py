@@ -100,7 +100,7 @@ def render_legal_page_if_requested() -> None:
     set_language(lang)
     sync_document_language(lang)
     st.markdown(
-        '<div class="brand" style="margin:8px 0 18px">◆ SMARTEE<b>FINANCE</b></div>',
+        '<div class="brand" style="margin:var(--s-2) 0 var(--s-5)">◆ SMARTEE<b>FINANCE</b></div>',
         unsafe_allow_html=True,
     )
     _l, body, _r = st.columns([1, 3, 1])

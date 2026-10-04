@@ -134,7 +134,6 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
             "Database prezzi non ancora presente",
             "5 years of daily prices for the 103 Nasdaq-100 stocks are "
             "needed: downloaded once, then refreshed incrementally.",
-            icon="folder",
         )
         if st.button("Download data (~1 minute)", key=f"dl_{view_key}", type="primary"):
             from download_nasdaq100 import update_nasdaq100

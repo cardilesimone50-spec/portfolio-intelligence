@@ -379,12 +379,14 @@ _CATALOG: dict[str, tuple[str, str]] = {
     # ------------------------------------------------------- profile chooser
     "chooser.eyebrow": ("SMARTEEFINANCE", "SMARTEEFINANCE"),
     "chooser.title": (
-        "Two different stories, one engine.",
-        "Due storie diverse, un solo motore.",
+        "Choose how to use Smarteefinance",
+        "Scegli come usare Smarteefinance",
     ),
     "chooser.sub": (
-        "Pick the experience built for how you actually use it.",
-        "Scegli l'esperienza pensata per come la usi davvero.",
+        "Investor is a quick check-up of your own portfolio. Advisor is for "
+        "professionals who manage client portfolios.",
+        "Investor è un check-up rapido del tuo portafoglio. Advisor è per i "
+        "professionisti che gestiscono portafogli di clienti.",
     ),
     "chooser.investor_badge": ("PUBLIC · NO SIGN-UP", "PUBBLICO · SENZA REGISTRAZIONE"),
     "chooser.investor_title": ("Explore as Investor", "Esplora come Investor"),
@@ -409,10 +411,9 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "chooser.advisor_cta": ("Sign in as Advisor →", "Accedi come Advisor →"),
     "chooser.footer": (
-        "Not sure which one? Investor costs nothing to try — switch anytime "
+        "Not sure which one? Investor costs nothing to try. You can switch anytime "
         "by returning to this page.",
-        "Non sai quale scegliere? Investor non costa nulla da provare — "
-        "puoi cambiare in qualsiasi momento tornando su questa pagina.",
+        "Non sai quale scegliere? Investor non costa nulla da provare: puoi cambiare in qualsiasi momento tornando su questa pagina.",
     ),
     # ------------------------------------------------------- advisor welcome
     "advisorw.eyebrow": ("PORTFOLIO INTELLIGENCE PRO", "PORTFOLIO INTELLIGENCE PRO"),
@@ -422,18 +423,15 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Piattaforma riservata per l'analisi dei portafogli dei clienti, "
         "verifiche di robustezza e reportistica per il cliente.",
     ),
-    "advisorw.badge_sso": ("OIDC / Enterprise SSO", "OIDC / Enterprise SSO"),
-    "advisorw.badge_tenant": (
-        "Multi-tenant isolation",
-        "Isolamento multi-tenant",
-    ),
-    "advisorw.badge_audit": ("Audit log", "Audit log"),
+    "advisorw.badge_sso": ("Sign-in via OIDC", "Accesso tramite OIDC"),
+    "advisorw.badge_tenant": ("Data separated per advisor", "Dati separati per consulente"),
+    "advisorw.badge_audit": ("Activity log", "Registro delle attività"),
     "advisorw.feature1_title": ("Portfolios & clients", "Portafogli & clienti"),
     "advisorw.feature1_desc": (
         "Save client portfolios and keep the history of their analyses.",
         "Salvataggio dei portafogli clienti e storico delle loro analisi.",
     ),
-    "advisorw.feature2_title": ("Advanced quantitative analysis", "Analisi quantitativa avanzata"),
+    "advisorw.feature2_title": ("Quantitative analysis", "Analisi quantitativa"),
     "advisorw.feature2_desc": (
         "Correlation matrix, scenario shocks and mean-variance optimization.",
         "Matrice di correlazione, scenari di shock e ottimizzazione media-varianza.",
@@ -443,18 +441,16 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "PDF report for the end client, with methodology and risk warnings.",
         "Report PDF per il cliente finale, con metodologia e avvertenze.",
     ),
-    "advisorw.login_title": ("Secure access", "Accesso sicuro"),
+    "advisorw.login_title": ("Sign in", "Accedi"),
     "advisorw.login_cta": (
         "Sign in with SSO / company credentials",
         "Accedi con SSO / credenziali aziendali",
     ),
     "advisorw.login_dev_warning": (
         "Running in dev mode? OIDC isn't configured in this environment. "
-        "Configure `[auth]` in secrets.toml to enable real sign-in — "
-        "see README.",
+        "Configure `[auth]` in secrets.toml to enable real sign-in (see the README).",
         "Sei in modalità Dev? L'OIDC non è configurato in questo ambiente. "
-        "Configura `[auth]` in secrets.toml per abilitare il login reale — "
-        "vedi il README.",
+        "Configura `[auth]` in secrets.toml per abilitare il login reale (vedi il README).",
     ),
     "advisorw.login_dev_continue": (
         "Continue without authentication (dev) →",
@@ -469,11 +465,11 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "advisorw.kpi_last_checkup_none": ("None yet", "Nessuno ancora"),
     "advisorw.kpi_feed": ("Market data feed", "Feed prezzi di mercato"),
     "advisorw.kpi_feed_unknown": ("Not fetched yet", "Non ancora interrogato"),
-    "advisorw.quick_load": ("＋ Load new portfolio", "＋ Carica nuovo portafoglio"),
-    "advisorw.quick_clients": ("📁 Open client history", "📁 Apri storico clienti"),
+    "advisorw.quick_load": ("Load a new portfolio", "Carica un nuovo portafoglio"),
+    "advisorw.quick_clients": ("Open client history", "Apri storico clienti"),
     "advisorw.quick_stress": (
-        "📈 Run stress test on model portfolio",
-        "📈 Esegui stress test su portafoglio modello",
+        "Run stress test on model portfolio",
+        "Esegui stress test su portafoglio modello",
     ),
     "advisorw.switch_to_investor": ("← Switch to Investor view", "← Torna a Investor"),
     "advisorw.active_profile": ("Active profile: ADVISOR", "Profilo attivo: ADVISOR"),
@@ -566,7 +562,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Ticker symbol, e.g. AAPL",
         "Simbolo, es. AAPL",
     ),
-    "gate.add": ("＋ Add", "＋ Aggiungi"),
+    "gate.add": ("Add", "Aggiungi"),
     "gate.add_position": ("Add", "Aggiungi"),
     "gate.your_holdings": ("Positions", "Posizioni"),
     "gate.col_instrument": ("Instrument", "Strumento"),
@@ -590,10 +586,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "quantità e prezzo. Il file sostituisce le posizioni inserite finora.",
     ),
     "gate.sample_desc": (
-        "Three US large-cap positions — Apple, Microsoft, NVIDIA — with "
+        "Three US large-cap positions (Apple, Microsoft, NVIDIA) with "
         "purchase lots between 2024 and 2025. Useful to review the analysis "
         "before entering your own data.",
-        "Tre posizioni large-cap USA — Apple, Microsoft, NVIDIA — con lotti di "
+        "Tre posizioni large-cap USA (Apple, Microsoft, NVIDIA) con lotti di "
         "acquisto tra il 2024 e il 2025. Utile per esaminare l'analisi prima di "
         "inserire i propri dati.",
     ),
@@ -622,9 +618,9 @@ _CATALOG: dict[str, tuple[str, str]] = {
     # ---------------------------------------------------------------- sidebar
     "side.advisor": ("Advisor: **{advisor}**", "Consulente: **{advisor}**"),
     "side.advisor_demo": (
-        "⚠️ Auth not configured: data isolation is NOT active, "
+        "Auth not configured: data isolation is NOT active, "
         "every visitor shares this workspace (**{advisor}**).",
-        "⚠️ Auth non configurata: l'isolamento dati NON è attivo, "
+        "Auth non configurata: l'isolamento dati NON è attivo, "
         "ogni visitatore condivide questo spazio (**{advisor}**).",
     ),
     "side.login_hint": (
@@ -680,11 +676,11 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "side.upload_help": (
         "Export your broker's SECURITIES POSITION (also called holdings "
         "or portfolio), not the account transactions statement. "
-        "Supported formats: CSV and Excel — PDFs are not readable. "
+        "Supported formats: CSV and Excel; PDFs are not readable. "
         "Expected columns: ticker/symbol and amount/value, or quantity and price.",
         "Esporta la POSIZIONE TITOLI del tuo broker (detta anche dossier o "
         "portafoglio), non l'estratto conto movimenti. Formati supportati: "
-        "CSV ed Excel — i PDF non sono leggibili. Colonne attese: "
+        "CSV ed Excel; i PDF non sono leggibili. Colonne attese: "
         "ticker/simbolo e importo/controvalore, oppure quantità e prezzo.",
     ),
     "side.imported": ("Imported {n} positions", "Importate {n} posizioni"),
@@ -702,9 +698,9 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "side.in_eur": ("Measure everything in euros", "Misura tutto in euro"),
     "side.in_eur_help": (
         "US stocks trade in dollars: converting to EUR makes the metrics "
-        "include EUR/USD swings too — the real risk for a European investor.",
+        "include EUR/USD swings too: the real risk for a European investor.",
         "I titoli USA quotano in dollari: convertire in EUR fa includere alle "
-        "metriche anche le oscillazioni EUR/USD — il rischio reale per un "
+        "metriche anche le oscillazioni EUR/USD, il rischio reale per un "
         "investitore europeo.",
     ),
     "side.risk_free": ("Annual risk-free rate (%)", "Tasso privo di rischio annuo (%)"),
@@ -731,10 +727,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     # ---------------------------------------------------------------- check-up
     "chk.health_caption": (
-        "Health Score: the average of six components — diversification, "
+        "Health Score: the average of six components: diversification, "
         "concentration, volatility, currency exposure, drawdown, "
         "balance-sheet quality.",
-        "Health Score: la media di sei componenti — diversificazione, "
+        "Health Score: la media di sei componenti: diversificazione, "
         "concentrazione, volatilità, esposizione valutaria, drawdown, "
         "qualità dei bilanci.",
     ),
@@ -799,9 +795,9 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "chk.no_improve": (
         "We simulated the most obvious moves on your data, but **none "
-        "improves the current profile** — a good sign for how you're weighted:",
+        "improves the current profile**, a good sign for how you're weighted:",
         "Abbiamo simulato le mosse più ovvie sui tuoi dati, ma **nessuna "
-        "migliora il profilo attuale** — un buon segno per come sei pesato:",
+        "migliora il profilo attuale**, un buon segno per come sei pesato:",
     ),
     "chk.discarded": ("Discarded: ", "Scartata: "),
     "chk.no_scenario": (
@@ -840,10 +836,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "rettificati (dividendi e frazionamenti inclusi).",
     ),
     "r.cagr": (
-        "Compound annual growth actually earned over the period — geometric, "
-        "so volatility does not inflate it.",
-        "Crescita annua composta effettivamente maturata nel periodo — "
-        "geometrica, quindi la volatilità non la gonfia.",
+        "Compound annual growth actually earned over the period. It is geometric, so volatility does not inflate it.",
+        "Crescita annua composta effettivamente maturata nel periodo. È geometrica, quindi la volatilità non la gonfia.",
     ),
     "r.var": (
         "On 95% of days you did not lose more than {amount} "
@@ -873,8 +867,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "{ticker} (la tua posizione più grande, {weight} del capitale) perde il 20%",
     ),
     "cov.note": (
-        "{ticker} priced only from {date} — its metrics use the shorter overlap",
-        "{ticker} quotato solo dal {date} — le sue metriche usano la sovrapposizione più corta",
+        "{ticker} priced only from {date}: its metrics use the shorter overlap",
+        "{ticker} quotato solo dal {date}: le sue metriche usano la sovrapposizione più corta",
     ),
     "pdf.currency_eur": (
         "amounts in EUR, currency effect included",
@@ -886,8 +880,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     # ---------------------------------------------------------------- PDF statics
     "pdf.doc_title": (
-        "SmarteeFinance — Portfolio Report",
-        "SmarteeFinance — Report di Portafoglio",
+        "SmarteeFinance · Portfolio Report",
+        "SmarteeFinance · Report di Portafoglio",
     ),
     "pdf.title": ("Portfolio Report", "Report di Portafoglio"),
     "pdf.prepared_by": ("prepared by {advisor}", "predisposto da {advisor}"),
@@ -911,8 +905,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "pdf.within": ("within", "entro"),
     "pdf.outside": ("OUTSIDE", "FUORI DA"),
     "pdf.check_text": (
-        "<b>Risk profile check — {status} the declared profile.</b> {text} ",
-        "<b>Verifica del profilo di rischio — {status} il profilo dichiarato.</b> {text} ",
+        "<b>Risk profile check: {status} the declared profile.</b> {text} ",
+        "<b>Verifica del profilo di rischio: {status} il profilo dichiarato.</b> {text} ",
     ),
     "pdf.check_caveat": (
         "Volatility-only software check: it does not replace the MiFID II "
@@ -1035,21 +1029,17 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "pdf.obs_title": ("Observations & talking points", "Osservazioni e spunti di confronto"),
     "pdf.obs_caption": (
-        "Generated by deterministic rules on the computed metrics — not personalized "
-        "investment advice: material for the review with the advisor.",
-        "Generati da regole deterministiche sulle metriche calcolate — non "
-        "consulenza personalizzata: materiale per il confronto col consulente.",
+        "Generated by deterministic rules on the computed metrics. Not personalized investment advice: material for the review with the advisor.",
+        "Generati da regole deterministiche sulle metriche calcolate. Non consulenza personalizzata: materiale per il confronto col consulente.",
     ),
     "pdf.notices_title": (
         "Methodology, assumptions & important notices",
         "Metodologia, assunzioni e avvertenze importanti",
     ),
     "pdf.notice_caution": (
-        "CAUTION: the observation window is shorter than one year — annualized "
-        "figures (CAGR, volatility, Sharpe/Sortino) extrapolate from few months "
+        "CAUTION: the observation window is shorter than one year, so annualized figures (CAGR, volatility, Sharpe/Sortino) extrapolate from few months "
         "and should be read as indicative only.",
-        "ATTENZIONE: la finestra di osservazione è inferiore a un anno — i "
-        "valori annualizzati (CAGR, volatilità, Sharpe/Sortino) estrapolano da "
+        "ATTENZIONE: la finestra di osservazione è inferiore a un anno: i valori annualizzati (CAGR, volatilità, Sharpe/Sortino) estrapolano da "
         "pochi mesi e vanno letti come puramente indicativi.",
     ),
     "pdf.notice_data": (
@@ -1070,11 +1060,11 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "gestione e imposte, che ridurrebbero i risultati mostrati.",
     ),
     "pdf.notice_returns": (
-        "Returns are geometric (CAGR) — never arithmetic-mean annualization, "
+        "Returns are geometric (CAGR), never arithmetic-mean annualization, "
         "which overstates results under volatility. Sharpe/Sortino: excess "
         "return over the risk-free rate{rf}; Sortino penalizes downside "
         "deviation only.",
-        "I rendimenti sono geometrici (CAGR) — mai annualizzazione a media "
+        "I rendimenti sono geometrici (CAGR), mai annualizzazione a media "
         "aritmetica, che gonfia i risultati in presenza di volatilità. "
         "Sharpe/Sortino: extra-rendimento sul tasso privo di rischio{rf}; il "
         "Sortino penalizza la sola deviazione al ribasso.",
@@ -1187,11 +1177,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     # ---------------------------------------------------------------- date & IRR
     "pos.buy_date": ("Purchase date", "Data di acquisto"),
     "pos.price_auto_help": (
-        "Auto-filled with the adjusted close of the purchase date (price "
-        "database) — override it if you know your exact fill. Current price: "
+        "Auto-filled with the adjusted close of the purchase date (price database). Override it if you know your exact fill. Current price: "
         "{current}.",
         "Compilato da solo con la chiusura rettificata della data di acquisto "
-        "(database prezzi) — correggilo se conosci il tuo eseguito esatto. "
+        "(database prezzi). Correggilo se conosci il tuo eseguito esatto. "
         "Prezzo attuale: {current}.",
     ),
     "pos.price_lookup_failed": (
@@ -1237,8 +1226,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "risk-free {rf}, prezzo attuale {spot}.",
     ),
     "opt.protect_title": (
-        "Protect the gain — protective put",
-        "Proteggi il guadagno — put protettiva",
+        "Protect the gain: protective put",
+        "Proteggi il guadagno: put protettiva",
     ),
     "opt.protect_text": (
         "Buying a put with strike {strike} ({days} days) costs ≈ **{premium}** "
@@ -1252,10 +1241,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "opt.locked_gain": (
         "With your average cost of {cost}, this locks a MINIMUM P&L of "
-        "**{pnl}** per share — **{total}** on the whole position — no matter "
+        "**{pnl}** per share (**{total}** on the whole position), no matter "
         "what the market does before expiry.",
         "Con il tuo carico medio di {cost}, questo blocca un P&L MINIMO di "
-        "**{pnl}** per azione — **{total}** sull'intera posizione — qualunque "
+        "**{pnl}** per azione (**{total}** sull'intera posizione), qualunque "
         "cosa faccia il mercato fino alla scadenza.",
     ),
     "opt.locked_loss": (
@@ -1264,14 +1253,14 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Con il tuo carico medio di {cost}, il pavimento è a {pnl} per azione "
         "rispetto al carico: la put limita la perdita, non crea un guadagno.",
     ),
-    "opt.income_title": ("Income — covered call", "Rendita — covered call"),
+    "opt.income_title": ("Income: covered call", "Rendita: covered call"),
     "opt.income_text": (
         "Selling a call at {strike} ({days} days) collects ≈ **{premium}** per "
         "share: **{yld}** on the position over the period. Above {strike} the "
-        "shares are called away — you give up further upside.",
+        "shares are called away and you give up further upside.",
         "Vendere una call a {strike} ({days} giorni) incassa ≈ **{premium}** "
         "per azione: **{yld}** sulla posizione nel periodo. Sopra {strike} le "
-        "azioni vengono ritirate — rinunci all'upside oltre quel livello.",
+        "azioni vengono ritirate e rinunci all'upside oltre quel livello.",
     ),
     "opt.collar_title": ("Zero-cost collar", "Collar a costo zero"),
     "opt.collar_text": (
@@ -1286,15 +1275,14 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Theoretical Black-Scholes estimates on realized volatility: no "
         "implied-volatility surface, dividends ignored, European exercise. "
         "Actual market prices and availability differ. Listed options control "
-        "100 shares per contract — sizes may not match your position. Options "
+        "100 shares per contract, so sizes may not match your position. Options "
         "are complex instruments subject to the MiFID II appropriateness "
         "assessment; this panel is a scenario tool, not investment advice or a "
         "recommendation. No strategy guarantees profit.",
         "Stime teoriche Black-Scholes sulla volatilità realizzata: nessuna "
         "superficie di volatilità implicita, dividendi ignorati, esercizio "
         "europeo. Prezzi e disponibilità reali di mercato differiscono. Le "
-        "opzioni quotate controllano 100 azioni per contratto — le taglie "
-        "possono non combaciare con la tua posizione. Le opzioni sono "
+        "opzioni quotate controllano 100 azioni per contratto: le taglie possono non combaciare con la tua posizione. Le opzioni sono "
         "strumenti complessi soggetti alla valutazione di appropriatezza "
         "MiFID II; questo pannello è uno strumento di scenario, non consulenza "
         "né raccomandazione. Nessuna strategia garantisce profitto.",
@@ -1306,7 +1294,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "noto. Aggiungi quantità e prezzo di carico dalla barra laterale.",
     ),
     "opt.days_label": ("{days} days", "{days} giorni"),
-    "opt.market_title": ("Market check — real quotes", "Verifica di mercato — quotazioni reali"),
+    "opt.market_title": ("Market check: real quotes", "Verifica di mercato: quotazioni reali"),
     "opt.mkt_estimate": ("Estimate (BS)", "Stima (BS)"),
     "opt.mkt_market": ("Market (mid)", "Mercato (mid)"),
     "opt.mkt_iv": ("Implied volatility", "Volatilità implicita"),
@@ -1348,11 +1336,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "opt.compare_caption": (
         "Facts, not advice: every listed contract near your levels, side by "
-        "side. The choice belongs to you and your advisor — the platform does "
+        "side. The choice belongs to you and your advisor; the platform does "
         "not pick instruments.",
         "Fatti, non consigli: ogni contratto quotato vicino ai tuoi livelli, "
-        "fianco a fianco. La scelta spetta a te e al tuo consulente — la "
-        "piattaforma non sceglie strumenti.",
+        "fianco a fianco. La scelta spetta a te e al tuo consulente: la piattaforma non sceglie strumenti.",
     ),
     "opt.col_strike": ("Strike", "Strike"),
     "opt.col_strike_pct": ("% of price", "% del prezzo"),

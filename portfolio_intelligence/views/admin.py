@@ -22,12 +22,12 @@ def render(ctx: ViewContext) -> None:
     sec("Platform — admin only")
     st.caption(
         "Cross-tenant counters and the audit log. Never shows another "
-        "advisor's portfolio contents — only who did what, and when."
+        "advisor's portfolio contents: only who did what, and when."
     )
 
     if not auth_configured():
         st.warning(
-            "⚠️ OIDC auth is not configured: tenant isolation is not "
+            "OIDC auth is not configured: tenant isolation is not "
             "guaranteed. These counters may be meaningless if every "
             "visitor shares the same dev tenant."
         )

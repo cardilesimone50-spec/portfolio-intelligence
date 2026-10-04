@@ -38,129 +38,135 @@ GATE_CSS = """
 [data-testid="collapsedControl"] { display: none !important; }
 
 /* ---- header: brand + stepper ---- */
-.gate-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; min-height: 40px; }
+.gate-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-6);
+    min-height: 40px;
+}
 .gate-bar .brand { white-space: nowrap; }
-.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper { display: flex; align-items: center; gap: var(--s-3); }
 .step {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 0.8rem; font-weight: 600; color: var(--muted);
+    display: flex; align-items: center; gap: var(--s-2);
+    font-size: 0.85rem; font-weight: 600; color: var(--muted);
 }
 .step-num {
     width: 22px; height: 22px; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: 0.72rem; font-weight: 700;
-    border: 1px solid var(--line); background: #fff; color: var(--muted);
+    font-size: 0.75rem; font-weight: 700;
+    border: 1px solid var(--line-strong); background: var(--panel); color: var(--muted);
 }
 .step.active { color: var(--ink); }
-.step.active .step-num { background: var(--accent); border-color: var(--accent); color: #fff; }
-.step-sep { width: 36px; height: 1px; background: var(--line); }
+.step.active .step-num { background: var(--ink); border-color: var(--ink); color: #fff; }
+.step-sep { width: var(--s-6); height: 1px; background: var(--line-strong); }
 
-.gate-head { margin: 14px 0 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
-.gate-title {
-    font-family: var(--font-display); font-weight: 600;
-    font-size: 1.6rem; letter-spacing: -0.01em; color: var(--ink); margin: 0;
+.gate-head {
+    margin: var(--s-4) 0 var(--s-5); padding-bottom: var(--s-5);
+    border-bottom: 1px solid var(--line);
 }
-.gate-sub { color: var(--muted); font-size: 0.92rem; margin-top: 6px; max-width: 720px; }
+.gate-title {
+    font-family: var(--font-display) !important; font-weight: 600;
+    font-size: 1.75rem; letter-spacing: -0.01em; color: var(--ink); margin: 0; padding: 0;
+}
+.gate-sub {
+    color: var(--muted); font-size: 0.95rem; margin-top: var(--s-2); max-width: 720px;
+}
 
-/* ---- instrument line under the entry row ---- */
-.instr-meta { font-size: 0.82rem; color: var(--muted); margin: -2px 0 4px; }
+/* ---- riga sotto l'inserimento: nome, settore, prezzo ---- */
+.instr-meta { font-size: 0.85rem; color: var(--muted); margin: 0 0 var(--s-1); }
 .instr-meta b { color: var(--ink); font-weight: 600; }
 .instr-meta .up { color: var(--gain); }
 .instr-meta .down { color: var(--loss); }
-.tab-desc { font-size: 0.86rem; color: var(--muted); line-height: 1.55; margin: 2px 0 12px; }
+.tab-desc {
+    font-size: 0.9rem; color: var(--muted); line-height: 1.55; margin: 0 0 var(--s-3);
+}
 
-/* ---- positions table ---- */
-.tbl-title {
-    display: flex; gap: 10px; align-items: baseline; margin: 26px 0 6px;
-}
-.tbl-title .h {
-    font-family: var(--font-display); font-size: 1rem; font-weight: 600; color: var(--ink);
-}
+/* ---- tabella posizioni ---- */
+.tbl-title { display: flex; gap: var(--s-2); align-items: baseline; margin: var(--s-6) 0 var(--s-2); }
+.tbl-title .h { font-size: 1rem; font-weight: 700; color: var(--ink); }
 .tbl-title .n {
-    font-size: 0.72rem; font-weight: 600; color: var(--muted);
-    background: #F1F5F9; border-radius: 999px; padding: 1px 8px;
+    font-size: 0.75rem; font-weight: 600; color: var(--muted);
+    background: var(--subtle); border-radius: var(--r-sm); padding: 1px var(--s-2);
 }
 .tbl-grid {
     display: grid; grid-template-columns: 0.9fr 2.3fr 0.9fr 1.5fr 1.5fr 0.8fr;
-    gap: 12px; align-items: center; min-height: 40px;
+    gap: var(--s-3); align-items: center; min-height: 40px;
 }
 .tbl-grid.head { min-height: 28px; }
 .th {
-    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--muted); white-space: nowrap;
 }
 .th.r, .td.r { text-align: right; }
-.td { font-size: 0.88rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.td { font-size: 0.9rem; color: var(--ink); font-variant-numeric: tabular-nums; }
 .td.sym { font-weight: 700; letter-spacing: 0.02em; }
 .td.name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-key-gate_thead, [class*="st-key-gate_row_"] { border-bottom: 1px solid var(--line); }
 .st-key-gate_thead [data-testid="stMarkdownContainer"],
 [class*="st-key-gate_row_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
-[class*="st-key-gate_row_"] .stButton button {
-    min-height: 28px; border: none !important; box-shadow: none !important;
-    color: var(--muted); transform: none !important;
-}
+[class*="st-key-gate_row_"] .stButton button { min-height: 28px; color: var(--muted); }
 [class*="st-key-gate_row_"] .stButton button:hover { color: var(--loss); }
 .empty-tbl {
-    border: 1px dashed var(--line); border-radius: 10px; padding: 26px 20px;
-    text-align: center; background: #fff;
+    border: 1px dashed var(--line-strong); border-radius: var(--r-lg);
+    padding: var(--s-5); text-align: center; background: var(--panel);
 }
-.empty-tbl .t { font-weight: 600; color: var(--ink); font-size: 0.92rem; }
-.empty-tbl .h { color: var(--muted); font-size: 0.84rem; margin-top: 4px; }
+.empty-tbl .t { font-weight: 600; color: var(--ink); font-size: 0.95rem; }
+.empty-tbl .h { color: var(--muted); font-size: 0.88rem; margin-top: var(--s-1); }
 
-/* ---- summary panel ---- */
+/* ---- riepilogo ---- */
 .sum-h {
-    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: var(--s-1);
 }
 .sum-row {
-    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
-    padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 0.86rem;
+    display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-3);
+    padding: var(--s-2) 0; border-bottom: 1px solid var(--line); font-size: 0.9rem;
 }
 .sum-row .k { color: var(--muted); }
 .sum-row .v { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-.sum-note { font-size: 0.74rem; color: var(--muted); line-height: 1.5; margin-top: 2px; }
+.sum-note { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
 
-/* ---- loading: full-screen overlay so no stale widgets show through ---- */
+/* ---- caricamento: overlay a schermo intero, nessun widget vecchio sotto ---- */
 .loading-wrap {
-    position: fixed; inset: 0; z-index: 99999; background: #F8FAFC;
-    display: flex; align-items: center; justify-content: center; padding: 24px;
+    position: fixed; inset: 0; z-index: 99999; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; padding: var(--s-5);
 }
 .loading-card {
-    width: 100%; max-width: 440px; background: #fff;
-    border: 1px solid var(--line); border-radius: 12px; padding: 28px 30px 22px;
-    box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 12px 32px rgba(15,23,42,0.06);
+    width: 100%; max-width: 440px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: var(--s-6) var(--s-6) var(--s-5);
 }
-.loading-card .brand { font-size: 0.85rem; margin-bottom: 22px; }
+.loading-card .brand { font-size: 0.85rem; margin-bottom: var(--s-5); }
 .loading-title {
-    font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; color: var(--ink);
+    font-family: var(--font-display) !important; font-weight: 600; font-size: 1.3rem;
+    color: var(--ink);
 }
-.loading-sub { font-size: 0.84rem; color: var(--muted); margin-top: 2px; }
-.loading-bar { height: 4px; background: #EEF2F7; border-radius: 4px; margin: 18px 0 10px; }
-.loading-bar div {
-    height: 100%; background: var(--accent); border-radius: 4px; transition: width .3s ease;
+.loading-sub { font-size: 0.88rem; color: var(--muted); margin-top: 2px; }
+.loading-bar {
+    height: 4px; background: var(--subtle); border-radius: 2px; margin: var(--s-4) 0 var(--s-2);
 }
+.loading-bar div { height: 100%; background: var(--accent); border-radius: 2px; }
 /* l'indicatore "Running/Stop" di Streamlit non deve affiorare sopra la scheda */
 body:has(.loading-wrap) [data-testid="stStatusWidget"] { visibility: hidden; }
 .lstep {
-    display: flex; align-items: center; gap: 12px; padding: 9px 0;
-    font-size: 0.88rem; color: var(--muted); border-top: 1px solid var(--line);
+    display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) 0;
+    font-size: 0.9rem; color: var(--muted); border-top: 1px solid var(--line);
 }
 .loading-bar + .lstep { border-top: none; }
 .lstep.done, .lstep.active { color: var(--ink); }
 .lstep-ic {
     flex: none; width: 18px; height: 18px; border-radius: 50%;
-    border: 1.5px solid var(--line); display: inline-flex;
+    border: 1.5px solid var(--line-strong); display: inline-flex;
     align-items: center; justify-content: center;
 }
 .lstep.done .lstep-ic {
     background: var(--gain); border-color: var(--gain); color: #fff; font-size: 0.66rem;
 }
+/* unica animazione: indica il passo in corso, non decora */
 .lstep.active .lstep-ic {
     border-color: var(--accent-border); border-top-color: var(--accent);
     animation: lspin .8s linear infinite;
 }
 @keyframes lspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lstep.active .lstep-ic { animation: none; } }
 </style>
 """
 
@@ -257,7 +263,7 @@ def _topbar(step: int | None) -> None:
 def _render_input() -> None:
     st.markdown(
         '<div class="gate-head">'
-        f'<div class="gate-title">{t("gate.title")}</div>'
+        f'<h1 class="page-title gate-title">{t("gate.title")}</h1>'
         f'<div class="gate-sub">{t("gate.sub")}</div>'
         "</div>",
         unsafe_allow_html=True,

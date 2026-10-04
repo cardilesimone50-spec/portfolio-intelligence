@@ -1,4 +1,4 @@
-# Politica di rimborso — BOZZA, NON PUBBLICATA
+# Politica di rimborso (bozza, non pubblicata)
 
 > **Stato.** Oggi il Servizio è gratuito: non ci sono pagamenti e quindi nessuna
 > politica di rimborso da pubblicare. Questa bozza serve per il giorno in cui

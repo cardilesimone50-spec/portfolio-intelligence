@@ -25,76 +25,53 @@ from portfolio_intelligence.views.common import SAMPLE_PORTFOLIO
 
 WELCOME_CSS = """
 <style>
-.aw-header { text-align: center; padding: 28px 20px 4px; animation: fadeUp .5s ease-out both; }
-.aw-eyebrow {
-    display: inline-block; font-size: 0.72rem; font-weight: 700;
-    letter-spacing: 0.14em; color: #1E40AF; background: #EEF2FF;
-    border: 1px solid #C7D2FE; border-radius: 999px; padding: 4px 14px;
-    margin-bottom: 14px;
-}
+.aw-header { padding: var(--s-6) 0 var(--s-5); max-width: 720px; }
 .aw-title {
     font-family: var(--font-display) !important;
-    font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; color: #14171e;
-    margin: 0 0 10px;
+    font-size: 2.2rem; font-weight: 600; letter-spacing: -0.01em; color: var(--ink);
+    line-height: 1.15; margin: 0 0 var(--s-3);
 }
-.aw-sub { font-size: 1rem; color: #5a6270; max-width: 620px; margin: 0 auto 20px; }
-.aw-badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
-.aw-badge {
-    font-size: 0.72rem; font-weight: 600; color: #334155; background: #F1F5F9;
-    border: 1px solid #E2E8F0; border-radius: 999px; padding: 5px 13px;
-}
-.aw-feature { display: flex; gap: 12px; margin-bottom: 22px; }
-.aw-feature-icon { font-size: 1.3rem; line-height: 1.4; }
-.aw-feature-title { font-weight: 700; color: #14171e; font-size: 0.95rem; }
-.aw-feature-desc { color: #5a6270; font-size: 0.86rem; line-height: 1.45; }
-.aw-login-box {
-    background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px;
-    padding: 28px 26px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); height: 100%;
+.aw-sub { font-size: 1.05rem; color: var(--muted); line-height: 1.6; margin: var(--s-3) 0 0; }
+.aw-meta { font-size: 0.85rem; color: var(--ink-2); margin-top: var(--s-3); }
+.aw-features { border-top: 1px solid var(--line); }
+.aw-feature { padding: var(--s-4) 0; border-bottom: 1px solid var(--line); }
+.aw-feature-title { font-weight: 600; color: var(--ink); font-size: 0.98rem; }
+.aw-feature-desc {
+    color: var(--muted); font-size: 0.9rem; line-height: 1.5; margin-top: var(--s-1);
 }
 .aw-login-title {
     font-family: var(--font-display) !important;
-    font-weight: 700; font-size: 1.1rem; color: #14171e; margin-bottom: 14px;
+    font-weight: 600; font-size: 1.25rem; color: var(--ink); margin-bottom: var(--s-2);
 }
-.aw-kpi-row { display: flex; gap: 16px; margin: 20px 0 28px; flex-wrap: wrap; }
-.aw-kpi {
-    flex: 1; min-width: 160px; background: #ffffff; border: 1px solid #E2E8F0;
-    border-radius: 14px; padding: 16px 18px;
+.aw-kpi-row {
+    display: flex; flex-wrap: wrap; margin: var(--s-4) 0 var(--s-5);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
 }
+.aw-kpi { flex: 1; min-width: 160px; padding: var(--s-4) var(--s-5); border-left: 1px solid var(--line); }
+.aw-kpi:first-child { border-left: none; }
 .aw-kpi-num {
-    font-family: var(--font-display) !important;
-    font-size: 1.5rem; font-weight: 700; color: #1E40AF;
+    font-size: 1.5rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
 }
 .aw-kpi-label {
-    font-size: 0.74rem; color: #6b7280; text-transform: uppercase;
-    letter-spacing: 0.06em; font-weight: 600; margin-top: 2px;
+    font-size: 0.75rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.06em; font-weight: 600; margin-top: var(--s-1);
 }
 </style>
 """
 
 
-def _trust_badges() -> str:
-    return f"""
-    <div class="aw-badges">
-      <span class="aw-badge">🔐 {t("advisorw.badge_sso")}</span>
-      <span class="aw-badge">🏢 {t("advisorw.badge_tenant")}</span>
-      <span class="aw-badge">📋 {t("advisorw.badge_audit")}</span>
-    </div>
-    """
-
-
 def _render_header() -> None:
     st.markdown(WELCOME_CSS, unsafe_allow_html=True)
+    meta = " · ".join(
+        t(key) for key in ("advisorw.badge_sso", "advisorw.badge_tenant", "advisorw.badge_audit")
+    )
     st.markdown(
-        f"""
-        <div class="aw-header">
-          <div class="aw-eyebrow">{t("advisorw.eyebrow")}</div>
-          <div class="aw-title">{t("advisorw.title")}</div>
-          <div class="aw-sub">{t("advisorw.sub")}</div>
-        </div>
-        """,
+        '<div class="aw-header">'
+        f'<h1 class="page-title aw-title">{t("advisorw.title")}</h1>'
+        f'<div class="aw-sub">{t("advisorw.sub")}</div>'
+        f'<div class="aw-meta">{meta}</div></div>',
         unsafe_allow_html=True,
     )
-    st.markdown(_trust_badges(), unsafe_allow_html=True)
 
 
 def _continue_dev() -> None:
@@ -105,38 +82,25 @@ def _render_login_state() -> None:
     _render_header()
     col_features, col_login = st.columns([1.3, 1], gap="large")
     with col_features:
-        for icon, title_key, desc_key in (
-            ("📂", "advisorw.feature1_title", "advisorw.feature1_desc"),
-            ("📊", "advisorw.feature2_title", "advisorw.feature2_desc"),
-            ("📄", "advisorw.feature3_title", "advisorw.feature3_desc"),
-        ):
-            st.markdown(
-                f"""
-                <div class="aw-feature">
-                  <div class="aw-feature-icon">{icon}</div>
-                  <div>
-                    <div class="aw-feature-title">{t(title_key)}</div>
-                    <div class="aw-feature-desc">{t(desc_key)}</div>
-                  </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-    with col_login:
+        features = "".join(
+            f'<div class="aw-feature"><div class="aw-feature-title">{t(f"advisorw.feature{i}_title")}'
+            f'</div><div class="aw-feature-desc">{t(f"advisorw.feature{i}_desc")}</div></div>'
+            for i in (1, 2, 3)
+        )
+        st.markdown(f'<div class="aw-features">{features}</div>', unsafe_allow_html=True)
+    with col_login, st.container(border=True):
         st.markdown(
-            f'<div class="aw-login-box"><div class="aw-login-title">'
-            f"{t('advisorw.login_title')}</div>",
+            f'<div class="aw-login-title">{t("advisorw.login_title")}</div>',
             unsafe_allow_html=True,
         )
         if auth_configured():
             if st.button(t("advisorw.login_cta"), type="primary", width="stretch"):
                 st.login()
         else:
-            st.warning(t("advisorw.login_dev_warning"), icon="⚠️")
+            st.warning(t("advisorw.login_dev_warning"))
             if st.button(t("advisorw.login_dev_continue"), width="stretch"):
                 _continue_dev()
                 st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
     legal_footer()
     st.stop()
 

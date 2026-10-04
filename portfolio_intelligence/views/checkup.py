@@ -56,7 +56,7 @@ from portfolio_intelligence.views.common import (
     load_market_db,
 )
 from portfolio_intelligence.views.context import ViewContext
-from portfolio_intelligence.visualization.charts import LOSS, equity_area, simple_line
+from portfolio_intelligence.visualization.charts import equity_area, simple_line
 from portfolio_intelligence.visualization.pdf_report import build_report
 
 
@@ -215,7 +215,6 @@ def render(ctx: ViewContext) -> None:
         kpi_row_html(
             [
                 {
-                    "icon": "wave",
                     "label": t("chk.kpi_swing"),
                     "value": f"± {eur(total * c['annual_vol'])}",
                     "sub": t("chk.kpi_swing_sub", vol=f"{c['annual_vol']:.1%}")
@@ -229,18 +228,14 @@ def render(ctx: ViewContext) -> None:
                     ),
                 },
                 {
-                    "icon": "bolt",
                     "label": t("chk.kpi_var"),
                     "value": eur(total * c["var_95"]),
                     "sub": t("chk.kpi_var_sub"),
-                    "color": LOSS,
                 },
                 {
-                    "icon": "down",
                     "label": t("chk.kpi_dd"),
                     "value": eur(total * c["drawdown"]),
                     "sub": t("chk.kpi_dd_sub", dd=f"{c['drawdown']:.1%}"),
-                    "color": LOSS,
                 },
             ]
         ),

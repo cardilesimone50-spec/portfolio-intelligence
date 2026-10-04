@@ -7,7 +7,6 @@ from portfolio_intelligence.i18n import t
 from portfolio_intelligence.visualization.charts import AMBER_TEXT, GAIN, GAIN_TEXT, LOSS
 
 AMBER = "#d97706"  # status mid-band (gauge/health)
-ACCENT = "#1E40AF"  # brand primary
 
 
 def _comp_name(name: str) -> str:
@@ -130,7 +129,7 @@ def hero_html(
         pct = f"{gain_pct:+.1%}" if gain_pct is not None and gain_pct == gain_pct else "—"
         irr_text = t("hero.irr", irr=f"{irr:+.1%}") if irr is not None and irr == irr else ""
         gain_html = (
-            f'<div class="chg {css_g}" style="font-size:.95rem;margin-top:2px">'
+            f'<div class="chg chg-line {css_g}">'
             f"{t('hero.gain_line', amount=eur(gain) if gain < 0 else '+' + eur(gain), pct=pct)}"
             f"{irr_text}</div>"
         )
@@ -138,7 +137,7 @@ def hero_html(
     if today_move is not None and today_move == today_move:
         arrow_t, css_t = ("▲", "up") if today_move >= 0 else ("▼", "down")
         today_html = (
-            f'<div class="chg {css_t}" style="font-size:.85rem;margin-top:2px">'
+            f'<div class="chg chg-line small {css_t}">'
             f"{t('hero.last_session')} {arrow_t} {today_move:+.2%}</div>"
         )
     return f"""
@@ -191,45 +190,15 @@ def breakdown_html(breakdown: dict[str, float]) -> str:
     return f'<div class="panel"><div class="dna-title">{t("hero.score_built")}</div>{rows}</div>'
 
 
-_ICONS = {
-    "wave": '<path d="M2 12h4l3-8 4 16 3-8h4" fill="none" stroke="currentColor" '
-    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
-    "bolt": '<path d="M13 2 5 14h6l-1 8 8-12h-6l1-8z" fill="none" stroke="currentColor" '
-    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
-    "down": '<path d="M3 7l7 7 4-4 7 7M21 17v-6h-6" fill="none" stroke="currentColor" '
-    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
-    "search": '<circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" '
-    'stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" '
-    'stroke-width="2" stroke-linecap="round"/>',
-    "folder": '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5'
-    'a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" '
-    'stroke-linejoin="round"/>',
-}
-
-
-def _icon_svg(name: str) -> str:
-    return (
-        f'<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" '
-        f'focusable="false" xmlns="http://www.w3.org/2000/svg">{_ICONS[name]}</svg>'
-    )
-
-
 def kpi_row_html(cards: list[dict]) -> str:
-    """Riga di KPI card con icona: [{icon, label, value, sub, color?}]."""
-    html = '<div class="kpi-row">'
-    for card in cards:
-        color = card.get("color", ACCENT)
-        html += f"""
-        <div class="kpi">
-          <div class="kpi-top">
-            <div class="kpi-label">{card["label"]}</div>
-            <div class="kpi-icon" style="color:{color};
-                 background:{color}1f">{_icon_svg(card["icon"])}</div>
-          </div>
-          <div class="kpi-value">{card["value"]}</div>
-          <div class="kpi-sub">{card["sub"]}</div>
-        </div>"""
-    return html + "</div>"
+    """Striscia di KPI in un solo pannello: [{label, value, sub}]."""
+    cells = "".join(
+        f'<div class="kpi"><div class="kpi-label">{card["label"]}</div>'
+        f'<div class="kpi-value">{card["value"]}</div>'
+        f'<div class="kpi-sub">{card["sub"]}</div></div>'
+        for card in cards
+    )
+    return f'<div class="kpi-row">{cells}</div>'
 
 
 def compliance_footer() -> None:
@@ -243,75 +212,71 @@ def compliance_footer() -> None:
     legal_footer()
 
 
-def empty_state(title: str, hint: str, icon: str = "search") -> None:
-    """Stato vuoto elegante al posto del box info di default."""
+def notice(text: str) -> None:
+    """Avviso informativo neutro, senza icona né colore di stato."""
+    st.markdown(f'<div class="notice">{text}</div>', unsafe_allow_html=True)
+
+
+def empty_state(title: str, hint: str) -> None:
+    """Stato vuoto: titolo e suggerimento, al posto del box info di default."""
     st.markdown(
-        f"""
-        <div class="empty">
-          <div class="empty-icon">{_icon_svg(icon)}</div>
-          <div class="empty-title">{title}</div>
-          <div class="empty-hint">{hint}</div>
-        </div>""",
+        f'<div class="empty"><div class="empty-title">{title}</div>'
+        f'<div class="empty-hint">{hint}</div></div>',
         unsafe_allow_html=True,
     )
 
 
 LANDING_CSS = """
 <style>
-.landing-hero { padding: 44px 0 22px; animation: fadeUp .4s ease-out both; }
-.landing-side { padding-top: 44px; animation: fadeUp .5s ease-out both; }
-.landing-eyebrow {
-    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
-}
+.landing-hero { padding: var(--s-7) 0 var(--s-5); }
+.landing-side { padding-top: var(--s-7); }
 .landing-title {
     font-family: var(--font-display) !important;
-    font-size: 2.6rem; font-weight: 600; letter-spacing: -0.02em;
-    line-height: 1.12; margin: 0 0 18px; color: var(--ink);
+    font-size: 2.6rem; font-weight: 600; letter-spacing: -0.01em;
+    line-height: 1.15; margin: 0 0 var(--s-4); color: var(--ink);
 }
-.landing-sub { font-size: 1.02rem; color: var(--muted); line-height: 1.65; max-width: 560px; }
+.landing-sub {
+    font-size: 1.05rem; color: var(--muted); line-height: 1.6; max-width: 560px;
+    margin-top: var(--s-4);
+}
 .landing-panel {
-    background: #fff; border: 1px solid var(--line); border-radius: 12px;
-    padding: 22px 24px 8px;
-    box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.04);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: var(--s-5) var(--s-5) var(--s-2);
 }
 .landing-panel-h {
-    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: var(--s-2);
 }
-.feat { display: flex; gap: 14px; padding: 13px 0; border-top: 1px solid var(--line); }
+.feat {
+    display: flex; gap: var(--s-4); padding: var(--s-3) 0; border-top: 1px solid var(--line);
+}
 .landing-panel-h + .feat { border-top: none; }
 .feat-ix {
-    flex: none; width: 24px; font-size: 0.75rem; font-weight: 700;
-    color: var(--accent); font-variant-numeric: tabular-nums; padding-top: 1px;
+    flex: none; width: 24px; font-size: 0.8rem; font-weight: 700;
+    color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 1px;
 }
-.feat-t { font-weight: 600; font-size: 0.92rem; color: var(--ink); }
-.feat-d { font-size: 0.84rem; color: var(--muted); line-height: 1.5; margin-top: 2px; }
-.landing-cta-note { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.feat-t { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+.feat-d { font-size: 0.88rem; color: var(--muted); line-height: 1.5; margin-top: 2px; }
+.landing-cta-note { font-size: 0.8rem; color: var(--muted); margin-top: var(--s-1); }
 .facts {
     display: grid; grid-template-columns: repeat(3, 1fr);
     border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
-    margin: 40px 0 14px;
+    margin: var(--s-7) 0 var(--s-4);
 }
-.fact { padding: 20px 24px; border-left: 1px solid var(--line); }
+.fact { padding: var(--s-5); border-left: 1px solid var(--line); }
 .fact:first-child { border-left: none; padding-left: 0; }
 .fact-n {
-    font-family: var(--font-display) !important; font-size: 1.5rem; font-weight: 600;
-    color: var(--ink); font-variant-numeric: tabular-nums;
+    font-size: 1.5rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
 }
-.fact-l { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
-.landing-legal { font-size: 0.76rem; color: var(--muted); }
+.fact-l { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+.landing-legal { font-size: 0.8rem; color: var(--muted); }
 @media (max-width: 900px) {
-    .landing-hero { padding-top: 20px; }
-    .landing-side { padding-top: 12px; }
+    .landing-hero { padding-top: var(--s-5); }
+    .landing-side { padding-top: var(--s-3); }
     .landing-title { font-size: 2rem; }
     .facts { grid-template-columns: 1fr; }
     .fact { border-left: none; border-top: 1px solid var(--line); padding-left: 0; }
     .fact:first-child { border-top: none; }
-}
-@keyframes fadeUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 </style>
 """
@@ -330,8 +295,7 @@ def render_landing(on_start) -> None:
     with left:
         st.markdown(
             '<div class="landing-hero">'
-            f'<div class="landing-eyebrow">{t("landing.eyebrow")}</div>'
-            f'<div class="landing-title">{t("landing.title")}</div>'
+            f'<h1 class="page-title landing-title">{t("landing.title")}</h1>'
             f'<div class="landing-sub">{t("landing.sub")}</div></div>',
             unsafe_allow_html=True,
         )
@@ -362,101 +326,61 @@ def render_landing(on_start) -> None:
 
 CHOOSER_CSS = """
 <style>
-.chooser-hero {
-    text-align: center; padding: 56px 20px 8px; animation: fadeUp .5s ease-out both;
-}
-.chooser-eyebrow {
-    display: inline-block; font-size: 0.72rem; font-weight: 700;
-    letter-spacing: 0.16em; color: #1E40AF; background: #EEF2FF;
-    border: 1px solid #C7D2FE; border-radius: 999px; padding: 4px 14px;
-    margin-bottom: 18px;
-}
+.chooser-hero { padding: var(--s-7) 0 var(--s-6); max-width: 680px; }
 .chooser-title {
     font-family: var(--font-display) !important;
-    font-size: 2.4rem; font-weight: 700; letter-spacing: -0.02em;
-    line-height: 1.15; margin: 0 auto 12px; max-width: 640px; color: #14171e;
+    font-size: 2.4rem; font-weight: 600; letter-spacing: -0.01em;
+    line-height: 1.15; margin: 0 0 var(--s-3); color: var(--ink);
 }
-.chooser-sub { font-size: 1.04rem; color: #5a6270; margin: 0 auto 36px; }
+.chooser-sub { font-size: 1.05rem; color: var(--muted); line-height: 1.6; margin: var(--s-3) 0 0; }
 .profile-card {
-    height: 100%; background: #ffffff; border: 1px solid #E2E8F0;
-    border-radius: 16px; padding: 30px 28px 22px;
-    box-shadow: 0 1px 3px rgba(15,23,42,0.04);
-    animation: fadeUp .6s ease-out both;
-    display: flex; flex-direction: column; gap: 10px;
-}
-.profile-card.advisor { animation-delay: .1s; }
-.profile-card-badge {
-    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; color: #64748b;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: var(--s-5); margin-bottom: var(--s-3); min-height: 172px;
+    display: flex; flex-direction: column; gap: var(--s-2);
 }
 .profile-card-title {
     font-family: var(--font-display) !important;
-    font-size: 1.4rem; font-weight: 700; color: #14171e;
+    font-size: 1.4rem; font-weight: 600; color: var(--ink);
 }
-.profile-card-desc { font-size: 0.92rem; color: #5a6270; line-height: 1.55; flex: 1; }
-.chooser-footer {
-    text-align: center; color: #64748b; font-size: 0.85rem; margin-top: 28px;
-}
+.profile-card-desc { font-size: 0.95rem; color: var(--muted); line-height: 1.55; }
+.chooser-footer { color: var(--muted); font-size: 0.88rem; margin-top: var(--s-5); }
 </style>
 """
 
 
 def render_profile_chooser(on_investor, on_advisor) -> None:
-    """Prima schermata pubblica: scegli Investor (anonimo) o Advisor (login).
+    """Prima schermata pubblica: scegli Investor (senza account) o Advisor (login).
 
-    Due card affiancate, stesso linguaggio visivo di `render_landing`. I
-    bottoni sono widget nativi (non si può mettere un st.button dentro HTML
-    arbitrario) renderizzati subito sotto ciascuna card — stesso pattern già
-    usato da `render_landing` per il CTA principale.
+    Due card affiancate; i bottoni sono widget nativi (non si può mettere un
+    st.button dentro HTML arbitrario) renderizzati subito sotto ciascuna card.
     """
     st.markdown(CHOOSER_CSS, unsafe_allow_html=True)
     st.markdown(
-        f"""
-        <div class="chooser-hero">
-          <div class="chooser-eyebrow">{t("chooser.eyebrow")}</div>
-          <div class="chooser-title">{t("chooser.title")}</div>
-          <div class="chooser-sub">{t("chooser.sub")}</div>
-        </div>
-        """,
+        '<div class="chooser-hero">'
+        f'<h1 class="page-title chooser-title">{t("chooser.title")}</h1>'
+        f'<div class="chooser-sub">{t("chooser.sub")}</div></div>',
         unsafe_allow_html=True,
     )
 
     col_investor, col_advisor = st.columns(2, gap="large")
-    with col_investor:
-        st.markdown(
-            f"""
-            <div class="profile-card investor">
-              <div class="profile-card-badge">{t("chooser.investor_badge")}</div>
-              <div class="profile-card-title">{t("chooser.investor_title")}</div>
-              <div class="profile-card-desc">{t("chooser.investor_desc")}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.button(
-            t("chooser.investor_cta"),
-            key="chooser_investor",
-            type="primary",
-            width="stretch",
-            on_click=on_investor,
-        )
-    with col_advisor:
-        st.markdown(
-            f"""
-            <div class="profile-card advisor">
-              <div class="profile-card-badge">{t("chooser.advisor_badge")}</div>
-              <div class="profile-card-title">{t("chooser.advisor_title")}</div>
-              <div class="profile-card-desc">{t("chooser.advisor_desc")}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.button(
-            t("chooser.advisor_cta"),
-            key="chooser_advisor",
-            width="stretch",
-            on_click=on_advisor,
-        )
+    for col, profile, cta_type, on_click in (
+        (col_investor, "investor", "primary", on_investor),
+        (col_advisor, "advisor", "secondary", on_advisor),
+    ):
+        with col:
+            st.markdown(
+                f'<div class="profile-card">'
+                f'<div class="profile-card-title">{t(f"chooser.{profile}_title")}</div>'
+                f'<div class="profile-card-desc">{t(f"chooser.{profile}_desc")}</div></div>',
+                unsafe_allow_html=True,
+            )
+            st.button(
+                t(f"chooser.{profile}_cta"),
+                key=f"chooser_{profile}",
+                type=cta_type,
+                width="stretch",
+                on_click=on_click,
+            )
 
     st.markdown(
         f'<div class="chooser-footer">{t("chooser.footer")}</div>',

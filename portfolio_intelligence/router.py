@@ -68,7 +68,7 @@ def bootstrap_page(page_title: str, require_auth_default: bool) -> None:
     # di servire richieste finché l'OIDC non isola davvero i dati per advisor
     if auth_required_but_missing():
         st.error(
-            "⚠️ REQUIRE_AUTH is set but OIDC auth is not configured. "
+            "REQUIRE_AUTH is set but OIDC auth is not configured. "
             "Refusing to start: tenant data isolation cannot be guaranteed. "
             "Configure `[auth]` in secrets.toml before deploying."
         )

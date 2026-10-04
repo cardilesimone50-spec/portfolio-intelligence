@@ -251,7 +251,7 @@ def render_sidebar(advisor: str, *, advisor_mode: bool = True) -> SidebarSetting
                         st.rerun()
             st.caption(t("pos.total_cost", total=f"{total:,.0f}", n=len(positions)))
         else:
-            empty_state(t("side.empty_title"), t("side.empty_hint"), icon="folder")
+            empty_state(t("side.empty_title"), t("side.empty_hint"))
 
         with st.expander(t("side.import")):
             uploaded = st.file_uploader(

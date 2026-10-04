@@ -38,7 +38,7 @@ def render(ctx: ViewContext) -> None:
 
     col_scatter, col_table = st.columns([3, 2], gap="large")
     with col_scatter:
-        st.markdown(f"**Risk vs return ({ndx_period})** — each dot is a stock")
+        st.markdown(f"**Risk vs return ({ndx_period})**: each dot is a stock")
         st.scatter_chart(
             stats,
             x="annual_volatility",
@@ -74,7 +74,7 @@ def render(ctx: ViewContext) -> None:
         "Composite score 0-100: **50% 12-1 month momentum** (Jegadeesh & "
         "Titman 1993), **30% low volatility** (Baker et al. 2011), "
         "**20% trend** (distance from the 200-day average). Historical "
-        "regularities documented in the literature, not guarantees — and "
+        "regularities documented in the literature, not guarantees, and "
         "not investment advice."
     )
     pi_window = compute_daily_returns(all_prices).tail(TRADING_DAYS)
