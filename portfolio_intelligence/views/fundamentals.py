@@ -38,9 +38,7 @@ def render(ctx: ViewContext) -> None:
                     ),
                     "net_margin": st.column_config.NumberColumn("Net margin", format="percent"),
                     "total_debt": st.column_config.NumberColumn("Debt", format="compact"),
-                    "debt_to_equity": st.column_config.NumberColumn(
-                        "Debito/Equity", format="%.1f"
-                    ),
+                    "debt_to_equity": st.column_config.NumberColumn("Debt/Equity", format="%.1f"),
                     "revenue_growth": st.column_config.NumberColumn(
                         "Revenue growth", format="percent"
                     ),
@@ -51,7 +49,13 @@ def render(ctx: ViewContext) -> None:
                     "forward_pe": st.column_config.NumberColumn("P/E fwd", format="%.1f"),
                     "ev_ebitda": st.column_config.NumberColumn("EV/EBITDA", format="%.1f"),
                     "ps": st.column_config.NumberColumn("P/S", format="%.1f"),
+                    "source": st.column_config.TextColumn("Source"),
                 },
+            )
+            st.caption(
+                "SEC EDGAR rows: last 12 months from the filed 10-K/10-Q; debt excludes "
+                "leases; sector derived from the SIC code; no forward P/E (it needs "
+                "analyst estimates). Other rows come from the backup sources."
             )
 
             sec("Stock card")

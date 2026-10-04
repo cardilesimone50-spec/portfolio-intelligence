@@ -99,3 +99,37 @@ def test_empty_fundamentals_has_all_columns_and_no_data():
     assert list(data.index) == ["AAPL", "MSFT"]
     assert list(data.columns) == valuation.FUNDAMENTAL_COLUMNS
     assert data.isna().all().all()
+
+
+def test_primary_source_wins_and_yahoo_only_covers_the_rest(monkeypatch):
+    """Ordine: fonte primaria (SEC) → Yahoo per i mancanti → snapshot."""
+    calls = []
+
+    class CountingTicker(FakeTicker):
+        def __init__(self, symbol):
+            calls.append(symbol)
+            super().__init__(symbol)
+
+    monkeypatch.setattr("portfolio_intelligence.data.yahoo_client.yf.Ticker", CountingTicker)
+    monkeypatch.setattr(valuation, "_RETRY_DELAY", 0)
+    primary_row = {"name": "From SEC", "revenue": 5.0, "source": "SEC EDGAR"}
+
+    data = fetch_fundamentals(["SECCO", "EXMP"], primary=lambda tks: {"SECCO": primary_row})
+
+    assert data.loc["SECCO", "name"] == "From SEC"
+    assert data.loc["SECCO", "source"] == "SEC EDGAR"
+    assert data.loc["EXMP", "source"] == "Yahoo Finance"
+    assert "SECCO" not in calls  # Yahoo non viene interrogato per chi ha già i dati
+
+
+def test_primary_failure_does_not_block_and_yahoo_can_be_switched_off(monkeypatch):
+    monkeypatch.setattr("portfolio_intelligence.data.yahoo_client.yf.Ticker", FakeTicker)
+
+    def broken(_tickers):
+        raise RuntimeError("SEC down")
+
+    data = fetch_fundamentals(["EXMP"], primary=broken)
+    assert list(data.index) == ["EXMP"]
+
+    with pytest.raises(ValueError):
+        fetch_fundamentals(["EXMP"], primary=broken, use_yahoo=False)

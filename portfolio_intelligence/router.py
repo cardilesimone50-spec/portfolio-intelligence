@@ -49,8 +49,10 @@ def bootstrap_page(page_title: str, require_auth_default: bool) -> None:
     # i secrets di Streamlit non diventano env var da soli: DATABASE_URL nei
     # secrets fa passare lo store da SQLite a Postgres.
     try:
-        if "DATABASE_URL" in st.secrets:
-            os.environ.setdefault("DATABASE_URL", str(st.secrets["DATABASE_URL"]))
+        # SEC_USER_AGENT: contatto dichiarato alla SEC (policy di accesso EDGAR)
+        for key in ("DATABASE_URL", "SEC_USER_AGENT"):
+            if key in st.secrets:
+                os.environ.setdefault(key, str(st.secrets[key]))
     except Exception:  # noqa: BLE001 — nessun secrets.toml in locale: si resta su SQLite
         pass
 

@@ -13,6 +13,7 @@ from portfolio_intelligence.data.cache import (
     load_nasdaq100_prices,
     save_nasdaq100_fundamentals,
 )
+from portfolio_intelligence.data.sec_edgar import fetch_sec_fundamentals
 from portfolio_intelligence.data.store import DB_PATH, known_tickers, last_date, save_prices
 from portfolio_intelligence.data.yahoo_client import get_nasdaq100_tickers
 from portfolio_intelligence.fundamentals.valuation import fetch_fundamentals
@@ -61,14 +62,27 @@ def update_nasdaq100() -> None:
 
 
 def update_fundamentals_snapshot(tickers: list[str]) -> None:
-    fundamentals = fetch_fundamentals(tickers)
+    """Snapshot dei fondamentali solo da SEC EDGAR: dati pubblici, ridistribuibili.
+
+    I multipli usano l'ultima chiusura del database prezzi. I ticker non coperti
+    dalla SEC (bilanci IFRS o in altre valute) restano fuori: in app li copre
+    la fonte live di riserva, non un file spedito col deploy.
+    """
+    prices = load_nasdaq100_prices()
+    last = prices.ffill().iloc[-1] if prices is not None else pd.Series(dtype=float)
+    sec_prices = {t: float(last[t]) for t in tickers if t in last.index and last[t] == last[t]}
+    fundamentals = fetch_fundamentals(
+        tickers, primary=lambda tks: fetch_sec_fundamentals(tks, sec_prices), use_yahoo=False
+    )
     save_nasdaq100_fundamentals(fundamentals.sort_index())
     missing = sorted(set(tickers) - set(fundamentals.index))
     if missing:
-        print(f"Fondamentali non disponibili per {len(missing)} ticker: {', '.join(missing)}")
+        print(f"Non coperti dalla SEC ({len(missing)}): {', '.join(missing)}")
     print(f"Snapshot fondamentali: {len(fundamentals)} ticker in {NASDAQ100_FUNDAMENTALS}")
 
 
 if __name__ == "__main__":
     update_nasdaq100()
-    update_fundamentals_snapshot(known_tickers())
+    legacy = load_nasdaq100_prices()
+    universe = known_tickers() or (sorted(legacy.columns) if legacy is not None else [])
+    update_fundamentals_snapshot(universe)

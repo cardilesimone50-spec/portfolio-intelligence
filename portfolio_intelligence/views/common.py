@@ -10,6 +10,7 @@ from portfolio_intelligence.data.cache import (
 )
 from portfolio_intelligence.data.fx import fetch_eurusd
 from portfolio_intelligence.data.rates import fetch_risk_free_rate
+from portfolio_intelligence.data.sec_edgar import fetch_sec_fundamentals
 from portfolio_intelligence.data.store import load_prices as load_stored_prices
 from portfolio_intelligence.data.yahoo_client import fetch_price_history
 from portfolio_intelligence.fundamentals.valuation import empty_fundamentals, fetch_fundamentals
@@ -58,9 +59,32 @@ def _fundamentals_snapshot() -> pd.DataFrame | None:
     return load_nasdaq100_fundamentals()
 
 
+def _last_prices(tickers: tuple[str, ...]) -> dict[str, float]:
+    """Ultimo prezzo per i multipli SEC: serie live (in cache), poi il DB locale."""
+    last: dict[str, float] = {}
+    try:
+        live = cached_prices(tickers, "1y").ffill().iloc[-1]
+        last.update({t: float(v) for t, v in live.items() if v == v})
+    except Exception:  # noqa: BLE001 — si ripiega sul database locale
+        pass
+    db = load_market_db()
+    if db is not None:
+        stored = db.ffill().iloc[-1]
+        for t in tickers:
+            if t not in last and t in stored.index and stored[t] == stored[t]:
+                last[t] = float(stored[t])
+    return last
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
-    return fetch_fundamentals(list(tickers), fallback=_fundamentals_snapshot())
+    """Fondamentali: SEC EDGAR (dati pubblici) → Yahoo → snapshot spedito col deploy."""
+    prices = _last_prices(tickers)
+    return fetch_fundamentals(
+        list(tickers),
+        fallback=_fundamentals_snapshot(),
+        primary=lambda tks: fetch_sec_fundamentals(tks, prices),
+    )
 
 
 def analysis_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
