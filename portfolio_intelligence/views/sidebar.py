@@ -70,6 +70,19 @@ def render_sidebar(advisor: str, *, advisor_mode: bool = True) -> SidebarSetting
             unsafe_allow_html=True,
         )
 
+        # context switcher: solo per Advisor, link reale (non un bottone:
+        # deve navigare l'URL) — se lanciato fuori dal router app.py (es.
+        # streamlit run app_advisor.py direttamente) il link è un no-op
+        # innocuo, perché app_advisor.py non legge ?profile= da solo
+        if advisor_mode:
+            st.markdown(
+                f'<div class="side-context-switch">'
+                f"<span>{t('advisorw.active_profile')}</span><br>"
+                f'<a href="?profile=investor" target="_self">'
+                f"{t('advisorw.switch_to_investor')}</a></div>",
+                unsafe_allow_html=True,
+            )
+
         language_selector("lang_sidebar")
 
         # identità consulente + login/logout (B2B multi-tenant) — l'utente

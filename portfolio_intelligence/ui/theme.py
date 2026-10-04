@@ -402,6 +402,17 @@ def inject_theme() -> None:
             color: var(--muted) !important; font-weight: 700;
         }}
         [data-testid="stPopover"] > button:hover {{ color: var(--ink) !important; }}
+
+        /* ---- context switcher Advisor (sidebar) ---- */
+        .side-context-switch {{
+            font-size: 0.72rem; color: var(--muted); margin: 2px 0 12px;
+            padding-bottom: 10px; border-bottom: 1px solid var(--line);
+        }}
+        .side-context-switch span {{
+            font-weight: 700; letter-spacing: 0.04em; color: var(--accent);
+        }}
+        .side-context-switch a {{ color: var(--muted); text-decoration: none; }}
+        .side-context-switch a:hover {{ color: var(--accent); text-decoration: underline; }}
         </style>
         """,
         unsafe_allow_html=True,

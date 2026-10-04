@@ -414,6 +414,70 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Non sai quale scegliere? Investor non costa nulla da provare — "
         "puoi cambiare in qualsiasi momento tornando su questa pagina.",
     ),
+    # ------------------------------------------------------- advisor welcome
+    "advisorw.eyebrow": ("PORTFOLIO INTELLIGENCE PRO", "PORTFOLIO INTELLIGENCE PRO"),
+    "advisorw.title": ("Console Consulenti", "Console Consulenti"),
+    "advisorw.sub": (
+        "Reserved platform for advanced client portfolio management, "
+        "robustness analysis and institutional reporting.",
+        "Piattaforma riservata per la gestione avanzata dei portafogli "
+        "client, analisi di robustezza e reportistica istituzionale.",
+    ),
+    "advisorw.badge_sso": ("OIDC / Enterprise SSO", "OIDC / Enterprise SSO"),
+    "advisorw.badge_tenant": (
+        "Multi-tenant isolation",
+        "Isolamento multi-tenant",
+    ),
+    "advisorw.badge_audit": ("Audit log", "Audit log"),
+    "advisorw.feature1_title": ("Portfolios & clients", "Portafogli & clienti"),
+    "advisorw.feature1_desc": (
+        "Save, version and compare client portfolios over time.",
+        "Salvataggio, versione storica e confronto scenari nel tempo.",
+    ),
+    "advisorw.feature2_title": ("Advanced quantitative analysis", "Analisi quantitativa avanzata"),
+    "advisorw.feature2_desc": (
+        "Correlation matrix, scenario shocks and mean-variance optimization.",
+        "Matrice di correlazione, scenari di shock e ottimizzazione media-varianza.",
+    ),
+    "advisorw.feature3_title": ("Custom reporting", "Reportistica custom"),
+    "advisorw.feature3_desc": (
+        "Branded PDF reports for the end client, with your own disclaimers.",
+        "Report PDF brandizzati per il cliente finale, con disclaimer personalizzati.",
+    ),
+    "advisorw.login_title": ("Secure access", "Accesso sicuro"),
+    "advisorw.login_cta": (
+        "Sign in with SSO / company credentials",
+        "Accedi con SSO / credenziali aziendali",
+    ),
+    "advisorw.login_dev_warning": (
+        "Running in dev mode? OIDC isn't configured in this environment. "
+        "Configure `[auth]` in secrets.toml to enable real sign-in — "
+        "see README.",
+        "Sei in modalità Dev? L'OIDC non è configurato in questo ambiente. "
+        "Configura `[auth]` in secrets.toml per abilitare il login reale — "
+        "vedi il README.",
+    ),
+    "advisorw.login_dev_continue": (
+        "Continue without authentication (dev) →",
+        "Continua senza autenticazione (dev) →",
+    ),
+    "advisorw.welcome_greeting": (
+        "Welcome back, **{advisor}**",
+        "Bentornato, **{advisor}**",
+    ),
+    "advisorw.kpi_portfolios": ("Active saved portfolios", "Portafogli salvati attivi"),
+    "advisorw.kpi_last_checkup": ("Last check-up", "Ultimo check-up"),
+    "advisorw.kpi_last_checkup_none": ("None yet", "Nessuno ancora"),
+    "advisorw.kpi_feed": ("Market data feed", "Feed prezzi di mercato"),
+    "advisorw.kpi_feed_unknown": ("Not fetched yet", "Non ancora interrogato"),
+    "advisorw.quick_load": ("＋ Load new portfolio", "＋ Carica nuovo portafoglio"),
+    "advisorw.quick_clients": ("📁 Open client history", "📁 Apri storico clienti"),
+    "advisorw.quick_stress": (
+        "📈 Run stress test on model portfolio",
+        "📈 Esegui stress test su portafoglio modello",
+    ),
+    "advisorw.switch_to_investor": ("← Switch to Investor view", "← Torna a Investor"),
+    "advisorw.active_profile": ("Active profile: ADVISOR", "Profilo attivo: ADVISOR"),
     # ---------------------------------------------------------------- gate
     "gate.step": ("Step 1 of 2 · Build your portfolio", "Passo 1 di 2 · Componi il portafoglio"),
     "gate.title": ("Which stocks do you hold?", "Quali titoli possiedi?"),

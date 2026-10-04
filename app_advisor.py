@@ -41,6 +41,7 @@ from portfolio_intelligence.views import (
     options_overlay,
     visual,
 )
+from portfolio_intelligence.views.advisor_welcome import render_advisor_gate
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.views.sidebar import render_sidebar
 
@@ -49,11 +50,18 @@ def main() -> None:
     bootstrap_page("Smarteefinance Advisor | Professional Portfolio Intelligence", True)
     init_session()
 
+    # consulente corrente (tenant): portafogli e analisi sono isolati per advisor
+    advisor = current_advisor()
+
+    # =============================================== LOGIN GATE / WELCOME WORKSPACE
+    # login istituzionale (non autenticato) o console di benvenuto con KPI e
+    # quick action (prima volta nella sessione) — st.stop() internamente finché
+    # non si procede. Non tocca Investor: è specifico di app_advisor.py.
+    render_advisor_gate(advisor)
+
     # ================================================================ ONBOARDING GATE
     gate.render_gate()  # se il gate è attivo, disegna lo stage e chiama st.stop()
 
-    # consulente corrente (tenant): portafogli e analisi sono isolati per advisor
-    advisor = current_advisor()
     settings = render_sidebar(advisor, advisor_mode=True)
 
     positions = normalize_portfolio(st.session_state.positions)

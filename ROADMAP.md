@@ -46,7 +46,12 @@ identità consulente multi-tenant (B2B).
   ("Due storie diverse", bilingue EN/IT) invece di saltare direttamente ad
   Advisor; la scelta vive in `?profile=investor|advisor` nell'URL
   (bookmarkabile, sopravvive al refresh). `APP_MODE` resta per deploy
-  automatizzati che vogliono saltare la schermata. 254 test verdi, coverage
+  automatizzati che vogliono saltare la schermata. `app_advisor.py` apre ora
+  su una console istituzionale dedicata (`advisor_welcome.py`): login SSO con
+  header enterprise e badge di fiducia se non autenticato, welcome workspace
+  con KPI reali (portafogli salvati, ultimo check-up, stato feed prezzi) e
+  tre quick action se autenticato — mostrata una sola volta per sessione.
+  262 test verdi, coverage
   86% con soglia all'80%, mypy pulito, CI GitHub Actions (ruff lint+format,
   mypy, coverage, matrice Python 3.11/3.12/3.13).
 - Dati: catena di provider con fallback (`portfolio_intelligence/data/providers.py`) — EODHD (se
