@@ -1,14 +1,24 @@
-"""Vista Admin: statistiche cross-tenant e audit log — mai dati di portafoglio altrui."""
+"""Vista Admin: statistiche cross-tenant e audit log — mai dati di portafoglio altrui.
+
+Il gate in app.py nasconde il tab "Admin" dalla nav per i non-admin, ma qui
+c'è un controllo esplicito indipendente: `render` non deve fidarsi solo del
+fatto di essere stata raggiunta dal dispatch della nav. Se in futuro qualcosa
+chiama `render` per un altro percorso, questa riga resta l'ultima difesa.
+"""
 
 import streamlit as st
 
 from src.data.store import platform_stats, recent_audit
 from src.ui.components import sec
-from src.ui.identity import auth_configured
+from src.ui.identity import auth_configured, is_admin
 from src.views.context import ViewContext
 
 
 def render(ctx: ViewContext) -> None:
+    if not is_admin(ctx.advisor):
+        st.error("Access denied: this section is for admins only.")
+        st.stop()
+
     sec("Platform — admin only")
     st.caption(
         "Cross-tenant counters and the audit log. Never shows another "
