@@ -129,3 +129,19 @@ def test_delete_advisor_data_removes_everything_and_pseudonymizes_audit(tmp_path
         ).one()
     assert advisor.startswith("deleted:") and "adv@a" not in advisor
     assert detail == REDACTED
+
+
+def test_client_risk_profile_is_stored_and_kept_when_positions_change(tmp_path):
+    from portfolio_intelligence.data.store import list_clients
+
+    engine = _engine(tmp_path)
+    save_portfolio("adv@a", "C-001", {"AAPL": 100.0}, engine=engine, risk_profile="Moderate")
+    save_portfolio("adv@a", "C-001", {"MSFT": 50.0}, engine=engine)  # senza profilo: resta
+    save_portfolio("adv@a", "C-002", {"NVDA": 10.0}, engine=engine)
+
+    clients = list_clients("adv@a", engine=engine)
+
+    assert clients["C-001"]["risk_profile"] == "Moderate"
+    assert clients["C-001"]["positions"] == {"MSFT": 50.0}
+    assert clients["C-002"]["risk_profile"] == "Not set"
+    assert list_clients("adv@b", engine=engine) == {}  # isolamento per consulente

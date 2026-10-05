@@ -1,4 +1,9 @@
-"""Sidebar: identità advisor, gestione posizioni, import, portafogli, settings."""
+"""Sidebar dell'area Investor: posizioni, import e parametri di analisi.
+
+Anonima e senza persistenza per design: niente identità, niente portafogli
+salvati, nessuna lettura o scrittura sul DB. L'area Advisor ha una sua
+navigazione (views/advisor_workspace.py) e riusa solo `analysis_parameters`.
+"""
 
 from dataclasses import dataclass
 from datetime import date
@@ -6,14 +11,6 @@ from datetime import date
 import streamlit as st
 
 from portfolio_intelligence.data.importers import parse_positions
-from portfolio_intelligence.data.store import (
-    REDACTED,
-    delete_advisor_data,
-    delete_portfolio,
-    list_portfolios,
-    log_audit,
-    save_portfolio,
-)
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from portfolio_intelligence.ui.components import (
@@ -23,7 +20,6 @@ from portfolio_intelligence.ui.components import (
     sec,
     ticker_preview_html,
 )
-from portfolio_intelligence.ui.identity import auth_configured, is_authenticated
 from portfolio_intelligence.views.common import (
     cached_price_on,
     cached_risk_free,
@@ -32,6 +28,8 @@ from portfolio_intelligence.views.common import (
     ticker_preview,
 )
 from portfolio_intelligence.visualization.charts import PALETTE
+
+RISK_PROFILES = ["Not set", "Conservative", "Moderate", "Aggressive"]
 
 
 @dataclass
@@ -63,50 +61,40 @@ def _add_holding() -> None:
     st.session_state.add_ticker = None
 
 
-def render_sidebar(advisor: str, *, advisor_mode: bool = True) -> SidebarSettings:
-    """Disegna la sidebar e restituisce le impostazioni scelte.
+def analysis_parameters(key_prefix: str = "pf") -> tuple[str, bool, float]:
+    """Orizzonte, conversione in EUR e tasso privo di rischio (dentro un expander)."""
+    period = st.selectbox(
+        t("side.horizon"), ["1mo", "6mo", "1y", "2y", "5y"], index=2, key=f"{key_prefix}_period"
+    )
+    in_eur = st.toggle(t("side.in_eur"), value=True, help=t("side.in_eur_help"))
+    rf_baseline_pct = min(10.0, max(0.0, round(cached_risk_free() * 100, 2)))
+    risk_free = (
+        st.number_input(
+            t("side.risk_free"),
+            min_value=0.0,
+            max_value=10.0,
+            value=rf_baseline_pct,
+            step=0.25,
+            help=t("side.risk_free_help"),
+        )
+        / 100
+    )
+    st.caption(t("side.risk_free_caption", rate=f"{rf_baseline_pct:.2f}"))
+    return period, in_eur, risk_free
 
-    `advisor_mode=False` (app_investor.py): niente UI di identità/login
-    (l'utente è anonimo per design) e niente "Saved portfolios" — il
-    portafoglio vive solo in `st.session_state`, mai in
-    `list_portfolios`/`save_portfolio`/`log_audit`.
+
+def render_sidebar() -> SidebarSettings:
+    """Disegna la sidebar Investor e restituisce le impostazioni scelte.
+
+    Il portafoglio vive solo in `st.session_state`: nessuna chiamata a
+    store.py da qui.
     """
     with st.sidebar:
         st.markdown(
             '<div class="brand" style="font-size:.9rem">◆ SMARTEE<b>FINANCE</b></div>',
             unsafe_allow_html=True,
         )
-
-        # context switcher: solo per Advisor, link reale (non un bottone:
-        # deve navigare l'URL) — se lanciato fuori dal router app.py (es.
-        # streamlit run app_advisor.py direttamente) il link è un no-op
-        # innocuo, perché app_advisor.py non legge ?profile= da solo
-        if advisor_mode:
-            st.markdown(
-                f'<div class="side-context-switch">'
-                f"<span>{t('advisorw.active_profile')}</span><br>"
-                f'<a href="?profile=investor" target="_self">'
-                f"{t('advisorw.switch_to_investor')}</a></div>",
-                unsafe_allow_html=True,
-            )
-
         language_selector("lang_sidebar")
-
-        # identità consulente + login/logout (B2B multi-tenant) — l'utente
-        # Investor è anonimo per design: nessuna UI di identità per lui, e
-        # nessun avviso di isolamento dati (concetto che non lo riguarda)
-        if advisor_mode:
-            if auth_configured():
-                if is_authenticated():
-                    st.caption(t("side.advisor", advisor=advisor))
-                    if st.button(t("side.logout"), width="stretch"):
-                        st.logout()
-                else:
-                    st.caption(t("side.login_hint"))
-                    if st.button(t("side.login"), type="primary", width="stretch"):
-                        st.login()
-            else:
-                st.warning(t("side.advisor_demo", advisor=advisor))
 
         sec(t("side.add_stock"))
 
@@ -272,81 +260,18 @@ def render_sidebar(advisor: str, *, advisor_mode: bool = True) -> SidebarSetting
                     except ValueError as exc:
                         st.error(t("side.import_failed", err=exc))
 
-        if advisor_mode:
-            saved = list_portfolios(advisor)
-            with st.expander(t("side.saved_portfolios")):
-                portfolio_name = st.text_input(t("side.name"), value="My portfolio")
-                if st.button(t("side.save_composition"), width="stretch") and positions:
-                    save_portfolio(advisor, portfolio_name, positions)
-                    log_audit(advisor, "save_portfolio", portfolio_name)
-                    st.toast(t("side.saved_toast", name=portfolio_name))
-                if saved:
-                    selected_saved = st.selectbox(
-                        t("side.load"),
-                        sorted(saved),
-                        index=None,
-                        placeholder=t("side.load_placeholder"),
-                    )
-                    if selected_saved and st.button(t("side.load_btn"), width="stretch"):
-                        st.session_state.positions = normalize_portfolio(saved[selected_saved])
-                        st.rerun()
-                    # cancellazione del cliente (art. 17 GDPR): composizione,
-                    # storico analisi e nome nell'audit log
-                    if selected_saved:
-                        confirm = st.checkbox(
-                            t("side.delete_confirm", name=selected_saved), key="del_confirm"
-                        )
-                        if st.button(t("side.delete_btn"), width="stretch", disabled=not confirm):
-                            delete_portfolio(advisor, selected_saved)
-                            log_audit(advisor, "delete_portfolio", REDACTED)
-                            st.toast(t("side.deleted_toast"))
-                            st.rerun()
-            with st.expander(t("side.privacy")):
-                st.caption(t("side.erase_all_hint"))
-                confirm_all = st.checkbox(t("side.erase_all_confirm"), key="erase_all_confirm")
-                if st.button(t("side.erase_all_btn"), width="stretch", disabled=not confirm_all):
-                    counts = delete_advisor_data(advisor)
-                    st.session_state.positions = {}
-                    st.toast(t("side.erase_all_done", **counts))
-                    st.rerun()
-        else:
-            # stateless: nessuna lettura/scrittura su store.py, nessun nome
-            # da assegnare — "My portfolio" basta per titolo PDF e log_analysis
-            # (mai chiamato comunque in questa modalità).
-            portfolio_name = "My portfolio"
-
         with st.expander(t("side.settings")):
-            period = st.selectbox(
-                t("side.horizon"), ["1mo", "6mo", "1y", "2y", "5y"], index=2, key="pf_period"
-            )
-            in_eur = st.toggle(
-                t("side.in_eur"),
-                value=True,
-                help=t("side.in_eur_help"),
-            )
-            rf_baseline_pct = min(10.0, max(0.0, round(cached_risk_free() * 100, 2)))
-            risk_free = (
-                st.number_input(
-                    t("side.risk_free"),
-                    min_value=0.0,
-                    max_value=10.0,
-                    value=rf_baseline_pct,
-                    step=0.25,
-                    help=t("side.risk_free_help"),
-                )
-                / 100
-            )
-            st.caption(t("side.risk_free_caption", rate=f"{rf_baseline_pct:.2f}"))
+            period, in_eur, risk_free = analysis_parameters()
             risk_profile = st.selectbox(
                 t("side.risk_profile"),
-                ["Not set", "Conservative", "Moderate", "Aggressive"],
+                RISK_PROFILES,
                 index=0,
                 format_func=lambda p: t(f"prof.{p}"),
                 help=t("side.risk_profile_help"),
             )
 
     return SidebarSettings(
-        portfolio_name=portfolio_name,
+        portfolio_name="My portfolio",
         period=period,
         in_eur=in_eur,
         risk_free=risk_free,

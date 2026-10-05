@@ -61,6 +61,8 @@ portfolios_table = Table(
     Column("name", String, primary_key=True),
     Column("positions", Text, nullable=False),
     Column("updated", String, nullable=False),
+    # profilo di rischio dichiarato del cliente (Conservative/Moderate/Aggressive)
+    Column("risk_profile", String, nullable=True),
 )
 
 analyses_table = Table(
@@ -112,6 +114,10 @@ def _ensure_schema(engine: Engine) -> None:
                 conn.execute(
                     text(f"ALTER TABLE {table_name} ADD COLUMN advisor VARCHAR DEFAULT 'legacy'")
                 )
+    # stessa migrazione dolce per il profilo di rischio per cliente
+    if "risk_profile" not in {col["name"] for col in inspector.get_columns("portfolios")}:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE portfolios ADD COLUMN risk_profile VARCHAR"))
 
 
 def get_engine(url: str | None = None) -> Engine:
@@ -210,31 +216,68 @@ def known_tickers(engine: Engine | None = None) -> list[str]:
 # ---------------------------------------------------------------- portafogli (per advisor)
 
 
-def save_portfolio(advisor: str, name: str, positions: dict, engine: Engine | None = None) -> None:
+def save_portfolio(
+    advisor: str,
+    name: str,
+    positions: dict,
+    engine: Engine | None = None,
+    risk_profile: str | None = None,
+) -> None:
     """Salva (o sovrascrive) un portafoglio del consulente.
 
     `positions` è {ticker: {"qty": q, "price": p}} (formato con prezzo di
     carico) oppure il legacy {ticker: importo}: il JSON li conserva entrambi.
+    `risk_profile` None mantiene il profilo già salvato per quel cliente.
     """
     if not name.strip():
         raise ValueError("The portfolio name cannot be empty")
     engine = engine or get_engine()
+    where = (portfolios_table.c.advisor == advisor, portfolios_table.c.name == name.strip())
     with engine.begin() as conn:
+        if risk_profile is None:
+            risk_profile = conn.execute(
+                select(portfolios_table.c.risk_profile).where(*where)
+            ).scalar()
         # delete+insert: idempotente e indipendente dal dialetto/vincoli
-        conn.execute(
-            delete(portfolios_table).where(
-                portfolios_table.c.advisor == advisor,
-                portfolios_table.c.name == name.strip(),
-            )
-        )
+        conn.execute(delete(portfolios_table).where(*where))
         conn.execute(
             portfolios_table.insert().values(
                 advisor=advisor,
                 name=name.strip(),
                 positions=json.dumps(positions),
                 updated=datetime.now().isoformat(timespec="seconds"),
+                risk_profile=risk_profile,
             )
         )
+
+
+def list_clients(advisor: str, engine: Engine | None = None) -> dict[str, dict]:
+    """Il book del consulente: {nome: {"positions", "risk_profile", "updated"}}.
+
+    Stessa tolleranza di `list_portfolios` verso JSON corrotti.
+    """
+    engine = engine or get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                portfolios_table.c.name,
+                portfolios_table.c.positions,
+                portfolios_table.c.risk_profile,
+                portfolios_table.c.updated,
+            )
+            .where(portfolios_table.c.advisor == advisor)
+            .order_by(portfolios_table.c.name)
+        ).all()
+    clients = {}
+    for name, positions, profile, updated in rows:
+        parsed = safe_load_positions(advisor, name, positions)
+        if parsed is not None:
+            clients[name] = {
+                "positions": parsed,
+                "risk_profile": profile or "Not set",
+                "updated": updated,
+            }
+    return clients
 
 
 def list_portfolios(advisor: str, engine: Engine | None = None) -> dict[str, dict]:

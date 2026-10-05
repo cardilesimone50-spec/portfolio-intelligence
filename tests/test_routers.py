@@ -137,35 +137,19 @@ def _prices_for(tickers: tuple[str, ...]) -> pd.DataFrame:
 # -------------------------------------------------------- sidebar: Investor vs Advisor
 
 
-def test_sidebar_investor_mode_never_touches_portfolio_store(monkeypatch):
+def test_investor_sidebar_has_no_access_to_the_portfolio_store(monkeypatch):
+    """La sidebar è solo Investor: non importa store.py, quindi non può
+    leggere né scrivere portafogli, analisi o audit log."""
     import streamlit as st
 
+    with open(sidebar_mod.__file__) as f:
+        assert "data.store" not in f.read()
+    monkeypatch.setattr(sidebar_mod, "cached_risk_free", lambda: 0.03)
     st.session_state.positions = {}
-    monkeypatch.setattr(sidebar_mod, "list_portfolios", _boom)
-    monkeypatch.setattr(sidebar_mod, "save_portfolio", _boom)
-    monkeypatch.setattr(sidebar_mod, "log_audit", _boom)
 
-    settings = sidebar_mod.render_sidebar("local@dev", advisor_mode=False)
+    settings = sidebar_mod.render_sidebar()
 
-    assert settings.portfolio_name == "My portfolio"  # nessun nome da un DB mai letto
-
-
-def test_sidebar_advisor_mode_does_read_the_portfolio_store(monkeypatch):
-    import streamlit as st
-
-    st.session_state.positions = {}
-    calls = {"list_portfolios": False}
-    monkeypatch.setattr(
-        sidebar_mod,
-        "list_portfolios",
-        lambda *a, **k: calls.__setitem__("list_portfolios", True) or {},
-    )
-
-    sidebar_mod.render_sidebar("advisor@example.com", advisor_mode=True)
-
-    # controllo di non-trivialità: la differenza advisor_mode=True/False deve
-    # davvero cambiare il comportamento, non lasciare tutto disabilitato
-    assert calls["list_portfolios"] is True
+    assert settings.portfolio_name == "My portfolio"
 
 
 # -------------------------------------------------------- check-up: Investor vs Advisor
@@ -223,17 +207,19 @@ def test_app_investor_never_imports_clients_or_admin_views():
 def test_app_investor_sidebar_and_context_are_non_persistent():
     with open("app_investor.py") as f:
         source = f.read()
-    assert "advisor_mode=False" in source
+    assert "render_sidebar()" in source
     assert "stateful=False" in source
 
 
 def test_app_advisor_keeps_admin_gate_and_multi_tenant_identity():
     with open("app_advisor.py") as f:
-        source = f.read()
-    assert "is_admin(advisor)" in source  # vista Admin gated, non un tab sempre visibile
-    assert "current_advisor()" in source  # isolamento per tenant, non un advisor fisso
-    assert "advisor_mode=True" in source
-    assert "stateful=True" in source
+        entry = f.read()
+    with open("portfolio_intelligence/views/advisor_workspace.py") as f:
+        workspace = f.read()
+    assert "current_advisor()" in entry  # isolamento per tenant, non un advisor fisso
+    assert "advisor_workspace.render(advisor)" in entry
+    assert "is_admin(advisor)" in workspace  # Admin solo per gli admin
+    assert "stateful=True" in workspace
 
 
 def _resolve_app_profile(namespace: dict) -> None:
@@ -310,58 +296,3 @@ def test_app_router_renders_chooser_without_forcing_require_auth(monkeypatch):
         source = f.read()
     assert "resolve_require_auth" not in source
     assert "render_profile_chooser" in source
-
-
-# -------------------------------------------------------- cancellazione dati (art. 17 GDPR)
-
-
-def _advisor_sidebar_app():
-    import streamlit as st
-
-    from portfolio_intelligence.views.sidebar import render_sidebar
-
-    st.session_state.setdefault("positions", {})
-    render_sidebar("adv@x", advisor_mode=True)
-
-
-def _button(at, label):
-    return next(b for b in at.button if b.label == label)
-
-
-def test_advisor_deletes_a_client_portfolio_only_after_confirming(tmp_path, monkeypatch):
-    from streamlit.testing.v1 import AppTest
-
-    from portfolio_intelligence.data.store import list_portfolios, save_portfolio
-    from portfolio_intelligence.i18n import t_in
-
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'del.db'}")
-    save_portfolio("adv@x", "Cliente A", {"AAPL": 100.0})
-    save_portfolio("adv@x", "Cliente B", {"MSFT": 100.0})
-
-    at = AppTest.from_function(_advisor_sidebar_app).run()
-    next(s for s in at.selectbox if s.label == t_in("en", "side.load")).select("Cliente A").run()
-    delete_btn = _button(at, t_in("en", "side.delete_btn"))
-    assert delete_btn.disabled  # niente cancellazioni senza conferma esplicita
-
-    at.checkbox(key="del_confirm").check().run()
-    _button(at, t_in("en", "side.delete_btn")).click().run()
-
-    assert set(list_portfolios("adv@x")) == {"Cliente B"}
-
-
-def test_advisor_erases_all_own_data_from_sidebar(tmp_path, monkeypatch):
-    from streamlit.testing.v1 import AppTest
-
-    from portfolio_intelligence.data.store import list_portfolios, save_portfolio
-    from portfolio_intelligence.i18n import t_in
-
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'erase.db'}")
-    save_portfolio("adv@x", "Cliente A", {"AAPL": 100.0})
-    save_portfolio("adv@y", "Cliente Z", {"MSFT": 100.0})
-
-    at = AppTest.from_function(_advisor_sidebar_app).run()
-    at.checkbox(key="erase_all_confirm").check().run()
-    _button(at, t_in("en", "side.erase_all_btn")).click().run()
-
-    assert list_portfolios("adv@x") == {}
-    assert set(list_portfolios("adv@y")) == {"Cliente Z"}  # gli altri consulenti non toccati

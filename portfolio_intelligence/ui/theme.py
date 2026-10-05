@@ -213,26 +213,6 @@ def inject_theme() -> None:
             font-size: 0.8rem; color: var(--muted); margin-top: var(--s-1); line-height: 1.45;
         }}
 
-        /* ---- libro clienti (Advisor) ---- */
-        .client-list {{
-            background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
-        }}
-        .client-row {{
-            display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap;
-            padding: var(--s-3) var(--s-5); border-top: 1px solid var(--line);
-        }}
-        .client-row:first-child {{ border-top: none; }}
-        .client-dot {{ width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }}
-        .client-name {{ min-width: 150px; }}
-        .client-value {{ min-width: 120px; }}
-        .client-strong {{ font-weight: 700; font-variant-numeric: tabular-nums; }}
-        .client-value .chg {{ font-size: 0.8rem; margin-left: var(--s-1); }}
-        .client-problem {{ flex: 1; margin-top: 0; }}
-        .client-health {{
-            font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums;
-        }}
-        .client-health span {{ font-size: 0.75rem; color: var(--muted); font-weight: 600; }}
-
         /* ---- stato vuoto ---- */
         .empty {{
             text-align: center; padding: var(--s-7) var(--s-6);
@@ -395,15 +375,6 @@ def inject_theme() -> None:
         }}
         [data-testid="stSidebar"] .sec {{ margin: var(--s-3) 0 var(--s-2); }}
         [data-testid="stSidebar"] hr {{ margin: var(--s-3) 0; }}
-
-        /* ---- context switcher Advisor (sidebar) ---- */
-        .side-context-switch {{
-            font-size: 0.75rem; color: var(--muted); margin: 2px 0 var(--s-3);
-            padding-bottom: var(--s-3); border-bottom: 1px solid var(--line);
-        }}
-        .side-context-switch span {{ font-weight: 700; color: var(--ink-2); }}
-        .side-context-switch a {{ color: var(--muted); text-decoration: underline; }}
-        .side-context-switch a:hover {{ color: var(--accent); }}
 
         /* ---- responsive ---- */
         @media (max-width: 920px) {{

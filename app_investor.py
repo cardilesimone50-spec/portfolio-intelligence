@@ -45,7 +45,7 @@ def main() -> None:
     # ViewContext.advisor (checkup.py lo usa solo per NON stampare un nome
     # advisor nel PDF, cosa che vogliamo comunque in modalità anonima)
     advisor = current_advisor()
-    settings = render_sidebar(advisor, advisor_mode=False)
+    settings = render_sidebar()
 
     positions = normalize_portfolio(st.session_state.positions)
     cp = compute_portfolio(positions, settings)

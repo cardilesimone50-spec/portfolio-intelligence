@@ -1,4 +1,4 @@
-"""Vista Clienti: il book dell'advisor con semaforo, valore e problema principale."""
+"""Analisi rapida di un portafoglio cliente, per il book dell'area Advisor."""
 
 import streamlit as st
 
@@ -14,7 +14,6 @@ from portfolio_intelligence.analytics.insights import (
 from portfolio_intelligence.analytics.performance import max_drawdown
 from portfolio_intelligence.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD, rolling_min_periods
 from portfolio_intelligence.data.fx import convert_to_eur
-from portfolio_intelligence.data.store import list_portfolios
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio import Portfolio
 from portfolio_intelligence.portfolio.positions import normalize_portfolio, position_table, totals
@@ -23,7 +22,6 @@ from portfolio_intelligence.portfolio.risk import (
     average_pairwise_correlation,
     portfolio_volatility,
 )
-from portfolio_intelligence.ui.components import empty_state, eur, sec, text_safe
 from portfolio_intelligence.ui.theme import AMBER
 from portfolio_intelligence.views.common import (
     TRADING_DAYS,
@@ -31,12 +29,15 @@ from portfolio_intelligence.views.common import (
     cached_eurusd,
     cached_prices,
 )
-from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import GAIN, LOSS
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict:
+def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool, lang: str = "en") -> dict:
+    """Health, valore, rischio e problema principale di un cliente.
+
+    `lang` entra nella chiave di cache: il testo del problema è tradotto.
+    """
     positions_c = normalize_portfolio(dict(items))
     prices_native = cached_prices(tuple(sorted(positions_c)), period_key)
     if eur_flag:
@@ -74,64 +75,8 @@ def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool) -> dict
     }
 
 
-def render(ctx: ViewContext) -> None:
-    advisor, period, in_eur = ctx.advisor, ctx.period, ctx.in_eur
-
-    sec("Advisor view — all saved portfolios")
-    st.caption(
-        "Each saved portfolio is a client: status light, value, Health Score "
-        "and the most urgent problem at a glance. To open one: "
-        "sidebar → Saved portfolios → Load."
-    )
-
-    book = list_portfolios(advisor)
-    if not book:
-        empty_state(
-            "No clients in the book",
-            "Save at least one portfolio (sidebar → Saved portfolios) "
-            "to see it appear here with status light and main problem.",
-        )
-        return
-
-    rows_html = ""
-    failures = []
-    with st.spinner("Analyzing the client book..."):
-        for client_name in sorted(book):
-            try:
-                a = quick_client_analysis(tuple(sorted(book[client_name].items())), period, in_eur)
-            except ValueError as exc:
-                failures.append(f"{client_name}: {exc}")
-                continue
-            color = (
-                GAIN
-                if a["health"] >= HEALTH_SCORE_GOOD
-                else AMBER
-                if a["health"] >= HEALTH_SCORE_FAIR
-                else LOSS
-            )
-            # badge: P&L dal carico se noto, altrimenti il rendimento del periodo
-            shown_chg = a["pnl_pct"] if a["pnl_pct"] == a["pnl_pct"] else a["cum"]
-            chg_css = "up" if shown_chg >= 0 else "down"
-            rows_html += f"""
-            <div class="client-row">
-              <div class="client-dot" style="background:{color}"></div>
-              <div class="client-name">
-                <div class="client-strong">{client_name}</div>
-                <div class="kpi-sub">{eur(a["invested"])} invested · vol. {a["vol"]:.0%}</div>
-              </div>
-              <div class="client-value">
-                <div class="kpi-label">Value</div>
-                <div class="client-strong">{eur(a["value"])}
-                  <span class="chg {chg_css}">{shown_chg:+.1%}</span></div>
-              </div>
-              <div class="client-problem kpi-sub">{a["problem"]}</div>
-              <div class="client-health" style="color:{text_safe(color)}">{a["health"]}<span>/100</span></div>
-            </div>"""
-    st.markdown(f'<div class="client-list">{rows_html}</div>', unsafe_allow_html=True)
-    for failure in failures:
-        st.warning(f"Analysis failed: {failure}")
-    st.caption(
-        f"{len(book)} clients · horizon {period} · "
-        + ("EUR values, currency included" if in_eur else "original currencies")
-        + " · analyses refreshed every 15 minutes."
-    )
+def status_color(health: float) -> str:
+    """Colore di stato dell'Health Score (verde, ambra, rosso)."""
+    if health >= HEALTH_SCORE_GOOD:
+        return GAIN
+    return AMBER if health >= HEALTH_SCORE_FAIR else LOSS

@@ -377,7 +377,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "nav.correlations": ("Correlations", "Correlazioni"),
     "nav.fundamentals": ("Fundamentals", "Fondamentali"),
     # ------------------------------------------------------- profile chooser
-    "chooser.eyebrow": ("SMARTEEFINANCE", "SMARTEEFINANCE"),
     "chooser.title": (
         "Choose how to use Smarteefinance",
         "Scegli come usare Smarteefinance",
@@ -388,7 +387,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Investor è un check-up rapido del tuo portafoglio. Advisor è per i "
         "professionisti che gestiscono portafogli di clienti.",
     ),
-    "chooser.investor_badge": ("PUBLIC · NO SIGN-UP", "PUBBLICO · SENZA REGISTRAZIONE"),
     "chooser.investor_title": ("Explore as Investor", "Esplora come Investor"),
     "chooser.investor_desc": (
         "No sign-up. A portfolio check-up in about a minute, risk measured "
@@ -399,7 +397,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "nella sessione del browser e non vengono salvate in alcun database.",
     ),
     "chooser.investor_cta": ("Start as Investor →", "Inizia come Investor →"),
-    "chooser.advisor_badge": ("PROFESSIONAL · OIDC LOGIN", "PROFESSIONALE · LOGIN OIDC"),
     "chooser.advisor_title": ("Sign in as Advisor", "Accedi come Advisor"),
     "chooser.advisor_desc": (
         "Secure OIDC login, saved client portfolios, multi-tenant analysis "
@@ -455,23 +452,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Continue without authentication (dev) →",
         "Continua senza autenticazione (dev) →",
     ),
-    "advisorw.welcome_greeting": (
-        "Welcome back, **{advisor}**",
-        "Bentornato, **{advisor}**",
-    ),
-    "advisorw.kpi_portfolios": ("Active saved portfolios", "Portafogli salvati attivi"),
-    "advisorw.kpi_last_checkup": ("Last check-up", "Ultimo check-up"),
-    "advisorw.kpi_last_checkup_none": ("None yet", "Nessuno ancora"),
-    "advisorw.kpi_feed": ("Market data feed", "Feed prezzi di mercato"),
-    "advisorw.kpi_feed_unknown": ("Not fetched yet", "Non ancora interrogato"),
-    "advisorw.quick_load": ("Load a new portfolio", "Carica un nuovo portafoglio"),
-    "advisorw.quick_clients": ("Open client history", "Apri storico clienti"),
-    "advisorw.quick_stress": (
-        "Run stress test on model portfolio",
-        "Esegui stress test su portafoglio modello",
-    ),
-    "advisorw.switch_to_investor": ("← Switch to Investor view", "← Torna a Investor"),
-    "advisorw.active_profile": ("Active profile: ADVISOR", "Profilo attivo: ADVISOR"),
     "app.fund_unavailable": (
         "Company financials are temporarily unavailable: risk, return and "
         "diversification are complete, valuation and quality indicators are not.",
@@ -507,8 +487,112 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Legal documents are published in Italian, the authoritative version.",
         "I documenti legali sono pubblicati in italiano, che è la versione di riferimento.",
     ),
+    # ---------------------------------------------------------------- advisor workspace
+    "adv.product": ("Advisor", "Advisor"),
+    "adv.nav_clients": ("Clients", "Clienti"),
+    "adv.nav_new": ("New client", "Nuovo cliente"),
+    "adv.nav_market": ("Market", "Mercato"),
+    "adv.nav_admin": ("Administration", "Amministrazione"),
+    "adv.nav_active": ("Active client", "Cliente attivo"),
+    "adv.nav_label": ("Advisor navigation", "Navigazione Advisor"),
+    "adv.sec_overview": ("Overview", "Panoramica"),
+    "adv.sec_positions": ("Positions", "Posizioni"),
+    "adv.sec_analysis": ("Analysis", "Analisi"),
+    "adv.sec_strategies": ("Strategies", "Strategie"),
+    "adv.params": ("Analysis parameters", "Parametri di analisi"),
+    "adv.signed_in": ("Signed in as {advisor}", "Accesso come {advisor}"),
+    "adv.dev_env": (
+        "Development environment: sign-in is not configured.",
+        "Ambiente di sviluppo: l'accesso non è configurato.",
+    ),
+    "adv.clients_title": ("Clients", "Clienti"),
+    "adv.clients_sub": (
+        "The portfolios you follow, ordered by who needs attention first.",
+        "I portafogli che segui, ordinati da chi richiede attenzione per primo.",
+    ),
+    "adv.kpi_clients": ("Clients", "Clienti"),
+    "adv.kpi_aum": ("Assets monitored", "Patrimonio monitorato"),
+    "adv.kpi_review": ("To review", "Da rivedere"),
+    "adv.kpi_review_sub": (
+        "Health Score below {fair} or volatility above the client's profile.",
+        "Health Score sotto {fair} o volatilità oltre il profilo del cliente.",
+    ),
+    "adv.kpi_health": ("Average Health Score", "Health Score medio"),
+    "adv.kpi_aum_sub": ("Current market value, in EUR.", "Valore di mercato attuale, in EUR."),
+    "adv.kpi_clients_sub": ("Saved client portfolios.", "Portafogli clienti salvati."),
+    "adv.kpi_health_sub": ("Simple average across clients.", "Media semplice tra i clienti."),
+    "adv.search": ("Search by client code", "Cerca per codice cliente"),
+    "adv.col_client": ("Client", "Cliente"),
+    "adv.col_profile": ("Profile", "Profilo"),
+    "adv.col_value": ("Value", "Valore"),
+    "adv.col_return": ("Return", "Rendimento"),
+    "adv.col_vol": ("Volatility", "Volatilità"),
+    "adv.col_health": ("Health", "Health"),
+    "adv.col_flag": ("Main finding", "Segnalazione principale"),
+    "adv.open": ("Open", "Apri"),
+    "adv.no_clients_title": ("No clients yet", "Nessun cliente"),
+    "adv.no_clients_hint": (
+        "Create the first client with its positions, or start from a demo client "
+        "to explore the analyses.",
+        "Crea il primo cliente con le sue posizioni, oppure parti da un cliente "
+        "dimostrativo per esplorare le analisi.",
+    ),
+    "adv.demo_client": ("Create demo client", "Crea cliente dimostrativo"),
+    "adv.no_match": ("No client matches the search.", "Nessun cliente corrisponde alla ricerca."),
+    "adv.analysis_failed": ("Analysis not available: {err}", "Analisi non disponibile: {err}"),
+    "adv.new_title": ("New client", "Nuovo cliente"),
+    "adv.new_sub": (
+        "Enter a client code, the declared risk profile and the positions held. "
+        "Prefer an internal code to the client's full name.",
+        "Inserisci un codice cliente, il profilo di rischio dichiarato e le posizioni "
+        "detenute. Preferisci un codice interno al nome e cognome del cliente.",
+    ),
+    "adv.registry": ("Client details", "Anagrafica"),
+    "adv.client_code": ("Client code", "Codice cliente"),
+    "adv.client_code_help": (
+        "An internal reference, e.g. C-0042. Avoiding names keeps personal data to a minimum.",
+        "Un riferimento interno, es. C-0042. Evitare i nomi riduce al minimo i dati personali.",
+    ),
+    "adv.code_exists": (
+        "A client with this code already exists.",
+        "Esiste già un cliente con questo codice.",
+    ),
+    "adv.create": ("Create client", "Crea cliente"),
+    "adv.create_disabled": (
+        "Enter a client code and at least one position.",
+        "Inserisci un codice cliente e almeno una posizione.",
+    ),
+    "adv.created": ("Client {name} created", "Cliente {name} creato"),
+    "adv.meta": (
+        "Risk profile: {profile} · {n} positions · updated {updated}",
+        "Profilo di rischio: {profile} · {n} posizioni · aggiornato il {updated}",
+    ),
+    "adv.save": ("Save changes", "Salva modifiche"),
+    "adv.saved": ("Changes saved", "Modifiche salvate"),
+    "adv.unsaved": (
+        "The positions have unsaved changes.",
+        "Le posizioni hanno modifiche non salvate.",
+    ),
+    "adv.no_positions": (
+        "This client has no positions yet: add them in Positions.",
+        "Questo cliente non ha ancora posizioni: aggiungile nella sezione Posizioni.",
+    ),
+    "adv.profile_saved": ("Risk profile updated", "Profilo di rischio aggiornato"),
+    "adv.danger_title": ("Delete client", "Elimina cliente"),
+    "adv.market_sub": (
+        "Nasdaq-100 overview, correlations and company financials.",
+        "Panoramica Nasdaq-100, correlazioni e dati di bilancio delle società.",
+    ),
+    "adv.admin_sub": (
+        "Platform counters and activity log. Never other advisors' portfolios.",
+        "Contatori della piattaforma e registro delle attività. Mai i portafogli di altri consulenti.",
+    ),
+    "adv.switch_area": ("Investor area", "Area Investor"),
+    "adv.empty_positions": (
+        "Add instruments one by one or import the client's securities position from the broker.",
+        "Aggiungi gli strumenti uno alla volta o importa la posizione titoli del cliente dal broker.",
+    ),
     # ---------------------------------------------------------------- landing
-    "landing.eyebrow": ("Portfolio check-up", "Check-up di portafoglio"),
     "landing.title": (
         "Your equity portfolio, measured on your own data",
         "Il tuo portafoglio azionario, misurato sui tuoi dati",
@@ -634,18 +718,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "gate.load_fundamentals": ("Company financials", "Dati di bilancio"),
     "gate.load_rates": ("Risk-free rate", "Tasso privo di rischio"),
     # ---------------------------------------------------------------- sidebar
-    "side.advisor": ("Advisor: **{advisor}**", "Consulente: **{advisor}**"),
-    "side.advisor_demo": (
-        "Auth not configured: data isolation is NOT active, "
-        "every visitor shares this workspace (**{advisor}**).",
-        "Auth non configurata: l'isolamento dati NON è attivo, "
-        "ogni visitatore condivide questo spazio (**{advisor}**).",
-    ),
-    "side.login_hint": (
-        "Sign in to load your client book.",
-        "Accedi per caricare il tuo book clienti.",
-    ),
-    "side.login": ("Log in", "Accedi"),
     "side.logout": ("Log out", "Esci"),
     "side.add_stock": ("Add a stock", "Aggiungi un titolo"),
     "side.search_hint": (
@@ -703,13 +775,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "side.imported": ("Imported {n} positions", "Importate {n} posizioni"),
     "side.import_failed": ("Import failed: {err}", "Import non riuscito: {err}"),
-    "side.saved_portfolios": ("Saved portfolios", "Portafogli salvati"),
-    "side.name": ("Name", "Nome"),
-    "side.save_composition": ("Save current composition", "Salva la composizione attuale"),
-    "side.saved_toast": ('Portfolio "{name}" saved', 'Portafoglio "{name}" salvato'),
-    "side.load": ("Load", "Carica"),
-    "side.load_placeholder": ("Choose a portfolio...", "Scegli un portafoglio..."),
-    "side.load_btn": ("Load into portfolio", "Carica nel portafoglio"),
     "side.settings": ("Settings", "Impostazioni"),
     "side.language": ("Language / Lingua", "Lingua / Language"),
     "side.horizon": ("Historical horizon", "Orizzonte storico"),

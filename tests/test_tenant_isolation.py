@@ -77,17 +77,25 @@ def test_require_auth_check_runs_inside_bootstrap_before_anything_else():
     assert def_pos < gate_pos < next_def_pos
 
 
-@pytest.mark.parametrize("entry_point", ["app_advisor.py", "app_investor.py"])
-def test_entry_points_bootstrap_before_gate_before_sidebar(entry_point):
-    """Regressione strutturale: ciascun entry point deve chiamare
-    bootstrap_page() (che include il gate REQUIRE_AUTH) PRIMA del gate di
-    onboarding, PRIMA della sidebar — l'ordine conta, non solo la presenza."""
+@pytest.mark.parametrize(
+    ("entry_point", "ordered_calls"),
+    [
+        ("app_investor.py", ["bootstrap_page(", "gate.render_gate()", "render_sidebar("]),
+        (
+            "app_advisor.py",
+            ["bootstrap_page(", "render_advisor_gate(", "advisor_workspace.render("],
+        ),
+    ],
+)
+def test_entry_points_bootstrap_before_gate_before_data(entry_point, ordered_calls):
+    """Regressione strutturale: ciascun entry point chiama bootstrap_page()
+    (che include il gate REQUIRE_AUTH), poi il proprio gate (onboarding o
+    login), e solo dopo la UI che mostra dati: l'ordine conta, non solo la
+    presenza."""
     with open(entry_point) as f:
         source = f.read()
-    bootstrap_pos = source.index("bootstrap_page(")
-    onboarding_pos = source.index("gate.render_gate()")
-    sidebar_pos = source.index("render_sidebar(")
-    assert bootstrap_pos < onboarding_pos < sidebar_pos
+    positions = [source.index(call) for call in ordered_calls]
+    assert positions == sorted(positions)
 
 
 # ---------------------------------------------------- (b)/(c) isolamento advisor
