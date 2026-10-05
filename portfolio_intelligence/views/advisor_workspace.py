@@ -20,9 +20,11 @@ from collections.abc import Callable
 
 import streamlit as st
 
-from portfolio_intelligence.config import HEALTH_SCORE_FAIR
+from portfolio_intelligence.config import DEFAULT_RISK_PROFILE, HEALTH_SCORE_FAIR, RISK_PROFILES
 from portfolio_intelligence.data.store import (
     REDACTED,
+    ClientExistsError,
+    create_client,
     delete_advisor_data,
     delete_portfolio,
     list_clients,
@@ -51,11 +53,7 @@ from portfolio_intelligence.views import portfolio_editor as pe
 from portfolio_intelligence.views.clients import quick_client_analysis, status_color
 from portfolio_intelligence.views.common import PROFILE_VOL, SAMPLE_PORTFOLIO, language_selector
 from portfolio_intelligence.views.context import ViewContext
-from portfolio_intelligence.views.sidebar import (
-    RISK_PROFILES,
-    SidebarSettings,
-    analysis_parameters,
-)
+from portfolio_intelligence.views.sidebar import SidebarSettings, analysis_parameters
 
 DEMO_CLIENT = "DEMO-001"
 
@@ -129,6 +127,7 @@ WORKSPACE_CSS = """
 .book-grid .num { text-align: right; font-variant-numeric: tabular-nums; }
 .book-grid .health { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .book-grid .flag { color: var(--ink-2); font-size: 0.86rem; line-height: 1.4; }
+.book-grid .pending { font-size: 0.75rem; font-weight: 600; color: var(--ink-2); margin-left: 16px; }
 .book-grid .dot {
     display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: var(--s-2);
 }
@@ -156,33 +155,87 @@ WORKSPACE_CSS = """
 
 
 # ------------------------------------------------------------------ stato
-
-
-def _goto(page: str) -> None:
-    st.session_state.adv_page = page
-
-
-def _new_client() -> None:
-    st.session_state.adv_page = "new_client"
-    st.session_state.adv_client = None
-    st.session_state.positions = {}
-
-
-def _open_client(name: str, positions: dict, section: str = "overview") -> None:
-    st.session_state.adv_page = "client"
-    st.session_state.adv_client = name
-    st.session_state.adv_section = section
-    st.session_state.positions = normalize_portfolio(positions)
-    st.session_state.adv_saved = _fingerprint(st.session_state.positions)
+#
+# Le modifiche non salvate non si perdono navigando: lasciando la scheda di un
+# cliente, posizioni e profilo di lavoro finiscono in `adv_drafts[cliente]` e
+# tornano alla riapertura, finché non si salva o si annulla. Le bozze vivono
+# solo nella sessione del browser, mai nel database.
 
 
 def _fingerprint(positions: dict) -> str:
     return json.dumps(positions, sort_keys=True, default=str)
 
 
+def _drafts() -> dict[str, dict]:
+    return st.session_state.setdefault("adv_drafts", {})
+
+
+def is_dirty() -> bool:
+    """Posizioni o profilo del cliente attivo diversi da quelli salvati."""
+    if st.session_state.get("adv_page") != "client" or not st.session_state.get("adv_client"):
+        return False
+    return _fingerprint(st.session_state.positions) != st.session_state.get(
+        "adv_saved"
+    ) or st.session_state.get("adv_profile") != st.session_state.get("adv_saved_profile")
+
+
+def _stash() -> None:
+    """Prima di cambiare pagina: mette da parte il lavoro in corso, se c'è."""
+    page = st.session_state.get("adv_page")
+    if page == "client" and (name := st.session_state.get("adv_client")):
+        if is_dirty():
+            _drafts()[name] = {
+                "positions": dict(st.session_state.positions),
+                "profile": st.session_state.get("adv_profile", DEFAULT_RISK_PROFILE),
+            }
+        else:
+            _drafts().pop(name, None)
+    elif page == "new_client":
+        st.session_state.adv_new_draft = dict(st.session_state.positions)
+
+
+def _goto(page: str) -> None:
+    _stash()
+    st.session_state.adv_page = page
+
+
+def _new_client() -> None:
+    _stash()
+    st.session_state.adv_page = "new_client"
+    st.session_state.adv_client = None
+    st.session_state.positions = dict(st.session_state.get("adv_new_draft") or {})
+
+
+def _open_client(name: str, positions: dict, profile: str, section: str = "overview") -> None:
+    if st.session_state.get("adv_page") != "client" or st.session_state.get("adv_client") != name:
+        _stash()
+    saved = normalize_portfolio(positions)
+    draft = _drafts().get(name)
+    st.session_state.adv_page = "client"
+    st.session_state.adv_client = name
+    st.session_state.adv_section = section
+    st.session_state.adv_saved = _fingerprint(saved)
+    st.session_state.adv_saved_profile = profile
+    st.session_state.positions = dict(draft["positions"]) if draft else saved
+    st.session_state.adv_profile = draft["profile"] if draft else profile
+
+
 def _goto_section(section: str) -> None:
     st.session_state.adv_page = "client"
     st.session_state.adv_section = section
+
+
+def _discard_changes(saved_positions: dict, saved_profile: str) -> None:
+    name = st.session_state.adv_client
+    _drafts().pop(name, None)
+    st.session_state.positions = normalize_portfolio(saved_positions)
+    st.session_state.adv_profile = saved_profile
+
+
+def _forget(names: list[str]) -> None:
+    for name in names:
+        _drafts().pop(name, None)
+        st.session_state.get("adv_recipients", {}).pop(name, None)
 
 
 # ------------------------------------------------------------------ navigazione
@@ -233,7 +286,9 @@ def _render_rail(advisor: str, clients: dict) -> tuple[str, bool, float]:
                 f'<div class="adv-rail-label">{t("adv.nav_active")}</div>',
                 unsafe_allow_html=True,
             )
-            _nav_button("client", client, _goto_section, (section,))
+            pending = is_dirty() or client in _drafts()
+            label = f"{client} · {t('adv.unsaved_short')}" if pending else client
+            _nav_button("client", label, _goto_section, (section,))
         st.markdown('<div class="adv-rail-label"></div>', unsafe_allow_html=True)
         _nav_button("market", t("adv.nav_market"), _goto, ("market",))
         if is_admin(advisor):
@@ -246,6 +301,7 @@ def _render_rail(advisor: str, clients: dict) -> tuple[str, bool, float]:
             confirm_all = st.checkbox(t("side.erase_all_confirm"), key="erase_all_confirm")
             if st.button(t("side.erase_all_btn"), width="stretch", disabled=not confirm_all):
                 counts = delete_advisor_data(advisor)
+                _forget(list(clients))
                 st.session_state.positions = {}
                 st.session_state.adv_client = None
                 st.session_state.adv_page = "clients"
@@ -336,9 +392,13 @@ def _book_rows(clients: dict, period: str, in_eur: bool) -> list[dict]:
 
 
 def _create_demo(advisor: str) -> None:
-    save_portfolio(advisor, DEMO_CLIENT, SAMPLE_PORTFOLIO, risk_profile="Moderate")
-    log_audit(advisor, "create_client", DEMO_CLIENT)
-    _open_client(DEMO_CLIENT, SAMPLE_PORTFOLIO)
+    try:
+        create_client(advisor, DEMO_CLIENT, SAMPLE_PORTFOLIO, risk_profile="Moderate")
+    except ClientExistsError:
+        pass  # già creato in precedenza: si apre quello
+    else:
+        log_audit(advisor, "create_client", DEMO_CLIENT)
+    _open_client(DEMO_CLIENT, SAMPLE_PORTFOLIO, "Moderate")
 
 
 def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> None:
@@ -392,6 +452,9 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
         label_visibility="collapsed",
     )
     new_col.button(t("adv.nav_new"), type="primary", width="stretch", on_click=_new_client)
+    pending = sorted(name for name in _drafts() if name in clients)
+    if pending:
+        st.warning(t("adv.pending_book", clients=", ".join(pending)))
     shown = [r for r in rows if query.strip().lower() in r["name"].lower()]
     if not shown:
         st.caption(t("adv.no_match"))
@@ -428,8 +491,16 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
         else:
             color = status_color(row["health"])
             ret = row["pnl_pct"] if row["pnl_pct"] == row["pnl_pct"] else row["cum"]
+            marker = (
+                f'<div class="pending">{t("adv.unsaved_short")}</div>'
+                if row["name"] in _drafts()
+                else ""
+            )
             data = [
-                ("c-code", f'<span class="dot" style="background:{color}"></span>{row["name"]}'),
+                (
+                    "c-code",
+                    f'<span class="dot" style="background:{color}"></span>{row["name"]}{marker}',
+                ),
                 ("", t(f"prof.{row['profile']}")),
                 ("num", eur(row["value"])),
                 ("num " + ("up" if ret >= 0 else "down"), f"{ret:+.1%}"),
@@ -450,20 +521,30 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
                 key=f"adv_open_{i}",
                 width="stretch",
                 on_click=_open_client,
-                args=(row["name"], row["positions"]),
+                args=(row["name"], row["positions"], row["profile"]),
             )
 
 
-def _create_client(advisor: str, existing: dict) -> None:
+def _create_client(advisor: str) -> None:
     name = (st.session_state.get("adv_new_name") or "").strip()
-    profile = st.session_state.get("adv_new_profile", "Not set")
-    positions = st.session_state.positions
-    if not name or not positions or name in existing:
+    profile = st.session_state.get("adv_new_profile", DEFAULT_RISK_PROFILE)
+    positions = dict(st.session_state.positions)
+    if not name or not positions:
         return
-    save_portfolio(advisor, name, positions, risk_profile=profile)
+    try:
+        # il controllo dei duplicati sta nel database: un doppio clic o un'altra
+        # scheda aperta non possono sovrascrivere un cliente esistente
+        create_client(advisor, name, positions, risk_profile=profile)
+    except ClientExistsError:
+        st.session_state.adv_create_error = t("adv.code_exists")
+        return
     log_audit(advisor, "create_client", name)
     st.session_state.adv_new_name = ""
-    _open_client(name, positions)
+    st.session_state.adv_new_profile = DEFAULT_RISK_PROFILE
+    st.session_state.adv_new_draft = {}
+    st.session_state.pop("adv_create_error", None)
+    st.session_state.adv_page = "new_client"  # nessuna bozza da mettere da parte
+    _open_client(name, positions, profile)
     st.toast(t("adv.created", name=name))
 
 
@@ -485,8 +566,9 @@ def _page_new_client(advisor: str, clients: dict) -> None:
                 format_func=lambda p: t(f"prof.{p}"),
             )
             name = (st.session_state.get("adv_new_name") or "").strip()
-            if name in clients:
-                st.error(t("adv.code_exists"))
+            error = st.session_state.pop("adv_create_error", None)
+            if name in clients or error:
+                st.error(error or t("adv.code_exists"))
         with st.container(border=True):
             tab_manual, tab_import = st.tabs([t("gate.tab_manual"), t("gate.tab_import")])
             with tab_manual:
@@ -497,7 +579,7 @@ def _page_new_client(advisor: str, clients: dict) -> None:
     with side, st.container(border=True):
         positions = st.session_state.positions
         invested = sum(cost for _, _, cost in pe.cost_basis(positions).values())
-        profile = st.session_state.get("adv_new_profile", "Not set")
+        profile = st.session_state.get("adv_new_profile", DEFAULT_RISK_PROFILE)
         rows = [
             (t("adv.client_code"), name or "—"),
             (t("side.risk_profile"), t(f"prof.{profile}")),
@@ -520,44 +602,54 @@ def _page_new_client(advisor: str, clients: dict) -> None:
             disabled=not ready,
             help=None if ready else t("adv.create_disabled"),
             on_click=_create_client,
-            args=(advisor, clients),
+            args=(advisor,),
         )
 
 
-def _save_positions(advisor: str, name: str) -> None:
-    save_portfolio(advisor, name, st.session_state.positions)
+def _save_changes(advisor: str, name: str) -> None:
+    """Salva insieme posizioni e profilo di lavoro del cliente attivo."""
+    profile = st.session_state.get("adv_profile", DEFAULT_RISK_PROFILE)
+    save_portfolio(advisor, name, st.session_state.positions, risk_profile=profile)
     log_audit(advisor, "save_portfolio", name)
     st.session_state.adv_saved = _fingerprint(st.session_state.positions)
+    st.session_state.adv_saved_profile = profile
+    _drafts().pop(name, None)
     st.toast(t("adv.saved"))
-
-
-def _save_profile(advisor: str, name: str) -> None:
-    profile = st.session_state.get("adv_profile_edit", "Not set")
-    save_portfolio(
-        advisor,
-        name,
-        normalize_portfolio(st.session_state.adv_saved_positions),
-        risk_profile=profile,
-    )
-    log_audit(advisor, "update_profile", name)
-    st.toast(t("adv.profile_saved"))
 
 
 def _delete_client(advisor: str, name: str) -> None:
     delete_portfolio(advisor, name)
     log_audit(advisor, "delete_portfolio", REDACTED)
+    _forget([name])
     st.session_state.adv_client = None
     st.session_state.adv_page = "clients"
     st.session_state.positions = {}
     st.toast(t("side.deleted_toast"))
 
 
+def _set_profile(name: str) -> None:
+    st.session_state.adv_profile = st.session_state[f"adv_profile_sel_{name}"]
+
+
+def _set_recipient(name: str) -> None:
+    recipients = st.session_state.setdefault("adv_recipients", {})
+    recipients[name] = st.session_state[f"adv_recipient_in_{name}"].strip()
+
+
 def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_free: float) -> None:
     name = st.session_state.adv_client
     record = clients[name]
-    profile = record["risk_profile"]
-    dirty = _fingerprint(st.session_state.positions) != st.session_state.get("adv_saved")
-    st.session_state.adv_saved_positions = record["positions"]
+    saved_profile = record["risk_profile"]
+    # sessione senza stato di lavoro per questo cliente (es. dopo un riavvio)
+    if st.session_state.get("adv_saved_profile") is None or "adv_profile" not in st.session_state:
+        _open_client(
+            name,
+            record["positions"],
+            saved_profile,
+            st.session_state.get("adv_section", "overview"),
+        )
+    profile = st.session_state.adv_profile
+    dirty = is_dirty()
 
     head_col, action_col = st.columns([4, 1], vertical_alignment="bottom")
     with head_col:
@@ -566,8 +658,8 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
             crumb=t("adv.nav_clients"),
             meta=t(
                 "adv.meta",
-                profile=t(f"prof.{profile}"),
-                n=len(st.session_state.positions),
+                profile=t(f"prof.{saved_profile}"),
+                n=len(record["positions"]),  # dati salvati, come profilo e data
                 updated=str(record["updated"])[:10],
             ),
         )
@@ -577,11 +669,19 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
             type="primary",
             width="stretch",
             disabled=not dirty,
-            on_click=_save_positions,
+            on_click=_save_changes,
             args=(advisor, name),
         )
     if dirty:
-        st.markdown(f'<div class="adv-dirty">{t("adv.unsaved")}</div>', unsafe_allow_html=True)
+        warn_col, undo_col = st.columns([4, 1], vertical_alignment="center")
+        warn_col.warning(t("adv.unsaved"))
+        undo_col.button(
+            t("adv.discard"),
+            key="adv_discard",
+            width="stretch",
+            on_click=_discard_changes,
+            args=(record["positions"], saved_profile),
+        )
 
     sections = ["overview", "positions", "analysis", "strategies"]
     current = st.session_state.get("adv_section", "overview")
@@ -603,14 +703,39 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
     elif not st.session_state.positions:
         st.info(t("adv.no_positions"))
     else:
-        _client_analysis(advisor, name, profile, current, (period, in_eur, risk_free))
+        recipient = ""
+        if current == "overview":
+            recipient = _recipient_field(name)
+        _client_analysis(advisor, name, profile, current, (period, in_eur, risk_free), recipient)
     compliance_footer()
 
 
+def _recipient_field(name: str) -> str:
+    """Intestazione del PDF per il cliente: solo in sessione, mai nel database."""
+    current = st.session_state.get("adv_recipients", {}).get(name, "")
+    field_col, note_col = st.columns([1.4, 2], vertical_alignment="bottom")
+    field_col.text_input(
+        t("adv.recipient"),
+        value=current,
+        key=f"adv_recipient_in_{name}",
+        placeholder=t("adv.recipient_placeholder"),
+        on_change=_set_recipient,
+        args=(name,),
+    )
+    note_col.caption(t("adv.recipient_note"))
+    return current
+
+
 def _client_analysis(
-    advisor: str, name: str, profile: str, section: str, params: tuple[str, bool, float]
+    advisor: str,
+    name: str,
+    profile: str,
+    section: str,
+    params: tuple[str, bool, float],
+    recipient: str = "",
 ) -> None:
     ctx, error, notice = _context(advisor, name, profile, *params)
+    ctx.report_recipient = recipient
     if error:
         st.error(error)
         return
@@ -656,18 +781,19 @@ def _client_positions(advisor: str, name: str, profile: str) -> None:
     pe.positions_table("adv", empty_hint=t("adv.empty_positions"))
 
     sec(t("side.risk_profile"))
-    profile_col, save_col, _rest = st.columns([1.4, 1, 2], vertical_alignment="bottom")
+    profile_col, note_col = st.columns([1.4, 3], vertical_alignment="center")
+    # chiave per cliente: il valore scelto per un cliente non può comparire su un altro
     profile_col.selectbox(
         t("side.risk_profile"),
         RISK_PROFILES,
         index=RISK_PROFILES.index(profile) if profile in RISK_PROFILES else 0,
-        key="adv_profile_edit",
+        key=f"adv_profile_sel_{name}",
         format_func=lambda p: t(f"prof.{p}"),
         label_visibility="collapsed",
+        on_change=_set_profile,
+        args=(name,),
     )
-    save_col.button(
-        t("side.save"), key="adv_profile_save", on_click=_save_profile, args=(advisor, name)
-    )
+    note_col.caption(t("adv.profile_note"))
 
     sec(t("adv.danger_title"))
     confirm = st.checkbox(t("side.delete_confirm", name=name), key="del_confirm")
@@ -734,8 +860,10 @@ def render(advisor: str) -> None:
     clients = list_clients(advisor)
     # cliente attivo sparito (cancellato altrove): si torna al book
     if st.session_state.adv_page == "client" and st.session_state.get("adv_client") not in clients:
+        _forget([st.session_state.get("adv_client") or ""])
         st.session_state.adv_page = "clients"
         st.session_state.adv_client = None
+    _forget([name for name in list(_drafts()) if name not in clients])
     if st.session_state.adv_page == "admin" and not is_admin(advisor):
         st.session_state.adv_page = "clients"
 

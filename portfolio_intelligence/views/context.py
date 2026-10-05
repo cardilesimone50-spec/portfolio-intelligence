@@ -34,3 +34,6 @@ class ViewContext:
     # analisi o audit log sul DB — tutto resta in st.session_state e sparisce
     # con la sessione. True (default) per app_advisor.py.
     stateful: bool = True
+    # intestazione del PDF per il cliente (nome e cognome): solo in sessione,
+    # mai nel DB né nei log; vuota = nessuna intestazione nominativa
+    report_recipient: str = ""

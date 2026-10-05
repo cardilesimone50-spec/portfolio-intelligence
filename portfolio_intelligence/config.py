@@ -9,6 +9,13 @@ importano, non ridefiniscono.
 
 TRADING_DAYS = 252
 
+# ------------------------------------------------------------ profilo di rischio
+# Profili dichiarabili per un cliente. "Not set" è il valore sicuro per i record
+# storici o non validi: non si assegna mai un profilo che il cliente non ha
+# dichiarato (sarebbe un'adeguatezza presunta, non verificata).
+RISK_PROFILES = ("Not set", "Conservative", "Moderate", "Aggressive")
+DEFAULT_RISK_PROFILE = "Not set"
+
 # --------------------------------------------------------- min_periods rolling
 # Finestra minima di osservazioni per le correlazioni: evita correlazioni
 # spurie tra titoli con poco storico in comune (portfolio_intelligence/portfolio/risk.py).

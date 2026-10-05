@@ -564,20 +564,40 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "adv.created": ("Client {name} created", "Cliente {name} creato"),
     "adv.meta": (
-        "Risk profile: {profile} · {n} positions · updated {updated}",
-        "Profilo di rischio: {profile} · {n} posizioni · aggiornato il {updated}",
+        "Risk profile: {profile} · Positions: {n} · Updated {updated}",
+        "Profilo di rischio: {profile} · Posizioni: {n} · Aggiornato il {updated}",
     ),
     "adv.save": ("Save changes", "Salva modifiche"),
     "adv.saved": ("Changes saved", "Modifiche salvate"),
     "adv.unsaved": (
-        "The positions have unsaved changes.",
-        "Le posizioni hanno modifiche non salvate.",
+        "You have unsaved changes to this client's positions or risk profile. They are "
+        "kept while you move around the workspace, until you save or discard them.",
+        "Hai modifiche non salvate alle posizioni o al profilo di rischio di questo cliente. "
+        "Restano in sospeso mentre ti sposti nello spazio di lavoro, finché non le salvi "
+        "o le annulli.",
+    ),
+    "adv.unsaved_short": ("unsaved changes", "modifiche non salvate"),
+    "adv.pending_book": (
+        "Unsaved changes for: {clients}. The table shows the saved values.",
+        "Modifiche non salvate per: {clients}. La tabella mostra i valori salvati.",
+    ),
+    "adv.discard": ("Discard", "Annulla modifiche"),
+    "adv.profile_note": (
+        "The profile is saved together with the positions, with Save changes.",
+        "Il profilo si salva insieme alle posizioni, con Salva modifiche.",
+    ),
+    "adv.recipient": ("Report heading (optional)", "Intestazione del report (facoltativa)"),
+    "adv.recipient_placeholder": ("Client's full name", "Nome e cognome del cliente"),
+    "adv.recipient_note": (
+        "Printed only on the cover of the PDF you download now. It is kept in this "
+        "browser session and never saved in the database.",
+        "Stampata solo sul frontespizio del PDF che scarichi ora. Resta nella sessione "
+        "del browser e non viene mai salvata nel database.",
     ),
     "adv.no_positions": (
         "This client has no positions yet: add them in Positions.",
         "Questo cliente non ha ancora posizioni: aggiungile nella sezione Posizioni.",
     ),
-    "adv.profile_saved": ("Risk profile updated", "Profilo di rischio aggiornato"),
     "adv.danger_title": ("Delete client", "Elimina cliente"),
     "adv.market_sub": (
         "Nasdaq-100 overview, correlations and company financials.",
@@ -968,6 +988,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "pdf.title": ("Portfolio Report", "Report di Portafoglio"),
     "pdf.prepared_by": ("prepared by {advisor}", "predisposto da {advisor}"),
+    "pdf.prepared_for": ("Prepared for {recipient}", "Preparato per {recipient}"),
     "pdf.profile": ("{profile} profile", "profilo {profile}"),
     "pdf.window": (
         "observation window {start} – {end}",

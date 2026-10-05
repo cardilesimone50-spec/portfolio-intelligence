@@ -212,3 +212,20 @@ def test_report_aggregates_positions_beyond_twelve():
         assert len(pdf.pages) == 3
         page1 = pdf.pages[0].extract_text()
     assert "+4" in page1 and "other holdings" in page1
+
+
+def test_report_cover_shows_the_optional_recipient_heading():
+    kwargs = dict(
+        portfolio_name="C-0042",
+        positions={"AAPL": 5000.0},
+        period="1y",
+        cum_return=0.1,
+        health_score=70,
+        metric_rows=[],
+        insights=[],
+        suggestions=[],
+    )
+    with pdfplumber.open(BytesIO(build_report(**kwargs, recipient="Mario Rossi"))) as pdf:
+        assert "Prepared for Mario Rossi" in pdf.pages[0].extract_text()
+    with pdfplumber.open(BytesIO(build_report(**kwargs))) as pdf:
+        assert "Prepared for" not in pdf.pages[0].extract_text()

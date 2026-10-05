@@ -38,6 +38,7 @@ from sqlalchemy.dialects.postgresql import insert as _pg_insert
 from sqlalchemy.dialects.sqlite import insert as _sqlite_insert
 from sqlalchemy.engine import Engine
 
+from portfolio_intelligence.config import DEFAULT_RISK_PROFILE, RISK_PROFILES
 from portfolio_intelligence.data.validators import safe_load_positions, validate_price_rows
 
 DB_PATH = Path("data/market.db")
@@ -231,6 +232,8 @@ def save_portfolio(
     """
     if not name.strip():
         raise ValueError("The portfolio name cannot be empty")
+    if risk_profile is not None and risk_profile not in RISK_PROFILES:
+        raise ValueError(f"Unknown risk profile: {risk_profile}")
     engine = engine or get_engine()
     where = (portfolios_table.c.advisor == advisor, portfolios_table.c.name == name.strip())
     with engine.begin() as conn:
@@ -249,6 +252,52 @@ def save_portfolio(
                 risk_profile=risk_profile,
             )
         )
+
+
+class ClientExistsError(ValueError):
+    """Esiste già un cliente con questo codice per lo stesso consulente."""
+
+
+def create_client(
+    advisor: str,
+    name: str,
+    positions: dict,
+    risk_profile: str = DEFAULT_RISK_PROFILE,
+    engine: Engine | None = None,
+) -> None:
+    """Crea un cliente nuovo; a differenza di `save_portfolio` non sovrascrive mai.
+
+    Il controllo sta qui, non solo nella UI: un doppio clic o due schede aperte
+    non devono poter rimpiazzare un cliente esistente.
+    """
+    code = name.strip()
+    if not code:
+        raise ValueError("The client code cannot be empty")
+    if risk_profile not in RISK_PROFILES:
+        raise ValueError(f"Unknown risk profile: {risk_profile}")
+    engine = engine or get_engine()
+    with engine.begin() as conn:
+        exists = conn.execute(
+            select(portfolios_table.c.name).where(
+                portfolios_table.c.advisor == advisor, portfolios_table.c.name == code
+            )
+        ).first()
+        if exists:
+            raise ClientExistsError(code)
+        conn.execute(
+            portfolios_table.insert().values(
+                advisor=advisor,
+                name=code,
+                positions=json.dumps(positions),
+                updated=datetime.now().isoformat(timespec="seconds"),
+                risk_profile=risk_profile,
+            )
+        )
+
+
+def _profile_or_default(value: str | None) -> str:
+    """Profilo salvato, o "Not set" per i record storici (NULL) e i valori non validi."""
+    return value if value in RISK_PROFILES else DEFAULT_RISK_PROFILE
 
 
 def list_clients(advisor: str, engine: Engine | None = None) -> dict[str, dict]:
@@ -274,7 +323,7 @@ def list_clients(advisor: str, engine: Engine | None = None) -> dict[str, dict]:
         if parsed is not None:
             clients[name] = {
                 "positions": parsed,
-                "risk_profile": profile or "Not set",
+                "risk_profile": _profile_or_default(profile),
                 "updated": updated,
             }
     return clients

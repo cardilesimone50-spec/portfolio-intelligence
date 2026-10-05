@@ -545,6 +545,7 @@ def build_report(
     names: dict[str, str] | None = None,
     *,
     advisor: str | None = None,
+    recipient: str | None = None,
     risk_profile: str | None = None,
     benchmark: str = "QQQ",
     currency_note: str | None = None,
@@ -699,6 +700,11 @@ def build_report(
         Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", wordmark),
         HRFlowable(width="100%", thickness=2, color=_ACCENT, spaceAfter=10),
         Paragraph(T("pdf.title"), h1),
+        *(
+            [Paragraph(_clean(T("pdf.prepared_for", recipient=recipient)), subtitle)]
+            if recipient
+            else []
+        ),
         Paragraph(_clean(" · ".join(meta_bits)), subtitle),
     ]
 

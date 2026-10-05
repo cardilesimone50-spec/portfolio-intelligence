@@ -458,6 +458,7 @@ def render(ctx: ViewContext) -> None:
                 + find_opportunities(portfolio, c["fund"]),
                 names=ctx.names,
                 advisor=advisor if advisor != DEV_ADVISOR else None,
+                recipient=ctx.report_recipient or None,
                 risk_profile=risk_profile,
                 benchmark=BENCHMARK,
                 currency_note=t("pdf.currency_eur") if in_eur else t("pdf.currency_orig"),

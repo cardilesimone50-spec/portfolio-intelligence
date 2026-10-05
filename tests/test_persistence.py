@@ -145,3 +145,62 @@ def test_client_risk_profile_is_stored_and_kept_when_positions_change(tmp_path):
     assert clients["C-001"]["positions"] == {"MSFT": 50.0}
     assert clients["C-002"]["risk_profile"] == "Not set"
     assert list_clients("adv@b", engine=engine) == {}  # isolamento per consulente
+
+
+# ---------------------------------------------------- record storici e profilo di rischio
+
+
+def _insert_raw(engine, advisor, name, positions_json, profile):
+    """Simula un record scritto prima della migrazione (o a mano sul DB)."""
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO portfolios (advisor, name, positions, updated, risk_profile) "
+                "VALUES (:a, :n, :p, '2025-01-01T00:00:00', :r)"
+            ),
+            {"a": advisor, "n": name, "p": positions_json, "r": profile},
+        )
+
+
+def test_legacy_record_without_profile_and_with_old_positions_loads_safely(tmp_path):
+    from portfolio_intelligence.data.store import list_clients
+
+    engine = _engine(tmp_path)
+    _insert_raw(engine, "adv@a", "LEGACY", '{"AAPL": 1000.0}', None)
+
+    clients = list_clients("adv@a", engine=engine)
+    assert clients["LEGACY"]["risk_profile"] == "Not set"  # mai None verso le viste
+    assert clients["LEGACY"]["positions"] == {"AAPL": 1000.0}
+    assert list_portfolios("adv@a", engine=engine) == {"LEGACY": {"AAPL": 1000.0}}
+
+
+def test_unknown_profile_value_falls_back_to_not_set(tmp_path):
+    from portfolio_intelligence.data.store import list_clients
+
+    engine = _engine(tmp_path)
+    _insert_raw(engine, "adv@a", "ODD", '{"AAPL": 1.0}', "balanced")
+
+    assert list_clients("adv@a", engine=engine)["ODD"]["risk_profile"] == "Not set"
+
+
+def test_saving_an_unknown_profile_is_rejected(tmp_path):
+    engine = _engine(tmp_path)
+    with pytest.raises(ValueError, match="risk profile"):
+        save_portfolio("adv@a", "C-1", {"AAPL": 1.0}, engine=engine, risk_profile="balanced")
+
+
+def test_create_client_never_overwrites_an_existing_code(tmp_path):
+    from portfolio_intelligence.data.store import ClientExistsError, create_client, list_clients
+
+    engine = _engine(tmp_path)
+    create_client("adv@a", "C-1", {"AAPL": 1.0}, "Aggressive", engine=engine)
+
+    with pytest.raises(ClientExistsError):
+        create_client("adv@a", "C-1 ", {"MSFT": 2.0}, "Conservative", engine=engine)
+    create_client("adv@b", "C-1", {"NVDA": 3.0}, "Moderate", engine=engine)  # altro consulente: ok
+
+    assert list_clients("adv@a", engine=engine)["C-1"]["risk_profile"] == "Aggressive"
+    assert list_clients("adv@a", engine=engine)["C-1"]["positions"] == {"AAPL": 1.0}
+    assert list_clients("adv@b", engine=engine)["C-1"]["risk_profile"] == "Moderate"

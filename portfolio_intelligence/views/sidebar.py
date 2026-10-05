@@ -10,6 +10,7 @@ from datetime import date
 
 import streamlit as st
 
+from portfolio_intelligence.config import RISK_PROFILES
 from portfolio_intelligence.data.importers import parse_positions
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
@@ -28,8 +29,6 @@ from portfolio_intelligence.views.common import (
     ticker_preview,
 )
 from portfolio_intelligence.visualization.charts import PALETTE
-
-RISK_PROFILES = ["Not set", "Conservative", "Moderate", "Aggressive"]
 
 
 @dataclass

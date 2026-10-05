@@ -18,10 +18,17 @@ def _workspace_app():
     advisor_workspace.render("adv@x")
 
 
-def _fake_analysis(health_by_client):
+def _lots(ticker, qty=10.0):
+    return {ticker: {"lots": [{"qty": qty, "price": 100.0, "date": "2025-01-02"}]}}
+
+
+def _fake_analysis(health_by_ticker, calls=None):
+    """Analisi finta: l'Health dipende dai titoli posseduti, nessuna rete."""
+
     def fake(items, _period, _in_eur, _lang="en"):
-        ticker = dict(items).get("__client__")
-        health = health_by_client.get(ticker, 70)
+        if calls is not None:
+            calls.append(dict(items))
+        health = min((health_by_ticker.get(ticker, 70) for ticker, _ in items), default=70)
         return {
             "health": health,
             "value": 1000.0,
@@ -49,11 +56,10 @@ def _button(at, label):
 
 
 def test_book_lists_only_own_clients_and_puts_the_one_to_review_first(offline, monkeypatch):
-    # il tag "__client__" nelle posizioni finte permette di dare a ogni cliente il suo Health
-    save_portfolio(ADVISOR, "C-HEALTHY", {**POSITIONS, "__client__": "C-HEALTHY"})
-    save_portfolio(ADVISOR, "C-WEAK", {**POSITIONS, "__client__": "C-WEAK"})
+    save_portfolio(ADVISOR, "C-HEALTHY", _lots("AAPL"))
+    save_portfolio(ADVISOR, "C-WEAK", _lots("NVDA"))
     save_portfolio("other@y", "C-OTHER", POSITIONS)
-    monkeypatch.setattr(ws, "quick_client_analysis", _fake_analysis({"C-WEAK": 20}))
+    monkeypatch.setattr(ws, "quick_client_analysis", _fake_analysis({"NVDA": 20}))
 
     at = AppTest.from_function(_workspace_app).run()
     at.button(key="adv_open_0").click().run()
@@ -129,3 +135,158 @@ def test_workspace_never_shows_admin_to_non_admins(offline, monkeypatch):
 
     assert at.session_state["adv_page"] == "clients"
     assert not any(b.key == "advnav_admin" for b in at.button)
+
+
+# ---------------------------------------------------- casi limite (record storici, stato, privacy)
+
+
+def _section(at, section):
+    at.session_state["adv_section"] = section
+    return at.run()
+
+
+def test_legacy_client_without_profile_opens_on_every_section(offline):
+    from sqlalchemy import text
+
+    from portfolio_intelligence.data.store import get_engine
+
+    with get_engine().begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO portfolios (advisor, name, positions, updated, risk_profile) "
+                "VALUES ('adv@x', 'LEGACY', '{\"AAPL\": 1000.0}', '2025-01-01', NULL)"
+            )
+        )
+
+    at = AppTest.from_function(_workspace_app).run()
+    at.button(key="adv_open_0").click().run()
+    assert not at.exception
+    assert at.session_state["adv_profile"] == "Not set"
+    for section in ("positions", "analysis", "strategies", "overview"):
+        assert not _section(at, section).exception, section
+
+
+def test_duplicate_code_shows_the_error_message(offline):
+    save_portfolio(ADVISOR, "C-0042", POSITIONS)
+    at = AppTest.from_function(_workspace_app).run()
+    at.button(key="advnav_new").click().run()
+    at.text_input(key="adv_new_name").input("C-0042").run()
+
+    assert any(e.value == t_in("en", "adv.code_exists") for e in at.error)
+    assert _button(at, t_in("en", "adv.create")).disabled
+
+
+def test_client_created_meanwhile_elsewhere_is_not_overwritten(offline):
+    """Codice libero quando il form è stato aperto, preso da un'altra scheda prima del clic."""
+    at = AppTest.from_function(_workspace_app).run()
+    at.button(key="advnav_new").click().run()
+    at.text_input(key="adv_new_name").input("C-9").run()
+    at.selectbox(key="adv_new_profile").select("Aggressive").run()
+    at.session_state["positions"] = _lots("MSFT")
+    at.run()
+    save_portfolio(ADVISOR, "C-9", POSITIONS, risk_profile="Conservative")  # l'altra scheda
+
+    _button(at, t_in("en", "adv.create")).click().run()
+
+    assert list_clients(ADVISOR)["C-9"]["risk_profile"] == "Conservative"
+    assert any(e.value == t_in("en", "adv.code_exists") for e in at.error)
+    assert at.session_state["adv_page"] == "new_client"
+
+
+def test_risk_profile_belongs_to_one_client_only(offline):
+    # volatilità finta 12%: sotto le soglie di entrambi i profili, quindi l'ordine è per codice
+    save_portfolio(ADVISOR, "C-A", _lots("AAPL"), risk_profile="Aggressive")
+    save_portfolio(ADVISOR, "C-B", _lots("MSFT"), risk_profile="Moderate")
+
+    at = AppTest.from_function(_workspace_app).run()
+    at.button(key="adv_open_0").click().run()
+    assert at.session_state["adv_client"] == "C-A"
+    _section(at, "positions")
+    at.selectbox(key="adv_profile_sel_C-A").select("Conservative").run()
+    assert at.session_state["adv_profile"] == "Conservative"
+
+    at.button(key="advnav_clients").click().run()
+    at.button(key="adv_open_1").click().run()
+    assert at.session_state["adv_client"] == "C-B"
+    assert at.session_state["adv_profile"] == "Moderate"  # nessun trascinamento da C-A
+    _section(at, "positions")
+    assert at.selectbox(key="adv_profile_sel_C-B").value == "Moderate"
+
+    clients = list_clients(ADVISOR)
+    assert clients["C-A"]["risk_profile"] == "Aggressive"  # la modifica non salvata non va su DB
+    assert clients["C-B"]["risk_profile"] == "Moderate"
+
+    at.button(key="advnav_clients").click().run()
+    at.button(key="adv_open_0").click().run()
+    assert at.session_state["adv_profile"] == "Conservative"  # la bozza di C-A è rimasta sua
+
+    at.button(key="advnav_new").click().run()
+    assert at.selectbox(key="adv_new_profile").value == "Not set"  # nessun default globale
+
+
+def test_unsaved_changes_survive_navigation_and_can_be_discarded(offline):
+    save_portfolio(ADVISOR, "C-A", {**_lots("AAPL"), **_lots("MSFT")}, risk_profile="Moderate")
+
+    at = AppTest.from_function(_workspace_app).run()
+    at.button(key="adv_open_0").click().run()
+    _section(at, "positions")
+    at.button(key="adv_del_MSFT").click().run()
+    assert any(w.value == t_in("en", "adv.unsaved") for w in at.warning)
+
+    at.button(key="advnav_clients").click().run()  # si esce senza salvare
+    assert any("C-A" in w.value for w in at.warning)  # il book segnala la bozza
+    assert set(list_clients(ADVISOR)["C-A"]["positions"]) == {"AAPL", "MSFT"}
+
+    at.button(key="adv_open_0").click().run()  # la bozza torna
+    assert set(at.session_state["positions"]) == {"AAPL"}
+
+    at.button(key="adv_discard").click().run()
+    assert set(at.session_state["positions"]) == {"AAPL", "MSFT"}
+    assert not any(w.value == t_in("en", "adv.unsaved") for w in at.warning)
+
+
+def test_saved_changes_reach_the_book_immediately(offline, monkeypatch):
+    """Nessuna cache da svuotare a mano: l'analisi del book è indicizzata dalle
+    posizioni, quindi dopo il salvataggio viene ricalcolata sulle nuove."""
+    calls: list[dict] = []
+    monkeypatch.setattr(ws, "quick_client_analysis", _fake_analysis({}, calls))
+    save_portfolio(ADVISOR, "C-A", {**_lots("AAPL"), **_lots("MSFT")})
+
+    at = AppTest.from_function(_workspace_app).run()
+    at.button(key="adv_open_0").click().run()
+    _section(at, "positions")
+    at.button(key="adv_del_MSFT").click().run()
+    _button(at, t_in("en", "adv.save")).click().run()
+    calls.clear()
+    at.button(key="advnav_clients").click().run()
+
+    assert set(list_clients(ADVISOR)["C-A"]["positions"]) == {"AAPL"}
+    assert [set(c) for c in calls] == [{"AAPL"}]
+
+
+def test_report_heading_reaches_the_pdf_but_never_the_database(offline, monkeypatch):
+    from sqlalchemy import MetaData, select
+
+    from portfolio_intelligence.data.store import get_engine
+
+    seen: list[str] = []
+    monkeypatch.setattr(ws, "_client_analysis", lambda *a, **k: seen.append(a[-1]))
+    save_portfolio(ADVISOR, "C-A", _lots("AAPL"))
+
+    at = AppTest.from_function(_workspace_app).run()
+    at.button(key="adv_open_0").click().run()
+    at.text_input(key="adv_recipient_in_C-A").input("Mario Rossi").run()
+    _section(at, "positions")
+    at.button(key="adv_del_AAPL").click().run()
+    _button(at, t_in("en", "adv.save")).click().run()  # anche un salvataggio non la porta su DB
+    _section(at, "overview")
+
+    assert seen[-1] == "Mario Rossi"
+    engine = get_engine()
+    meta = MetaData()
+    meta.reflect(engine)
+    with engine.connect() as conn:
+        dump = " ".join(
+            str(row) for table in meta.tables.values() for row in conn.execute(select(table))
+        )
+    assert "Mario Rossi" not in dump
