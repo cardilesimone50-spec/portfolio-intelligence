@@ -3,6 +3,7 @@
 import streamlit as st
 
 from portfolio_intelligence.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD
+from portfolio_intelligence.formatting import fmt_eur, fmt_num, fmt_pct
 from portfolio_intelligence.i18n import get_language, t
 from portfolio_intelligence.visualization.charts import AMBER_TEXT, GAIN, GAIN_TEXT, LOSS
 
@@ -15,37 +16,22 @@ def _comp_name(name: str) -> str:
     return name if translated.startswith("comp.") else translated
 
 
-def _localize(text: str) -> str:
-    """Separatori all'italiana (1.234,5) quando la lingua dell'interfaccia è l'italiano."""
-    if get_language() != "it":
-        return text
-    return text.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
-
-
 def eur(value: float, decimals: int = 0) -> str:
     """Importo in euro nella convenzione della lingua: €16,076 (EN), 16.076 € (IT)."""
-    if value != value:
-        return "n/d" if get_language() == "it" else "n/a"
-    sign = "-" if value < 0 else ""
-    digits = _localize(f"{abs(value):,.{decimals}f}")
-    return f"{sign}{digits} €" if get_language() == "it" else f"{sign}€{digits}"
+    return fmt_eur(value, get_language(), decimals)
 
 
 def signed_eur(value: float, decimals: int = 0) -> str:
-    return ("+" if value > 0 else "") + eur(value, decimals)
+    return fmt_eur(value, get_language(), decimals, signed=True)
 
 
 def pct(value: float | None, decimals: int = 1, signed: bool = False) -> str:
     """Percentuale (0.319 → 31.9%) con il separatore decimale della lingua."""
-    if value is None or value != value:
-        return "n/d" if get_language() == "it" else "n/a"
-    return _localize(f"{value:{'+' if signed else ''}.{decimals}%}")
+    return fmt_pct(value, get_language(), decimals, signed)
 
 
 def num(value: float | None, decimals: int = 2) -> str:
-    if value is None or value != value:
-        return "n/d" if get_language() == "it" else "n/a"
-    return _localize(f"{value:,.{decimals}f}")
+    return fmt_num(value, get_language(), decimals)
 
 
 def sec(title: str) -> None:

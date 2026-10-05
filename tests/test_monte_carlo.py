@@ -208,31 +208,29 @@ def test_fan_chart_has_bands_median_baseline_and_euro_axis():
     assert data["p50_eur"].iloc[0] == "10.000 €"  # punto come separatore delle migliaia
 
 
-def test_pdf_projection_table_keeps_three_pages():
-    from portfolio_intelligence.visualization.pdf_report import build_report
+def test_client_report_projection_percentages_use_the_simulated_initial_value(make_report):
+    from portfolio_intelligence.visualization.pdf_report import build_investor_report
 
-    projection = scenario_table(_run(horizon_years=5))
-    common = dict(
-        portfolio_name="C-0042",
-        positions={"AAA": 6000.0, "BBB": 4000.0},
-        period="2y",
-        cum_return=0.1,
-        health_score=70,
-        metric_rows=[],
-        insights=[],
-        suggestions=[],
+    result = _run(horizon_years=5)
+    projection = {
+        "rows": scenario_table(result),
+        "paths": result.paths,
+        "cagr": {f"p{p}": result.cagr(p) for p in (10, 50, 90)},
+        "prob_loss": result.prob_loss,
+        "method": result.method,
+        "n": result.n_simulations,
+        "horizon": result.horizon_years,
+    }
+    report = make_report(projection=projection, advisor_issued=True)
+    with pdfplumber.open(BytesIO(build_investor_report(report))) as pdf:
+        assert len(pdf.pages) == 4
+        page4 = pdf.pages[3].extract_text()
+    assert (
+        "Bear scenario (10th percentile)" in page4 and "Bull scenario (90th percentile)" in page4
     )
-    with pdfplumber.open(BytesIO(build_report(**common, projection=projection))) as pdf:
-        assert len(pdf.pages) == 3
-        page3 = pdf.pages[2].extract_text()
-    assert "PROJECTION SCENARIOS (MONTE CARLO)" in page3
-    assert "Pessimistic (p10)" in page3 and "Optimistic (p90)" in page3
-    assert "not a guarantee of" in page3
-    # percentuali sul valore iniziale simulato, non sul totale passato al PDF
-    p10_1y = projection[0]["p10"]
-    assert f"({p10_1y / 10_000.0 - 1:+.0%})" in page3
-    with pdfplumber.open(BytesIO(build_report(**common))) as pdf:
-        assert "MONTE CARLO" not in pdf.pages[2].extract_text()
+    # percentuali sul valore iniziale simulato, non sul totale del portafoglio nel PDF
+    p10_1y = projection["rows"][0]["p10"]
+    assert f"({p10_1y / 10_000.0 - 1:+.0%})" in page4
 
 
 def test_investor_area_never_shows_projections():
@@ -242,6 +240,8 @@ def test_investor_area_never_shows_projections():
     with open("portfolio_intelligence/views/checkup.py") as f:
         source = f.read()
     assert "projection=report_projection(ctx) if ctx.stateful else None" in source
+    with open("portfolio_intelligence/visualization/pdf_report.py") as f:
+        assert "simulate(" not in f.read()  # il PDF Investor non calcola proiezioni da sé
 
 
 def test_report_projection_uses_the_client_portfolio_and_value():
@@ -260,7 +260,12 @@ def test_report_projection_uses_the_client_portfolio_and_value():
         risk_profile="Moderate",
         advisor="adv@x",
     )
-    rows = report_projection(ctx)
-    assert rows is not None and [row["years"] for row in rows] == [1, 3, 5]
+    projection = report_projection(ctx)
+    assert projection is not None
+    rows = projection["rows"]
+    assert [row["years"] for row in rows] == [1, 3, 5]
     assert all(row["initial"] == 10_000.0 for row in rows)
+    assert projection["n"] == 1000 and projection["method"] == "bootstrap"
+    assert projection["paths"].index[-1] == 5.0
+    assert 0.0 <= projection["prob_loss"] <= 1.0
     assert report_projection(ViewContext(None, {}, 0.0, [], "", "1y", True, 0.03, "", "")) is None

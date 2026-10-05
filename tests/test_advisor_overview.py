@@ -166,3 +166,33 @@ def test_overview_renders_without_errors(tmp_path, monkeypatch):
     page = " ".join(m.value for m in at.markdown)
     assert "Monitoring checks" in page or "MONITORING CHECKS" in page.upper()
     assert any(b.label == "Export CSV" for b in at.get("download_button"))
+
+
+def test_both_reports_build_from_a_client_context(tmp_path, monkeypatch):
+    """Dal contesto della scheda cliente ai due PDF, come al clic sui pulsanti."""
+    from io import BytesIO
+
+    import pdfplumber
+
+    from portfolio_intelligence.views import checkup
+    from portfolio_intelligence.visualization.pdf_advisor import build_advisor_report
+    from portfolio_intelligence.visualization.pdf_report import build_investor_report
+
+    monkeypatch.setattr(checkup, "report_projection", lambda ctx: None)
+    ctx = _ctx({"AAA": 0.6, "BBB": 0.4})
+    ctx.report_recipient = "Mario Rossi"
+    report = checkup.report_input(
+        ctx,
+        checkup.executive_text(ctx),
+        checkup.top_problems(ctx),
+        [],
+        monitoring=ov.monitoring_checks(ctx),
+    )
+    assert report.advisor_issued and report.recipient == "Mario Rossi"
+    assert report.profile_band == 0.18  # profilo Moderate dichiarato
+    with pdfplumber.open(BytesIO(build_advisor_report(report))) as pdf:
+        text = " ".join(page.extract_text() for page in pdf.pages)
+    assert "8. SUITABILITY CONTEXT" in text and "Largest position" in text
+    with pdfplumber.open(BytesIO(build_investor_report(report))) as pdf:
+        assert len(pdf.pages) == 4
+        assert "Prepared for Mario Rossi" in pdf.pages[0].extract_text()

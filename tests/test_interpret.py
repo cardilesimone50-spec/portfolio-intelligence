@@ -30,10 +30,10 @@ def test_volatility_bands_and_percentile():
 
 
 def test_sharpe_bands_cover_all_cases():
-    assert "not rewarded" in interpret_sharpe(-0.2)
+    assert "less than the risk-free rate" in interpret_sharpe(-0.2)
     assert "Modest" in interpret_sharpe(0.3)
     assert "In line" in interpret_sharpe(0.8)
-    assert "Above the historical norm" in interpret_sharpe(1.5)
+    assert "Above the 0.5-1 range" in interpret_sharpe(1.5)
     assert "rarely" in interpret_sharpe(2.5)
     assert interpret_sharpe(float("nan")) == ""
 
@@ -47,13 +47,13 @@ def test_sortino_asymmetry_detection():
 def test_drawdown_thresholds():
     assert "correction" in interpret_drawdown(-0.05)
     assert "bear market" in interpret_drawdown(-0.15)
-    assert "discipline" in interpret_drawdown(-0.28)
+    assert "Bear-market magnitude" in interpret_drawdown(-0.28)
     assert "Severe" in interpret_drawdown(-0.50)
 
 
 def test_beta_and_correlation():
     assert "defensive" in interpret_beta(0.7, "QQQ")
     assert "in line" in interpret_beta(1.0, "QQQ")
-    assert "amplify" in interpret_beta(1.4, "QQQ")
+    assert "Amplifies" in interpret_beta(1.4, "QQQ")
     assert "identically" in interpret_correlation(0.9)
     assert "independently" in interpret_correlation(0.2)

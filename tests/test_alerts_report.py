@@ -3,7 +3,6 @@ import pandas as pd
 
 from portfolio_intelligence.analytics.alerts import evaluate_alerts
 from portfolio_intelligence.analytics.insights import generate_suggestions, risk_contributions
-from portfolio_intelligence.visualization.pdf_report import build_report
 
 rng = np.random.default_rng(41)
 RETURNS = pd.DataFrame(
@@ -51,19 +50,9 @@ def test_generate_suggestions_flags_concentration():
     assert any("WILD" in s for s in suggestions)
 
 
-def test_build_report_produces_valid_pdf():
-    pdf = build_report(
-        portfolio_name="Test",
-        positions={"AAPL": 4000.0, "MSFT": 3000.0},
-        period="1y",
-        cum_return=0.184,
-        health_score=72,
-        metric_rows=[
-            ("Sharpe ratio", "1.01", "Above the historical norm."),
-            ("VaR 95%", "-197 €", "Historical percentile of daily returns."),
-        ],
-        insights=["**AAPL** e **MSFT** dominano il rischio."],
-        suggestions=["Diversifica su più settori."],
-    )
+def test_investor_report_produces_valid_pdf(make_report):
+    from portfolio_intelligence.visualization.pdf_report import build_investor_report
+
+    pdf = build_investor_report(make_report())
     assert pdf.startswith(b"%PDF")
     assert len(pdf) > 1500

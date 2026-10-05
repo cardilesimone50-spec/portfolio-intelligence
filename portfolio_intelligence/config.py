@@ -144,3 +144,19 @@ MONITOR_MAX_RISK_SHARE = 0.40  # quota del rischio totale spiegata da un solo ti
 MONITOR_MAX_CORRELATION = CORRELATION_ELEVATED
 MONITOR_MAX_USD = USD_EXPOSURE_HIGH
 MONITOR_MIN_DRAWDOWN = DRAWDOWN_ALERT
+
+# ------------------------------------------------- livelli di rischio nei report PDF
+# Classificazione Low / Moderate / Elevated / High delle categorie di rischio
+# nei report (analytics/report_narrative.py). Ogni tupla sono i tre confini tra
+# i quattro livelli, in ordine crescente di rischio.
+RISK_LEVEL_BETA = (0.85, 1.15, 1.40)  # beta verso il benchmark
+RISK_LEVEL_HHI = (0.10, 0.18, 0.30)  # indice di Herfindahl sui pesi
+RISK_LEVEL_SECTOR = (0.40, 0.60, 0.80)  # peso del primo settore
+RISK_LEVEL_USD = (0.30, 0.50, 0.70)  # quota in dollari per un investitore in euro
+RISK_LEVEL_VOL = (VOLATILITY_LOW, VOLATILITY_MID, VOLATILITY_HIGH)
+RISK_LEVEL_DRAWDOWN = (0.10, 0.20, 0.35)  # profondità del massimo drawdown (valore assoluto)
+RISK_LEVEL_PE = (15.0, 25.0, 40.0)  # P/E medio ponderato
+RISK_SHARE_OVER_WEIGHT = 1.25  # quota di rischio oltre 1,25 volte il peso: posizione da segnalare
+TRACKING_ERROR_HIGH = (
+    0.08  # tracking error annuo oltre l'8%: gestione molto attiva rispetto al benchmark
+)

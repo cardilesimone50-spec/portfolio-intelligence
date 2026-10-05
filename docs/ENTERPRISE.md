@@ -51,10 +51,13 @@ prodotto B2B: "chi dei miei 200 clienti devo chiamare oggi".
 
 ## 5. Report white-label
 
-**Oggi**: PDF brandizzato Portfolio Intelligence con disclaimer.
+**Oggi**: due documenti con gli stessi numeri. Report per il cliente (4 pagine,
+`visualization/pdf_report.py`) e revisione di portafoglio per il consulente
+(sintesi d'investimento, tabella portafoglio/benchmark/valutazione, matrice dei
+rischi, stress test, Monte Carlo con metodologia, contesto di adeguatezza;
+`visualization/pdf_advisor.py`). Stili e grafici comuni in `pdf_common.py`.
 **Da fare**: logo/colori/ragione sociale della banca parametrici, firma del
-consulente, archivio report. Lavoro di giorni sul generatore esistente
-(`portfolio_intelligence/visualization/pdf_report.py`).
+consulente, archivio report.
 
 ## 6. Benchmark contro il profilo cliente
 

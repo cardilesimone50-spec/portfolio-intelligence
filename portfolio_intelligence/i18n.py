@@ -55,8 +55,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         " Meno volatile del {pct} dei singoli titoli del Nasdaq-100.",
     ),
     "sharpe.negative": (
-        "Over the period the risk taken was not rewarded: "
-        "you returned less than the risk-free rate.",
+        "Negative risk-adjusted return: over the period the portfolio returned "
+        "less than the risk-free rate.",
         "Nel periodo il rischio assunto non è stato ripagato: "
         "il rendimento è stato inferiore al tasso privo di rischio.",
     ),
@@ -72,20 +72,20 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "per unità di rischio (0,5-1).",
     ),
     "sharpe.good": (
-        "Above the historical norm: each unit of risk was well paid.",
-        "Sopra la norma storica: ogni unità di rischio è stata ben ripagata.",
+        "Above the 0.5-1 range historically typical of diversified equity.",
+        "Sopra la banda 0,5-1 storicamente tipica dell'azionario diversificato.",
     ),
     "sharpe.exceptional": (
         "Exceptional over the observed period: such values rarely persist.",
         "Eccezionale nel periodo osservato: valori simili raramente persistono.",
     ),
     "sortino.upside": (
-        "Volatility skews to the upside: drops weigh less than gains (a good sign).",
-        "La volatilità pende verso l'alto: i ribassi pesano meno dei rialzi (buon segno).",
+        "Return dispersion skewed to the upside: downside deviation is lower than total volatility implies.",
+        "Dispersione dei rendimenti sbilanciata al rialzo: la deviazione al ribasso è inferiore a quanto implica la volatilità totale.",
     ),
     "sortino.downside": (
-        "Volatility is concentrated in the downside: the drops hurt more.",
-        "La volatilità è concentrata al ribasso: le discese fanno più male.",
+        "Return dispersion skewed to the downside: losses dominate total volatility.",
+        "Dispersione dei rendimenti sbilanciata al ribasso: le perdite dominano la volatilità totale.",
     ),
     "sortino.symmetric": (
         "Drops and gains contributed symmetrically to volatility.",
@@ -100,23 +100,23 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Tra una correzione (-10%) e un mercato ribassista (-20%).",
     ),
     "dd.bear": (
-        "Bear-market territory: drops like this test your discipline.",
-        "Territorio da bear market: cali così mettono alla prova la disciplina.",
+        "Bear-market magnitude (beyond -20%).",
+        "Ampiezza da mercato ribassista (oltre il -20%).",
     ),
     "dd.severe": (
-        "Severe drawdown: few investors hold through drops this deep without selling.",
-        "Drawdown severo: pochi investitori reggono cali così profondi senza vendere.",
+        "Severe drawdown (beyond -35%): a full recovery requires a gain of more than 50%.",
+        "Drawdown severo (oltre il -35%): il pieno recupero richiede un guadagno superiore al 50%.",
     ),
     "beta.defensive": (
-        "More defensive than {benchmark}: you dampen market moves.",
+        "More defensive than {benchmark}: benchmark moves are dampened.",
         "Più difensivo del {benchmark}: i movimenti di mercato vengono attutiti.",
     ),
     "beta.inline": (
-        "You move broadly in line with {benchmark}.",
+        "Broadly in line with {benchmark}.",
         "Il portafoglio si muove sostanzialmente in linea col {benchmark}.",
     ),
     "beta.amplify": (
-        "You amplify {benchmark} moves: steeper rises and falls.",
+        "Amplifies {benchmark} moves: steeper rises and falls.",
         "I movimenti del {benchmark} vengono amplificati: salite e discese più ripide.",
     ),
     "corr.identical": (
@@ -270,9 +270,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "**{t1}** e **{t2}** valgono il **{share} del rischio totale del portafoglio**.",
     ),
     "ins.corr_high": (
-        "Your holdings are tightly linked (average correlation **{corr}**): "
-        "diversification is weak.",
-        "I tuoi titoli sono strettamente legati (correlazione media **{corr}**): "
+        "Holdings are tightly linked (average correlation **{corr}**): diversification is weak.",
+        "I titoli sono strettamente legati (correlazione media **{corr}**): "
         "la diversificazione è debole.",
     ),
     "ins.corr_good": (
@@ -284,12 +283,12 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Nel periodo il portafoglio ha subito un calo massimo del **{dd}** dal picco.",
     ),
     "ins.beta_high": (
-        "Beta **{beta}** vs {benchmark}: you amplify market moves.",
+        "Beta **{beta}** vs {benchmark}: market moves are amplified.",
         "Beta **{beta}** vs {benchmark}: i movimenti di mercato vengono amplificati.",
     ),
     "ins.beta_low": (
-        "Beta **{beta}** vs {benchmark}: you are more defensive than the market.",
-        "Beta **{beta}** vs {benchmark}: sei più difensivo del mercato.",
+        "Beta **{beta}** vs {benchmark}: more defensive than the market.",
+        "Beta **{beta}** vs {benchmark}: più difensivo del mercato.",
     ),
     # ---------------------------------------------------------------- alerts
     "alert.risk_driver": (
@@ -565,21 +564,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "mc.tt_p50": ("Median (p50)", "Mediano (p50)"),
     "mc.tt_p25": ("p25", "p25"),
     "mc.tt_p10": ("Pessimistic (p10)", "Pessimistico (p10)"),
-    "pdf.mc_title": ("PROJECTION SCENARIOS (MONTE CARLO)", "SCENARI DI PROIEZIONE (MONTE CARLO)"),
-    "pdf.mc_scenario": ("Scenario", "Scenario"),
     "pdf.mc_years": ("{n} yr", "{n} anni"),
     "pdf.mc_year1": ("1 yr", "1 anno"),
-    "pdf.mc_p10": ("Pessimistic (p10)", "Pessimistico (p10)"),
-    "pdf.mc_p50": ("Median (p50)", "Mediano (p50)"),
-    "pdf.mc_p90": ("Optimistic (p90)", "Ottimistico (p90)"),
-    "pdf.mc_caption": (
-        "Historical bootstrap, 1,000 simulations on the daily returns of the period, "
-        "constant weights, no costs. Probabilistic projection: not a guarantee of future "
-        "returns nor a forecast.",
-        "Bootstrap storico, 1.000 simulazioni sui rendimenti giornalieri del periodo, "
-        "pesi costanti, senza costi. Proiezione probabilistica: non è garanzia di "
-        "rendimento futuro né una previsione.",
-    ),
     # ---------------------------------------------------------------- area switch
     "area.label": ("Area", "Area"),
     "area.investor": ("Investor", "Investor"),
@@ -957,9 +943,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "chk.holdings": ("Your holdings", "Le tue posizioni"),
     "chk.col_ticker": ("Ticker", "Ticker"),
     "chk.col_company": ("Company", "Società"),
-    "chk.col_amount": ("Amount", "Importo"),
     "chk.col_weight": ("Weight", "Peso"),
-    "chk.col_today": ("Last session", "Ultima seduta"),
     "chk.col_return": ("Return ({period})", "Rendimento ({period})"),
     "chk.col_trend": ("Trend ({period})", "Andamento ({period})"),
     "chk.top_problems": ("Top problems", "Problemi principali"),
@@ -976,10 +960,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "chk.risk_eur": ("Your risk, in euros", "Il tuo rischio, in euro"),
     "chk.kpi_swing": ("Typical 1-year swing", "Oscillazione tipica a 1 anno"),
     "chk.kpi_swing_sub": ("{vol} per year · ", "{vol} all'anno · "),
-    "chk.kpi_var": ("On a bad day (95% VaR)", "In una giornata storta (VaR 95%)"),
+    "chk.kpi_var": ("Daily VaR 95%", "VaR giornaliero 95%"),
     "chk.kpi_var_sub": (
-        "on 95% of days you don't lose more than this (historical estimate)",
-        "nel 95% delle giornate non perdi più di così (stima storica)",
+        "loss not exceeded on 95% of observed days (historical estimate)",
+        "perdita non superata nel 95% dei giorni osservati (stima storica)",
     ),
     "chk.kpi_dd": ("In the worst drop of the period", "Nel peggior calo del periodo"),
     "chk.kpi_dd_sub": (
@@ -1003,10 +987,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Health Score da {h_from} a **{h_to}**.",
     ),
     "chk.no_improve": (
-        "We simulated the most obvious moves on your data, but **none "
-        "improves the current profile**, a good sign for how you're weighted:",
-        "Abbiamo simulato le mosse più ovvie sui tuoi dati, ma **nessuna "
-        "migliora il profilo attuale**, un buon segno per come sei pesato:",
+        "The standard rebalancing simulations on the current holdings (halving the "
+        "largest position, equal weights) **do not improve the current profile**:",
+        "Le simulazioni di ribilanciamento standard sui titoli attuali (dimezzare la "
+        "prima posizione, pesi uguali) **non migliorano il profilo attuale**:",
     ),
     "chk.discarded": ("Discarded: ", "Scartata: "),
     "chk.no_scenario": (
@@ -1027,54 +1011,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "chk.hist_invested": ("Invested", "Investito"),
     "chk.hist_return": ("Return", "Rendimento"),
     # ---------------------------------------------------------------- metric rows (PDF)
-    "m.return": ("Return ({period})", "Rendimento ({period})"),
-    "m.cagr": ("Annualized return (CAGR)", "Rendimento annualizzato (CAGR)"),
-    "m.vol": ("Annual volatility", "Volatilità annua"),
-    "m.sharpe": ("Sharpe ratio", "Sharpe ratio"),
-    "m.sortino": ("Sortino ratio", "Sortino ratio"),
     "m.maxdd": ("Max drawdown", "Max drawdown"),
-    "m.var": ("VaR 95% (1 day)", "VaR 95% (1 giorno)"),
-    "m.es": ("Expected shortfall 95%", "Expected shortfall 95%"),
-    "m.beta": ("Beta vs {benchmark}", "Beta vs {benchmark}"),
-    "m.alpha": ("Alpha vs {benchmark}", "Alpha vs {benchmark}"),
-    "m.corr": ("Average correlation", "Correlazione media"),
-    "r.return": (
-        "Total change over the observation window, computed on adjusted "
-        "prices (dividends and splits included).",
-        "Variazione totale nella finestra di osservazione, calcolata su prezzi "
-        "rettificati (dividendi e frazionamenti inclusi).",
-    ),
-    "r.cagr": (
-        "Compound annual growth actually earned over the period. It is geometric, so volatility does not inflate it.",
-        "Crescita annua composta effettivamente maturata nel periodo. È geometrica, quindi la volatilità non la gonfia.",
-    ),
-    "r.var": (
-        "On 95% of days you did not lose more than {amount} "
-        "(historical percentile, no normality assumed).",
-        "Nel 95% delle giornate non hai perso più di {amount} "
-        "(percentile storico, nessuna ipotesi di normalità).",
-    ),
-    "r.es": (
-        "Average loss on the worst 5% of days ({amount}): what a bad "
-        "day costs when it goes beyond the VaR threshold.",
-        "Perdita media nel 5% di giornate peggiori ({amount}): quanto costa "
-        "una giornata storta quando supera la soglia del VaR.",
-    ),
-    "r.alpha": (
-        "Annual excess return not explained by benchmark moves (OLS on daily data).",
-        "Extra-rendimento annuo non spiegato dai movimenti del benchmark "
-        "(OLS su dati giornalieri).",
-    ),
-    "suit.text": (
-        "Observed annual volatility {vol} vs the {band} threshold declared "
-        "for a {profile} profile.",
-        "Volatilità annua osservata {vol} contro la soglia {band} dichiarata "
-        "per un profilo {profile}.",
-    ),
-    "scen.label": (
-        "{ticker} (your largest position, {weight} of capital) drops 20%",
-        "{ticker} (la tua posizione più grande, {weight} del capitale) perde il 20%",
-    ),
     "cov.note": (
         "{ticker} priced only from {date}: its metrics use the shorter overlap",
         "{ticker} quotato solo dal {date}: le sue metriche usano la sovrapposizione più corta",
@@ -1088,11 +1025,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "importi nelle valute originali",
     ),
     # ---------------------------------------------------------------- PDF statics
-    "pdf.doc_title": (
-        "SmarteeFinance · Portfolio Report",
-        "SmarteeFinance · Report di Portafoglio",
-    ),
-    "pdf.title": ("Portfolio Report", "Report di Portafoglio"),
     "pdf.prepared_by": ("prepared by {advisor}", "predisposto da {advisor}"),
     "pdf.prepared_for": ("Prepared for {recipient}", "Preparato per {recipient}"),
     "pdf.profile": ("{profile} profile", "profilo {profile}"),
@@ -1101,60 +1033,28 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "finestra di osservazione {start} – {end}",
     ),
     "pdf.generated": ("generated on {now}", "generato il {now}"),
-    "pdf.kpi_health": ("HEALTH SCORE", "HEALTH SCORE"),
-    "pdf.kpi_value": ("CURRENT VALUE", "VALORE ATTUALE"),
-    "pdf.kpi_return": ("RETURN ({period})", "RENDIMENTO ({period})"),
-    "pdf.kpi_cagr": ("CAGR", "CAGR"),
-    "pdf.kpi_invested": ("INVESTED", "INVESTITO"),
-    "pdf.exec_summary": ("Executive summary", "Sintesi esecutiva"),
     "pdf.no_summary": (
         "Summary not available for this analysis.",
         "Sintesi non disponibile per questa analisi.",
     ),
-    "pdf.check_title": ("Risk profile check", "Verifica del profilo di rischio"),
     "pdf.within": ("within", "entro"),
     "pdf.outside": ("OUTSIDE", "FUORI DA"),
-    "pdf.check_text": (
-        "<b>Risk profile check: {status} the declared profile.</b> {text} ",
-        "<b>Verifica del profilo di rischio: {status} il profilo dichiarato.</b> {text} ",
-    ),
     "pdf.check_caveat": (
         "Volatility-only software check: it does not replace the MiFID II "
         "suitability assessment, which remains the responsibility of the advisor.",
         "Verifica software sulla sola volatilità: non sostituisce la "
         "valutazione di adeguatezza MiFID II, che resta responsabilità del consulente.",
     ),
-    "pdf.capital_section": (
-        "Capital over time ({period}) vs {benchmark}",
-        "Capitale nel tempo ({period}) vs {benchmark}",
-    ),
-    "pdf.capital_caption": (
-        "Dotted line = capital invested today, projected backwards. "
-        "Benchmark: {benchmark} rebased to the same starting capital.",
-        "Linea punteggiata = capitale investito oggi, proiettato all'indietro. "
-        "Benchmark: {benchmark} ribasato sullo stesso capitale iniziale.",
-    ),
     "pdf.no_history": ("Price history not available.", "Storico prezzi non disponibile."),
-    "pdf.holdings": ("Holdings", "Posizioni"),
     "pdf.h_ticker": ("Ticker", "Ticker"),
     "pdf.h_company": ("Company", "Società"),
-    "pdf.h_amount": ("Amount", "Importo"),
-    "pdf.h_weight": ("Weight", "Peso"),
     "pdf.h_return": ("Return ({period})", "Rendimento ({period})"),
-    "pdf.h_risk": ("Risk share", "Quota rischio"),
     "pdf.other_holdings": ("other holdings", "altre posizioni"),
     "pdf.coverage": ("Data coverage: ", "Copertura dati: "),
     "pdf.portfolio_legend": ("Portfolio", "Portafoglio"),
-    "pdf.benchmark_legend": ("{benchmark} benchmark", "benchmark {benchmark}"),
     "pdf.trough": ("trough {dd} on {date}", "minimo {dd} il {date}"),
-    "pdf.p2_title": ("Risk & performance analytics", "Analisi di rischio e performance"),
-    "pdf.metrics_section": (
-        "Metrics, portfolio vs {benchmark}, and how to read them",
-        "Metriche, portafoglio vs {benchmark}, e come leggerle",
-    ),
     "pdf.h_metric": ("Metric", "Metrica"),
     "pdf.h_portfolio": ("Portfolio", "Portafoglio"),
-    "pdf.h_reading": ("Reading", "Lettura"),
     "pdf.underwater_title": (
         "Distance from the peak (underwater)",
         "Distanza dal massimo (underwater)",
@@ -1163,71 +1063,15 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Monthly returns (last 12 months)",
         "Rendimenti mensili (ultimi 12 mesi)",
     ),
-    "pdf.breakdown_section": (
-        "Health Score: the six components",
-        "Health Score: le sei componenti",
-    ),
-    "pdf.breakdown_caption": (
-        "0-100 per component; the Health Score is their average. "
-        "Green ≥ 67, amber 34-66, red ≤ 33.",
-        "0-100 per componente; l'Health Score è la loro media. "
-        "Verde ≥ 67, ambra 34-66, rosso ≤ 33.",
-    ),
-    "pdf.no_breakdown": (
-        "Component breakdown not available.",
-        "Scomposizione per componenti non disponibile.",
-    ),
-    "pdf.p3_title": (
-        "Diversification, scenarios & observations",
-        "Diversificazione, scenari e osservazioni",
-    ),
     "pdf.wr_title": ("Weight vs risk contribution", "Peso vs contributo al rischio"),
-    "pdf.wr_caption": (
-        "Risk share = contribution to portfolio variance (covariances "
-        "included). A holding whose risk share far exceeds its weight "
-        "dominates the swings.",
-        "Quota rischio = contributo alla varianza di portafoglio (covarianze "
-        "incluse). Una posizione con quota rischio molto oltre il peso domina "
-        "le oscillazioni.",
-    ),
     "pdf.legend_weight": ("capital weight", "peso sul capitale"),
     "pdf.legend_risk": ("share of portfolio risk", "quota del rischio di portafoglio"),
     "pdf.sector_title": ("Allocation by sector", "Allocazione per settore"),
-    "pdf.sector_caption": (
-        "Sectors from Yahoo Finance company profiles, weighted by capital.",
-        "Settori dai profili societari Yahoo Finance, pesati per capitale.",
-    ),
     "pdf.other_sectors": ("Other sectors", "Altri settori"),
     "pdf.not_classified": ("Not classified", "Non classificato"),
-    "pdf.no_risk_decomp": (
-        "Risk decomposition not available.",
-        "Scomposizione del rischio non disponibile.",
-    ),
     "pdf.c_holdings": ("HOLDINGS", "POSIZIONI"),
     "pdf.c_effective": ("EFFECTIVE HOLDINGS", "POSIZIONI EFFETTIVE"),
-    "pdf.c_top": ("TOP POSITION", "POSIZIONE MAGGIORE"),
     "pdf.c_hhi": ("CONCENTRATION (HHI)", "CONCENTRAZIONE (HHI)"),
-    "pdf.conc_caption": (
-        "Effective holdings = 1/HHI: how many equally-weighted positions your "
-        "concentration is equivalent to.",
-        "Posizioni effettive = 1/HHI: a quante posizioni equipesate equivale "
-        "la tua concentrazione.",
-    ),
-    "pdf.stress_title": ("Stress scenario on your data", "Scenario di stress sui tuoi dati"),
-    "pdf.stress_text": (
-        "If <b>{label}</b>, the direct hit on the portfolio is <b>{direct}</b> "
-        "({direct_eur}); including the historical co-movement of the other "
-        "holdings, the estimated total impact is <b>{total}</b> ({total_eur}).",
-        "Se <b>{label}</b>, l'impatto diretto sul portafoglio è <b>{direct}</b> "
-        "({direct_eur}); includendo il co-movimento storico delle altre "
-        "posizioni, l'impatto totale stimato è <b>{total}</b> ({total_eur}).",
-    ),
-    "pdf.stress_caption": (
-        "Contagion estimated from each holding's historical beta to the shocked "
-        "position over the selected period. An estimate, not a forecast.",
-        "Contagio stimato dai beta storici di ogni posizione verso il titolo "
-        "colpito nel periodo selezionato. Una stima, non una previsione.",
-    ),
     "pdf.no_scenario": (
         "No stress scenario computed for this portfolio.",
         "Nessuno scenario di stress calcolato per questo portafoglio.",
@@ -1236,11 +1080,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "pdf.none_flagged": (
         "Nothing flagged by the monitored rules.",
         "Nulla da segnalare secondo le regole monitorate.",
-    ),
-    "pdf.obs_title": ("Observations & talking points", "Osservazioni e spunti di confronto"),
-    "pdf.obs_caption": (
-        "Generated by deterministic rules on the computed metrics. Not personalized investment advice: material for the review with the advisor.",
-        "Generati da regole deterministiche sulle metriche calcolate. Non consulenza personalizzata: materiale per il confronto col consulente.",
     ),
     "pdf.notices_title": (
         "Methodology, assumptions & important notices",
@@ -1252,56 +1091,11 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "ATTENZIONE: la finestra di osservazione è inferiore a un anno: i valori annualizzati (CAGR, volatilità, Sharpe/Sortino) estrapolano da "
         "pochi mesi e vanno letti come puramente indicativi.",
     ),
-    "pdf.notice_data": (
-        "Data: Yahoo Finance daily adjusted closes over the selected period "
-        "({period}), converted to EUR where noted; dividends and splits are "
-        "incorporated in returns via price adjustment. Data are provided "
-        "as-is: accuracy, completeness and timeliness are not guaranteed.",
-        "Dati: chiusure giornaliere rettificate Yahoo Finance nel periodo "
-        "selezionato ({period}), convertite in EUR dove indicato; dividendi e "
-        "frazionamenti sono incorporati nei rendimenti tramite la rettifica dei "
-        "prezzi. Dati forniti così come sono: accuratezza, completezza e "
-        "tempestività non garantite.",
-    ),
     "pdf.notice_costs": (
         "All figures are gross of transaction costs, management fees and "
         "taxes, which would reduce the results shown.",
         "Tutti i valori sono al lordo di costi di transazione, commissioni di "
         "gestione e imposte, che ridurrebbero i risultati mostrati.",
-    ),
-    "pdf.notice_returns": (
-        "Returns are geometric (CAGR), never arithmetic-mean annualization, "
-        "which overstates results under volatility. Sharpe/Sortino: excess "
-        "return over the risk-free rate{rf}; Sortino penalizes downside "
-        "deviation only.",
-        "I rendimenti sono geometrici (CAGR), mai annualizzazione a media "
-        "aritmetica, che gonfia i risultati in presenza di volatilità. "
-        "Sharpe/Sortino: extra-rendimento sul tasso privo di rischio{rf}; il "
-        "Sortino penalizza la sola deviazione al ribasso.",
-    ),
-    "pdf.notice_rf": (
-        " ({rate}, 3-month US T-bill ^IRX)",
-        " ({rate}, T-bill USA a 3 mesi ^IRX)",
-    ),
-    "pdf.notice_var": (
-        "VaR 95%: historical 5th percentile of daily returns, no normality "
-        "assumed; expected shortfall = average of the tail beyond it. "
-        "Beta/alpha: OLS regression of daily portfolio returns on {benchmark}. "
-        "Risk contributions: share of portfolio variance per holding, "
-        "covariances included.",
-        "VaR 95%: 5° percentile storico dei rendimenti giornalieri, nessuna "
-        "ipotesi di normalità; expected shortfall = media della coda oltre la "
-        "soglia. Beta/alpha: regressione OLS dei rendimenti giornalieri del "
-        "portafoglio su {benchmark}. Contributi al rischio: quota della "
-        "varianza di portafoglio per posizione, covarianze incluse.",
-    ),
-    "pdf.notice_estimates": (
-        "All figures describe the observed period only: they are estimates, "
-        "not forecasts. Past performance is not a reliable indicator of "
-        "future results.",
-        "Tutti i valori descrivono il solo periodo osservato: sono stime, non "
-        "previsioni. I rendimenti passati non sono un indicatore affidabile "
-        "dei risultati futuri.",
     ),
     "pdf.notice_no_advice": (
         "This document is a statistical analysis generated by SmarteeFinance "
@@ -1331,12 +1125,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "materiale di lavoro del rapporto di consulenza; non destinato alla "
         "distribuzione al pubblico.",
     ),
-    "pdf.footer_line1": (
-        "SmarteeFinance · Portfolio Intelligence · Ref. {rid} · Yahoo Finance "
-        "data, accuracy and completeness not guaranteed",
-        "SmarteeFinance · Portfolio Intelligence · Rif. {rid} · dati Yahoo "
-        "Finance, accuratezza e completezza non garantite",
-    ),
     "pdf.footer_line2": (
         "Past performance is not a reliable indicator of future results. This "
         "document is not investment advice, investment research, an offer or "
@@ -1345,7 +1133,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "futuri. Questo documento non è consulenza in materia di investimenti, "
         "ricerca, offerta né sollecitazione.",
     ),
-    "pdf.page": ("Page {n} of 3", "Pagina {n} di 3"),
     # ---------------------------------------------------------------- positions / P&L
     "pos.qty": ("Quantity", "Quantità"),
     "pos.buy_price": ("Purchase price", "Prezzo di carico"),
@@ -1367,10 +1154,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "P&L {amount} ({pct}) since purchase",
         "P&L {amount} ({pct}) dal carico",
     ),
-    "chk.kpi_invested": ("Invested (cost basis)", "Investito (carico)"),
-    "chk.kpi_gain": ("Total gain", "Guadagno totale"),
-    "pdf.kpi_gain": ("GAIN", "GUADAGNO"),
-    "pdf.h_value": ("Value", "Valore"),
     "pdf.h_pnl": ("P&L", "P&L"),
     "pdf.notice_pnl": (
         "P&L per position = quantity × (current price − average purchase "
@@ -1401,13 +1184,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "pos.days": ("Days held", "Giorni"),
     "pos.ann": ("IRR / yr", "IRR annuo"),
     "hero.irr": (" · IRR {irr}/yr", " · IRR {irr}/anno"),
-    "m.irr": ("Money-weighted return (IRR)", "Rendimento money-weighted (IRR)"),
-    "r.irr": (
-        "Annual rate implied by YOUR actual cash flows (each lot at its "
-        "purchase date, current value today): the return you really earned.",
-        "Tasso annuo implicito nei TUOI flussi reali (ogni lotto alla sua data "
-        "di acquisto, valore attuale oggi): il rendimento che hai davvero ottenuto.",
-    ),
     # ---------------------------------------------------------------- options overlay
     "nav.options": ("Options", "Opzioni"),
     "opt.title": (
@@ -1975,7 +1751,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "ov.summary_title": ("Summary", "Sintesi"),
     "ov.sector_title": ("Allocation by sector", "Allocazione per settore"),
     "ov.scenario_title": ("Rebalancing scenarios", "Scenari di ribilanciamento"),
-    "ov.reporting_title": ("Client report", "Report per il cliente"),
+    "ov.reporting_title": ("Reports", "Report"),
     # ---------------------------------------------------------------- book clienti
     "adv.col_top": ("Largest", "Prima pos."),
     "adv.book_asof": (
@@ -1986,5 +1762,866 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "adv.over_limit": (
         "Above the profile limit of {band}",
         "Oltre il limite del profilo ({band})",
+    ),
+    # ---------------------------------------------------------------- report: metriche e valutazioni
+    "rpt.m_value": ("Portfolio value", "Valore del portafoglio"),
+    "rpt.m_total_return": ("Total return", "Rendimento totale"),
+    "rpt.m_cagr": ("CAGR", "CAGR"),
+    "rpt.m_vol": ("Volatility (ann.)", "Volatilità (ann.)"),
+    "rpt.m_vol_diff": ("Volatility differential", "Differenziale di volatilità"),
+    "rpt.m_sharpe": ("Sharpe ratio", "Indice di Sharpe"),
+    "rpt.m_sortino": ("Sortino ratio", "Indice di Sortino"),
+    "rpt.m_maxdd": ("Maximum drawdown", "Massimo drawdown"),
+    "rpt.m_var": ("VaR 95%, 1 day", "VaR 95%, 1 giorno"),
+    "rpt.m_es": ("Expected Shortfall 95%", "Expected Shortfall 95%"),
+    "rpt.m_beta": ("Beta vs {benchmark}", "Beta vs {benchmark}"),
+    "rpt.m_alpha": ("Alpha (ann.)", "Alfa (ann.)"),
+    "rpt.m_corr": ("Correlation with benchmark", "Correlazione con il benchmark"),
+    "rpt.m_te": ("Tracking error", "Tracking error"),
+    "rpt.m_ir": ("Information ratio", "Information ratio"),
+    "rpt.m_capture": ("Up / down capture", "Up / down capture"),
+    "rpt.m_hhi": ("Concentration (HHI)", "Concentrazione (HHI)"),
+    "rpt.m_top": ("Largest position", "Prima posizione"),
+    "rpt.m_usd": ("USD exposure", "Esposizione al dollaro"),
+    "rpt.m_best_month": ("Best month", "Mese migliore"),
+    "rpt.m_worst_month": ("Worst month", "Mese peggiore"),
+    "rpt.a_value": (
+        "Market value at the last available price",
+        "Valore di mercato all'ultimo prezzo disponibile",
+    ),
+    "rpt.ret_better": ("Outperformed the benchmark by {pp}", "Sopra il benchmark di {pp}"),
+    "rpt.ret_worse": ("Underperformed the benchmark by {pp}", "Sotto il benchmark di {pp}"),
+    "rpt.ret_inline": ("In line with the benchmark", "In linea con il benchmark"),
+    "rpt.vol_better": (
+        "Lower volatility than the benchmark ({pp})",
+        "Volatilità inferiore al benchmark ({pp})",
+    ),
+    "rpt.vol_worse": (
+        "Higher volatility than the benchmark ({pp})",
+        "Volatilità superiore al benchmark ({pp})",
+    ),
+    "rpt.vol_inline": (
+        "Volatility in line with the benchmark",
+        "Volatilità in linea con il benchmark",
+    ),
+    "rpt.dd_better": (
+        "Shallower drawdown than the benchmark ({pp})",
+        "Drawdown meno profondo del benchmark ({pp})",
+    ),
+    "rpt.dd_worse": (
+        "Deeper drawdown than the benchmark ({pp})",
+        "Drawdown più profondo del benchmark ({pp})",
+    ),
+    "rpt.dd_inline": ("Drawdown in line with the benchmark", "Drawdown in linea con il benchmark"),
+    "rpt.tail_better": (
+        "Smaller historical tail loss than the benchmark ({pp})",
+        "Perdita di coda storica inferiore al benchmark ({pp})",
+    ),
+    "rpt.tail_worse": (
+        "Larger historical tail loss than the benchmark ({pp})",
+        "Perdita di coda storica superiore al benchmark ({pp})",
+    ),
+    "rpt.tail_inline": (
+        "Tail loss in line with the benchmark",
+        "Perdita di coda in linea con il benchmark",
+    ),
+    "rpt.sharpe_better": (
+        "Higher return per unit of total risk",
+        "Rendimento per unità di rischio totale più alto",
+    ),
+    "rpt.sharpe_worse": (
+        "Lower return per unit of total risk",
+        "Rendimento per unità di rischio totale più basso",
+    ),
+    "rpt.sharpe_inline": (
+        "Risk-adjusted return in line",
+        "Rendimento corretto per il rischio in linea",
+    ),
+    "rpt.sortino_better": (
+        "Higher return per unit of downside risk",
+        "Rendimento per unità di rischio al ribasso più alto",
+    ),
+    "rpt.sortino_worse": (
+        "Lower return per unit of downside risk",
+        "Rendimento per unità di rischio al ribasso più basso",
+    ),
+    "rpt.sortino_inline": (
+        "Downside-adjusted return in line",
+        "Rendimento corretto per il ribasso in linea",
+    ),
+    "rpt.beta_amplifies": ("Amplifies {benchmark} moves", "Amplifica i movimenti del {benchmark}"),
+    "rpt.beta_dampens": ("Dampens {benchmark} moves", "Attenua i movimenti del {benchmark}"),
+    "rpt.beta_inline": (
+        "Broadly in line with {benchmark}",
+        "Sostanzialmente in linea con il {benchmark}",
+    ),
+    "rpt.a_alpha": (
+        "Regression intercept on daily data; historical, not evidence of skill",
+        "Intercetta della regressione su dati giornalieri; storica, non prova di abilità",
+    ),
+    "rpt.a_corr": (
+        "R² {r2}: share of daily variance explained by the benchmark",
+        "R² {r2}: quota della varianza giornaliera spiegata dal benchmark",
+    ),
+    "rpt.te_high": (
+        "High active risk versus the benchmark",
+        "Rischio attivo elevato rispetto al benchmark",
+    ),
+    "rpt.te_moderate": (
+        "Moderate active risk versus the benchmark",
+        "Rischio attivo moderato rispetto al benchmark",
+    ),
+    "rpt.a_ir": (
+        "Active return per unit of active risk; historical",
+        "Rendimento attivo per unità di rischio attivo; storico",
+    ),
+    "rpt.capture_text": (
+        "Followed {up} of benchmark gains and {down} of losses ({basis})",
+        "Ha seguito il {up} dei rialzi e il {down} dei ribassi del benchmark ({basis})",
+    ),
+    "rpt.basis_monthly": ("monthly data", "dati mensili"),
+    "rpt.basis_daily": ("daily data", "dati giornalieri"),
+    "rpt.a_hhi": (
+        "Equivalent to {n} equally weighted positions",
+        "Equivale a {n} posizioni equipesate",
+    ),
+    "rpt.a_top": ("Accounts for {risk} of total risk", "Spiega il {risk} del rischio totale"),
+    "rpt.a_usd": (
+        "Translation risk for a euro-based investor",
+        "Rischio di cambio per un investitore in euro",
+    ),
+    # ---------------------------------------------------------------- report: categorie di rischio
+    "rpt.cat_market": ("Market risk", "Rischio di mercato"),
+    "rpt.cat_concentration": ("Concentration risk", "Rischio di concentrazione"),
+    "rpt.cat_factor": ("Factor / sector risk", "Rischio fattoriale / settoriale"),
+    "rpt.cat_currency": ("Currency risk", "Rischio di cambio"),
+    "rpt.cat_volatility": ("Volatility risk", "Rischio di volatilità"),
+    "rpt.cat_drawdown": ("Drawdown risk", "Rischio di drawdown"),
+    "rpt.cat_liquidity": ("Liquidity risk", "Rischio di liquidità"),
+    "rpt.cat_valuation": ("Valuation risk", "Rischio di valutazione"),
+    "rpt.level_low": ("Low", "Basso"),
+    "rpt.level_moderate": ("Moderate", "Moderato"),
+    "rpt.level_elevated": ("Elevated", "Elevato"),
+    "rpt.level_high": ("High", "Alto"),
+    "rpt.level_na": ("Not assessed", "Non valutato"),
+    "rpt.r_market_measure": ("Beta {beta} vs {benchmark}", "Beta {beta} vs {benchmark}"),
+    "rpt.r_market_evidence": (
+        "Correlation {corr}; a 20% benchmark decline implies {drop} via beta",
+        "Correlazione {corr}; un calo del 20% del benchmark implica {drop} tramite il beta",
+    ),
+    "rpt.r_conc_measure": (
+        "HHI {hhi}, {n} effective positions",
+        "HHI {hhi}, {n} posizioni effettive",
+    ),
+    "rpt.r_conc_evidence": (
+        "{ticker}: {weight} of capital, {risk} of risk; top three {top3}",
+        "{ticker}: {weight} del capitale, {risk} del rischio; prime tre {top3}",
+    ),
+    "rpt.r_factor_measure": (
+        "Largest sector: {sector} {weight}",
+        "Primo settore: {sector} {weight}",
+    ),
+    "rpt.r_factor_evidence": (
+        "Sectors represented: {n}; sector from SEC SIC codes where available",
+        "Settori rappresentati: {n}; settore dai codici SIC della SEC dove disponibile",
+    ),
+    "rpt.r_fx_measure": ("USD-listed share {share}", "Quota quotata in USD {share}"),
+    "rpt.r_fx_evidence": (
+        "A 10% USD depreciation versus EUR implies about {impact} in EUR terms",
+        "Un deprezzamento del 10% del dollaro sull'euro implica circa {impact} in euro",
+    ),
+    "rpt.r_fx_native": (
+        "Figures in listing currency: translation effect not included",
+        "Valori nella valuta di quotazione: effetto cambio non incluso",
+    ),
+    "rpt.r_vol_measure": ("Annualized volatility {vol}", "Volatilità annualizzata {vol}"),
+    "rpt.r_vol_evidence": ("{benchmark}: {bench}", "{benchmark}: {bench}"),
+    "rpt.r_dd_measure": ("Maximum drawdown {dd}", "Massimo drawdown {dd}"),
+    "rpt.dd_open": (
+        "Peak {peak}, trough {trough}; not yet recovered, currently {current} from the peak",
+        "Massimo {peak}, minimo {trough}; non ancora recuperato, oggi a {current} dal massimo",
+    ),
+    "rpt.dd_recovered": (
+        "Peak {peak}, trough {trough}; recovered in {days} days after the trough",
+        "Massimo {peak}, minimo {trough}; recuperato in {days} giorni dal minimo",
+    ),
+    "rpt.r_liq_measure": ("Not measured", "Non misurato"),
+    "rpt.r_liq_evidence": (
+        "Trading volumes and bid-ask spreads are not in the dataset: liquidity is not assessed",
+        "Volumi e spread denaro-lettera non sono nei dati: la liquidità non è valutata",
+    ),
+    "rpt.r_val_measure": ("Weighted P/E {pe}", "P/E ponderato {pe}"),
+    "rpt.r_val_missing": ("P/E not available", "P/E non disponibile"),
+    "rpt.r_val_evidence": (
+        "Harmonic weighted trailing P/E; coverage {coverage} of capital",
+        "P/E storico, media armonica ponderata; copertura {coverage} del capitale",
+    ),
+    # ---------------------------------------------------------------- report: vista d'investimento
+    "rpt.vh_positioning": ("Portfolio positioning", "Posizionamento del portafoglio"),
+    "rpt.vh_regime": ("Risk regime", "Regime di rischio"),
+    "rpt.vh_performance": ("Performance versus benchmark", "Performance rispetto al benchmark"),
+    "rpt.vh_concentration": ("Principal concentration", "Concentrazione principale"),
+    "rpt.vh_sources": ("Principal sources of risk", "Principali fonti di rischio"),
+    "rpt.vh_vulnerabilities": ("Key vulnerabilities", "Vulnerabilità principali"),
+    "rpt.vh_strengths": ("Key strengths", "Punti di forza"),
+    "rpt.vh_implications": ("Material investment implications", "Implicazioni rilevanti"),
+    "rpt.v_positioning": (
+        "{n} positions, equivalent to {eff} equally weighted holdings. Largest sector {sector} "
+        "at {sector_w} of capital; {usd} of capital is listed in USD.",
+        "{n} posizioni, equivalenti a {eff} posizioni equipesate. Primo settore {sector} con "
+        "il {sector_w} del capitale; il {usd} del capitale è quotato in USD.",
+    ),
+    "rpt.v_regime": (
+        "Annualized volatility {vol} ({level}) against {bench_vol} for {benchmark}; beta "
+        "{beta}; maximum drawdown {dd} over the window.",
+        "Volatilità annualizzata {vol} ({level}) contro {bench_vol} del {benchmark}; beta "
+        "{beta}; massimo drawdown {dd} nella finestra.",
+    ),
+    "rpt.v_performance": (
+        "From {start} to {end} the portfolio returned {ret} against {bench} for {benchmark} "
+        "({excess}); CAGR {cagr} versus {bench_cagr}; Sharpe {sharpe} versus {bench_sharpe}.",
+        "Dal {start} al {end} il portafoglio ha reso {ret} contro {bench} del {benchmark} "
+        "({excess}); CAGR {cagr} contro {bench_cagr}; Sharpe {sharpe} contro {bench_sharpe}.",
+    ),
+    "rpt.v_concentration": (
+        "{ticker} represents {weight} of capital and {risk} of total risk; the three largest "
+        "positions account for {top3}.",
+        "{ticker} rappresenta il {weight} del capitale e il {risk} del rischio totale; le tre "
+        "posizioni maggiori valgono il {top3}.",
+    ),
+    "rpt.v_source_position": (
+        "{ticker}: {share} of portfolio variance.",
+        "{ticker}: {share} della varianza del portafoglio.",
+    ),
+    "rpt.v_source_market": (
+        "Market factor: {r2} of daily variance explained by {benchmark}.",
+        "Fattore di mercato: il {r2} della varianza giornaliera è spiegato dal {benchmark}.",
+    ),
+    "rpt.v_vuln_risk_weight": (
+        "{ticker} contributes {risk} of risk on a {weight} capital weight.",
+        "{ticker} contribuisce il {risk} del rischio con un peso del {weight} sul capitale.",
+    ),
+    "rpt.v_vuln_profile": (
+        "Measured volatility {vol} exceeds the {band} band associated with the declared "
+        "{profile} profile.",
+        "La volatilità misurata {vol} supera la banda del {band} associata al profilo "
+        "dichiarato {profile}.",
+    ),
+    "rpt.v_vuln_down_capture": (
+        "Down capture {down}: in falling periods the portfolio lost more than the benchmark.",
+        "Down capture {down}: nei periodi di ribasso il portafoglio ha perso più del benchmark.",
+    ),
+    "rpt.v_vuln_sector": (
+        "Sector concentration: {sector} accounts for {weight} of capital.",
+        "Concentrazione settoriale: {sector} vale il {weight} del capitale.",
+    ),
+    "rpt.v_vuln_open_dd": (
+        "The deepest drawdown is not yet recovered: value is {current} from its peak.",
+        "Il drawdown più profondo non è ancora recuperato: il valore è a {current} dal massimo.",
+    ),
+    "rpt.v_vuln_valuation": (
+        "Weighted P/E of {pe}: prices embed demanding earnings expectations.",
+        "P/E ponderato di {pe}: i prezzi incorporano attese sugli utili esigenti.",
+    ),
+    "rpt.v_none": (
+        "No rule triggered on the available data.",
+        "Nessuna regola scattata sui dati disponibili.",
+    ),
+    "rpt.v_str_sharpe": (
+        "Sharpe ratio {sharpe} above the benchmark's {bench}.",
+        "Indice di Sharpe {sharpe} superiore al {bench} del benchmark.",
+    ),
+    "rpt.v_str_dd": (
+        "Maximum drawdown {dd} shallower than the benchmark's {bench}.",
+        "Massimo drawdown {dd} meno profondo del {bench} del benchmark.",
+    ),
+    "rpt.v_str_down_capture": (
+        "Down capture {down}: losses smaller than the benchmark's in falling periods.",
+        "Down capture {down}: perdite inferiori al benchmark nei periodi di ribasso.",
+    ),
+    "rpt.v_str_diversified": (
+        "Broad diversification: {n} effective positions.",
+        "Diversificazione ampia: {n} posizioni effettive.",
+    ),
+    "rpt.v_str_low_corr": (
+        "Correlation {corr} with {benchmark}: return drivers differ from the benchmark.",
+        "Correlazione {corr} con il {benchmark}: i fattori di rendimento differiscono dal benchmark.",
+    ),
+    "rpt.v_impl_driver": (
+        "Portfolio outcomes depend primarily on {ticker}, which explains {risk} of total risk.",
+        "Il risultato del portafoglio dipende soprattutto da {ticker}, che spiega il {risk} del rischio totale.",
+    ),
+    "rpt.v_impl_market": (
+        "On the historical beta, a 20% decline in {benchmark} corresponds to about {impact} for the portfolio.",
+        "Sul beta storico, un calo del 20% del {benchmark} corrisponde a circa {impact} per il portafoglio.",
+    ),
+    "rpt.v_impl_profile_out": (
+        "Consistency with the declared {profile} profile ({band} volatility band) requires review.",
+        "La coerenza con il profilo dichiarato {profile} (banda di volatilità {band}) va verificata.",
+    ),
+    "rpt.v_impl_profile_in": (
+        "Measured volatility is within the {band} band of the declared {profile} profile.",
+        "La volatilità misurata è entro la banda del {band} del profilo dichiarato {profile}.",
+    ),
+    "rpt.v_impl_alpha": (
+        "Historical alpha and excess return describe the window observed; they are not "
+        "evidence of persistent skill.",
+        "Alfa ed extra-rendimento storici descrivono la finestra osservata; non sono prova "
+        "di un'abilità persistente.",
+    ),
+    # ---------------------------------------------------------------- report: performance e recupero
+    "rpt.pb_absolute": ("Absolute performance", "Performance assoluta"),
+    "rpt.pb_relative": ("Benchmark-relative performance", "Performance relativa al benchmark"),
+    "rpt.pb_risk_adjusted": ("Risk-adjusted performance", "Performance corretta per il rischio"),
+    "rpt.recovery_open": (
+        "Deepest drawdown {dd}: peak {peak}, trough {trough} after {days} days; not yet "
+        "recovered (currently {current} from the peak).",
+        "Drawdown più profondo {dd}: massimo il {peak}, minimo il {trough} dopo {days} giorni; "
+        "non ancora recuperato (oggi a {current} dal massimo).",
+    ),
+    "rpt.recovery_done": (
+        "Deepest drawdown {dd}: peak {peak}, trough {trough} after {days} days; previous peak "
+        "regained on {recovery}, {rdays} days after the trough.",
+        "Drawdown più profondo {dd}: massimo il {peak}, minimo il {trough} dopo {days} giorni; "
+        "massimo precedente recuperato il {recovery}, {rdays} giorni dopo il minimo.",
+    ),
+    # ---------------------------------------------------------------- report: punti di revisione
+    "rpt.rp_profile": (
+        "Profile consistency: measured volatility {vol} versus the {band} band of the "
+        "declared {profile} profile.",
+        "Coerenza con il profilo: volatilità misurata {vol} contro la banda del {band} del "
+        "profilo dichiarato {profile}.",
+    ),
+    "rpt.rp_no_profile": (
+        "No risk profile declared for this client: profile consistency cannot be checked.",
+        "Nessun profilo di rischio dichiarato per il cliente: la coerenza non è verificabile.",
+    ),
+    "rpt.rp_concentration": (
+        "Single-name concentration: {ticker} at {weight} of capital, above the 25% reference.",
+        "Concentrazione su un singolo titolo: {ticker} al {weight} del capitale, oltre il riferimento del 25%.",
+    ),
+    "rpt.rp_risk_weight": (
+        "{ticker}: risk share {risk} against a {weight} capital weight.",
+        "{ticker}: quota di rischio {risk} contro un peso del {weight} sul capitale.",
+    ),
+    "rpt.rp_currency": (
+        "Currency exposure: {share} of capital in USD-listed securities, unhedged.",
+        "Esposizione valutaria: il {share} del capitale in titoli quotati in USD, senza copertura.",
+    ),
+    "rpt.rp_sector": (
+        "Sector exposure: {sector} at {weight} of capital.",
+        "Esposizione settoriale: {sector} al {weight} del capitale.",
+    ),
+    "rpt.rp_short_window": (
+        "Observation window shorter than one year: annualized figures are indicative.",
+        "Finestra di osservazione inferiore a un anno: i valori annualizzati sono indicativi.",
+    ),
+    "rpt.rp_none": (
+        "No item flagged by the monitored rules.",
+        "Nessun punto segnalato dalle regole monitorate.",
+    ),
+    # ---------------------------------------------------------------- report: elementi comuni
+    "rep.page": ("Page {n} of {total}", "Pagina {n} di {total}"),
+    "rep.footer1": (
+        "SmarteeFinance · Portfolio Intelligence · Ref. {rid} · prices: {source} · accuracy and "
+        "completeness of data not guaranteed",
+        "SmarteeFinance · Portfolio Intelligence · Rif. {rid} · prezzi: {source} · accuratezza e "
+        "completezza dei dati non garantite",
+    ),
+    "rep.source_unknown": ("provider chain (Yahoo, Stooq)", "catena di fornitori (Yahoo, Stooq)"),
+    "rep.mc_p10": ("Bear scenario (10th percentile)", "Scenario ribassista (10° percentile)"),
+    "rep.mc_p50": ("Base scenario (median)", "Scenario centrale (mediana)"),
+    "rep.mc_p90": ("Bull scenario (90th percentile)", "Scenario rialzista (90° percentile)"),
+    "rep.mc_method_bootstrap": (
+        "historical block bootstrap of joint daily returns (5-day blocks)",
+        "bootstrap storico a blocchi dei rendimenti giornalieri congiunti (blocchi di 5 giorni)",
+    ),
+    "rep.mc_method_gbm": (
+        "geometric Brownian motion calibrated on the historical mean and covariance",
+        "moto browniano geometrico calibrato su media e covarianza storiche",
+    ),
+    "rep.mc_method": (
+        "Method: {method}; {n} simulations; history {start} to {end}; constant current weights "
+        "(daily rebalancing); no transaction costs, fees, taxes, contributions or withdrawals. "
+        "Share of simulations ending below today's value after {horizon} years: {loss}. A "
+        "statistical scenario derived from history, not a forecast or a guarantee.",
+        "Metodo: {method}; {n} simulazioni; storico dal {start} al {end}; pesi attuali costanti "
+        "(ribilanciamento giornaliero); senza costi di transazione, commissioni, imposte, "
+        "versamenti o prelievi. Quota di simulazioni sotto il valore di oggi dopo {horizon} anni: "
+        "{loss}. Uno scenario statistico ricavato dallo storico, non una previsione né una garanzia.",
+    ),
+    "rep.n_data": (
+        "Prices: daily adjusted closes over the selected window ({period}) from {source}; "
+        "dividends and splits are reflected through price adjustment. Data are provided as-is; "
+        "accuracy, completeness and timeliness are not guaranteed.",
+        "Prezzi: chiusure giornaliere rettificate nella finestra selezionata ({period}) da "
+        "{source}; dividendi e frazionamenti sono riflessi tramite la rettifica dei prezzi. Dati "
+        "forniti così come sono; accuratezza, completezza e tempestività non garantite.",
+    ),
+    "rep.n_fundamentals": (
+        "Fundamentals and sectors: SEC EDGAR filings (last twelve months; sector from the SIC "
+        "code), backup sources where unavailable. EUR/USD: European Central Bank reference "
+        "rates. Risk-free rate: US Treasury 13-week bill.",
+        "Fondamentali e settori: depositi SEC EDGAR (ultimi dodici mesi; settore dal codice "
+        "SIC), fonti di riserva dove non disponibili. EUR/USD: cambi di riferimento della Banca "
+        "Centrale Europea. Tasso privo di rischio: T-bill a 13 settimane del Tesoro USA.",
+    ),
+    "pdf.notice_rf2": (
+        " ({rate}, US Treasury 13-week bill)",
+        " ({rate}, T-bill a 13 settimane del Tesoro USA)",
+    ),
+    "rep.n_returns": (
+        "Returns are geometric (CAGR), never arithmetic-mean annualization. Sharpe and "
+        "Sortino use the excess return over the risk-free rate{rf}; Sortino penalizes "
+        "downside deviation only.",
+        "I rendimenti sono geometrici (CAGR), mai annualizzazione a media aritmetica. Sharpe "
+        "e Sortino usano l'extra-rendimento sul tasso privo di rischio{rf}; il Sortino "
+        "penalizza solo la deviazione al ribasso.",
+    ),
+    "rep.n_risk": (
+        "VaR 95%: historical 5th percentile of daily returns, no normality assumed; Expected "
+        "Shortfall: average of the returns beyond it. Beta and alpha: OLS regression of daily "
+        "portfolio returns on {benchmark}. Tracking error: annualized standard deviation of "
+        "daily active returns. Risk contribution: share of portfolio variance per position, "
+        "covariances included.",
+        "VaR 95%: 5° percentile storico dei rendimenti giornalieri, nessuna ipotesi di "
+        "normalità; Expected Shortfall: media dei rendimenti oltre la soglia. Beta e alfa: "
+        "regressione OLS dei rendimenti giornalieri del portafoglio sul {benchmark}. Tracking "
+        "error: deviazione standard annualizzata dei rendimenti attivi giornalieri. Contributo "
+        "al rischio: quota della varianza del portafoglio per posizione, covarianze incluse.",
+    ),
+    "rep.n_weights": (
+        "Historical series apply today's weights to the whole window (constant weights): they "
+        "describe the portfolio as currently held, not the realized track record.",
+        "Le serie storiche applicano i pesi di oggi a tutta la finestra (pesi costanti): "
+        "descrivono il portafoglio come è detenuto oggi, non lo storico realizzato.",
+    ),
+    "rep.n_scenarios": (
+        "Stress tests and scenarios are statistical estimates on historical data, gross of "
+        "costs and taxes: they are not forecasts and do not express an expected outcome.",
+        "Stress test e scenari sono stime statistiche su dati storici, al lordo di costi e "
+        "imposte: non sono previsioni e non esprimono un risultato atteso.",
+    ),
+    "rep.n_score": (
+        "The Portfolio Health Score is a proprietary analytical composite (average of six "
+        "components scored 0-100); it is not a rating, a regulated indicator or a suitability "
+        "assessment.",
+        "Il Portfolio Health Score è un indicatore composito proprietario (media di sei "
+        "componenti valutate 0-100); non è un rating, un indicatore regolamentato né una "
+        "valutazione di adeguatezza.",
+    ),
+    "rep.n_personal_use": (
+        "Generated for the personal information of the portfolio holder; not intended for "
+        "public distribution.",
+        "Generato per l'informazione personale del titolare del portafoglio; non destinato "
+        "alla distribuzione al pubblico.",
+    ),
+    "stress.top_position": (
+        "{ticker} ({weight} of capital) declines 20%",
+        "{ticker} ({weight} del capitale) perde il 20%",
+    ),
+    "stress.market": (
+        "{benchmark} declines 20% (beta-implied)",
+        "Il {benchmark} perde il 20% (stima tramite beta)",
+    ),
+    "stress.usd": (
+        "USD depreciates 10% versus EUR ({share} of capital in USD)",
+        "Il dollaro perde il 10% sull'euro ({share} del capitale in USD)",
+    ),
+    "stress.worst_month": (
+        "Worst observed month, replayed with current weights",
+        "Peggior mese osservato, rigiocato con i pesi attuali",
+    ),
+    # ---------------------------------------------------------------- report Investor
+    "inv.doc_title": (
+        "SmarteeFinance · Portfolio Report",
+        "SmarteeFinance · Report di Portafoglio",
+    ),
+    "inv.title": ("Portfolio Report", "Report di Portafoglio"),
+    "inv.s_overview": ("Portfolio overview", "Panoramica del portafoglio"),
+    "inv.k_value": ("Current value", "Valore attuale"),
+    "inv.k_value_note": ("{n} positions at last price", "{n} posizioni all'ultimo prezzo"),
+    "inv.k_invested": ("Invested capital", "Capitale investito"),
+    "inv.k_invested_note": (
+        "Cost basis of current positions",
+        "Costo di carico delle posizioni attuali",
+    ),
+    "inv.k_cost_unknown": ("Cost basis not available", "Prezzo di carico non disponibile"),
+    "inv.k_pnl": ("Unrealized P&L", "P&L non realizzato"),
+    "inv.k_total_return": ("Total return ({period})", "Rendimento totale ({period})"),
+    "inv.k_window": ("{start} to {end}", "dal {start} al {end}"),
+    "inv.k_bench": ("{benchmark}: {value}", "{benchmark}: {value}"),
+    "inv.k_corr": ("Correlation {corr}", "Correlazione {corr}"),
+    "inv.k_alpha_note": ("Historical, regression-based", "Storico, da regressione"),
+    "inv.k_concentration": ("Concentration", "Concentrazione"),
+    "inv.k_hhi": ("HHI {hhi}", "HHI {hhi}"),
+    "inv.k_concentration_note": (
+        "{n} effective positions; {ticker} {weight}",
+        "{n} posizioni effettive; {ticker} {weight}",
+    ),
+    "inv.k_bench_return": ("Benchmark return", "Rendimento del benchmark"),
+    "inv.k_bench_note": ("{benchmark}, same window", "{benchmark}, stessa finestra"),
+    "inv.k_relative": ("Relative performance", "Performance relativa"),
+    "inv.k_relative_note": (
+        "Versus {benchmark}, percentage points",
+        "Rispetto al {benchmark}, punti percentuali",
+    ),
+    "inv.score_line": (
+        "<b>PORTFOLIO HEALTH SCORE: {score}/100</b>",
+        "<b>PORTFOLIO HEALTH SCORE: {score}/100</b>",
+    ),
+    "inv.score_caption": (
+        "Proprietary composite indicator based on diversification, concentration, volatility, "
+        "currency exposure, drawdown and portfolio quality; higher means more balanced. Not a "
+        "rating or a suitability assessment.",
+        "Indicatore composito proprietario basato su diversificazione, concentrazione, "
+        "volatilità, esposizione valutaria, drawdown e qualità del portafoglio; più alto "
+        "significa più equilibrato. Non è un rating né una valutazione di adeguatezza.",
+    ),
+    "inv.profile_check": (
+        "<b>Risk profile check: {status} the declared profile.</b> Measured annualized "
+        "volatility {vol} against the {band} band associated with a {profile} profile.",
+        "<b>Verifica del profilo di rischio: {status} il profilo dichiarato.</b> Volatilità "
+        "annualizzata misurata {vol} contro la banda del {band} associata a un profilo {profile}.",
+    ),
+    "inv.s_summary": ("Executive summary", "Sintesi"),
+    "inv.s_growth": (
+        "Growth of 100 versus {benchmark}",
+        "Crescita di 100 rispetto al {benchmark}",
+    ),
+    "inv.growth_caption": (
+        "Both series rebased to 100 at the start of the window. The portfolio line applies "
+        "today's weights to the whole window: it is not the realized track record.",
+        "Entrambe le serie in base 100 all'inizio della finestra. La linea del portafoglio "
+        "applica i pesi di oggi a tutta la finestra: non è lo storico realizzato.",
+    ),
+    "inv.p2_title": (
+        "Performance and benchmark ({benchmark})",
+        "Performance e benchmark ({benchmark})",
+    ),
+    "inv.h_difference": ("Difference", "Differenza"),
+    "inv.alpha_caveat": (
+        "Alpha, excess return and information ratio describe the window observed. They do not "
+        "demonstrate investment skill and are not indicative of future results.",
+        "Alfa, extra-rendimento e information ratio descrivono la finestra osservata. Non "
+        "dimostrano abilità d'investimento e non sono indicativi dei risultati futuri.",
+    ),
+    "inv.s_recovery": (
+        "Drawdown and recovery characteristics",
+        "Drawdown e caratteristiche di recupero",
+    ),
+    "inv.s_score": ("Composite score components", "Componenti del punteggio composito"),
+    "inv.score_components_text": (
+        "Each component is scored 0-100 from the measured data; the Portfolio Health Score "
+        "({score}/100) is their simple average. Green 67 and above, amber 34 to 66, red 33 and "
+        "below. The weighting and thresholds are proprietary and are disclosed in the "
+        "methodology notes.",
+        "Ogni componente vale 0-100 a partire dai dati misurati; il Portfolio Health Score "
+        "({score}/100) è la loro media semplice. Verde da 67, ambra da 34 a 66, rosso fino a "
+        "33. Pesi e soglie sono proprietari e descritti nelle note di metodologia.",
+    ),
+    "inv.p3_title": ("Portfolio composition and risk", "Composizione e rischio del portafoglio"),
+    "inv.s_holdings": (
+        "Holdings: capital weight and risk contribution",
+        "Posizioni: peso sul capitale e contributo al rischio",
+    ),
+    "inv.h_value": ("Value", "Valore"),
+    "inv.h_weight": ("Capital wt.", "Peso cap."),
+    "inv.h_risk": ("Risk contr.", "Contr. rischio"),
+    "inv.h_ratio": ("Risk/weight", "Rischio/peso"),
+    "inv.holdings_caption": (
+        "Risk contribution: share of portfolio variance explained by the position, "
+        "covariances included. Ratios above 1.25× are highlighted: the position weighs on "
+        "risk materially more than on capital.",
+        "Contributo al rischio: quota della varianza del portafoglio spiegata dalla "
+        "posizione, covarianze incluse. I rapporti oltre 1,25× sono evidenziati: la "
+        "posizione pesa sul rischio molto più che sul capitale.",
+    ),
+    "inv.eff_note": ("1 / HHI", "1 / HHI"),
+    "inv.c_top3": ("Top 3 positions", "Prime 3 posizioni"),
+    "inv.c_sector": ("Largest sector", "Primo settore"),
+    "inv.sector_caption": (
+        "Sector from the SEC SIC code, weighted by capital.",
+        "Settore dal codice SIC della SEC, pesato per capitale.",
+    ),
+    "inv.s_risk": ("Risk analysis", "Analisi dei rischi"),
+    "inv.h_category": ("Category", "Categoria"),
+    "inv.h_measure": ("Measure", "Misura"),
+    "inv.h_level": ("Level", "Livello"),
+    "inv.h_evidence": ("Evidence", "Evidenza"),
+    "inv.risk_caption": (
+        "Levels from fixed thresholds on the measured data (methodology notes). Liquidity is "
+        "not assessed: volumes and bid-ask spreads are not in the dataset.",
+        "Livelli da soglie fisse sui dati misurati (note di metodologia). La liquidità non è "
+        "valutata: volumi e spread denaro-lettera non sono nei dati.",
+    ),
+    "inv.p4_title": (
+        "Stress testing, scenarios and methodology",
+        "Stress test, scenari e metodologia",
+    ),
+    "inv.s_stress": ("Stress testing", "Stress test"),
+    "inv.h_scenario": ("Scenario", "Scenario"),
+    "inv.h_direct": ("Direct impact", "Impatto diretto"),
+    "inv.h_total": ("Correlation-adjusted", "Corretto per correlazioni"),
+    "inv.h_amount": ("Amount", "Importo"),
+    "inv.stress_caption": (
+        "Direct impact: the shocked position or currency share only. Correlation-adjusted: "
+        "includes the historical co-movement of the other positions (betas over the window). "
+        "Estimates, not forecasts.",
+        "Impatto diretto: solo la posizione o la quota valutaria colpita. Corretto per "
+        "correlazioni: include il co-movimento storico delle altre posizioni (beta nella "
+        "finestra). Stime, non previsioni.",
+    ),
+    "inv.s_scenarios": (
+        "Scenario analysis: historical 12-month outcomes",
+        "Analisi di scenario: esiti storici a 12 mesi",
+    ),
+    "inv.h_12m_return": ("12-month return", "Rendimento a 12 mesi"),
+    "inv.h_value_after": ("Value after 12 months", "Valore dopo 12 mesi"),
+    "inv.sc_bear": ("Bear (5th percentile)", "Ribassista (5° percentile)"),
+    "inv.sc_base": ("Base (median)", "Centrale (mediana)"),
+    "inv.sc_bull": ("Bull (95th percentile)", "Rialzista (95° percentile)"),
+    "inv.sc_method": (
+        "Distribution of all {windows} overlapping 12-month windows between {start} and {end}, "
+        "with today's weights held constant; gross of costs, fees and taxes. {negative} of "
+        "windows closed with a loss; range {worst} to {best}. Historical statistics, not a forecast.",
+        "Distribuzione di tutte le {windows} finestre sovrapposte di 12 mesi tra il {start} e il "
+        "{end}, con i pesi di oggi costanti; al lordo di costi, commissioni e imposte. Il "
+        "{negative} delle finestre si è chiuso in perdita; intervallo da {worst} a {best}. "
+        "Statistiche storiche, non una previsione.",
+    ),
+    "inv.sc_short": (
+        "Fewer than 13 months of history: 12-month scenarios are not computed.",
+        "Meno di 13 mesi di storico: gli scenari a 12 mesi non vengono calcolati.",
+    ),
+    "inv.s_projection": (
+        "Probabilistic projection (Monte Carlo)",
+        "Proiezione probabilistica (Monte Carlo)",
+    ),
+    "inv.obs_caption": (
+        "Generated by deterministic rules on the computed metrics. Descriptive, not a "
+        "personalized recommendation.",
+        "Generati da regole deterministiche sulle metriche calcolate. Descrittivi, non una "
+        "raccomandazione personalizzata.",
+    ),
+    # ---------------------------------------------------------------- report Advisor
+    "adr.doc_title": (
+        "SmarteeFinance · Portfolio Review",
+        "SmarteeFinance · Revisione di Portafoglio",
+    ),
+    "adr.title": ("Portfolio Review", "Revisione di Portafoglio"),
+    "adr.subtitle": (
+        "Advisor working document: institutional portfolio analytics and suitability context",
+        "Documento di lavoro per il consulente: analisi istituzionale del portafoglio e contesto di adeguatezza",
+    ),
+    "adr.cover_note": (
+        "Prepared as working material for the professional advisor. For the client, use the "
+        "Portfolio Report.",
+        "Predisposto come materiale di lavoro per il consulente. Per il cliente usare il "
+        "Report di Portafoglio.",
+    ),
+    "adr.f_client": ("Client code", "Codice cliente"),
+    "adr.f_recipient": ("Prepared for", "Preparato per"),
+    "adr.f_advisor": ("Prepared by", "Predisposto da"),
+    "adr.f_profile": ("Declared risk profile", "Profilo di rischio dichiarato"),
+    "adr.f_valuation": ("Valuation date", "Data di valutazione"),
+    "adr.f_window": ("Observation window", "Finestra di osservazione"),
+    "adr.window_value": (
+        "{start} to {end} ({n} trading days)",
+        "dal {start} al {end} ({n} giorni di borsa)",
+    ),
+    "adr.f_benchmark": ("Benchmark", "Benchmark"),
+    "adr.f_currency": ("Currency basis", "Base valutaria"),
+    "adr.f_source": ("Price source", "Fonte prezzi"),
+    "adr.f_reference": ("Document reference", "Riferimento documento"),
+    "adr.s1": ("Executive investment view", "Sintesi d'investimento"),
+    "adr.s1_caption": (
+        "Every statement is generated by deterministic rules from the portfolio data cited in "
+        "it; no language model is involved.",
+        "Ogni frase è generata da regole deterministiche a partire dai dati che cita; nessun "
+        "modello linguistico è coinvolto.",
+    ),
+    "adr.s2": ("Portfolio profile", "Profilo del portafoglio"),
+    "adr.h_assessment": ("Assessment", "Valutazione"),
+    "adr.s2_caption": (
+        "Benchmark: {benchmark} over the same window and currency basis. Capture ratios: "
+        "average portfolio return in benchmark up (down) periods over the average benchmark "
+        "return in those periods.",
+        "Benchmark: {benchmark} sulla stessa finestra e base valutaria. Capture ratio: "
+        "rendimento medio del portafoglio nei periodi di rialzo (ribasso) del benchmark "
+        "diviso per il rendimento medio del benchmark negli stessi periodi.",
+    ),
+    "adr.s3": ("Performance analysis", "Analisi della performance"),
+    "adr.monthly_title": ("Last twelve months", "Ultimi dodici mesi"),
+    "adr.h_month": ("Month", "Mese"),
+    "adr.episodes_title": ("Largest drawdown episodes", "Episodi di drawdown più profondi"),
+    "adr.h_peak": ("Peak", "Massimo"),
+    "adr.h_trough": ("Trough", "Minimo"),
+    "adr.h_depth": ("Depth", "Profondità"),
+    "adr.h_to_trough": ("Days to trough", "Giorni al minimo"),
+    "adr.h_recovery": ("Recovered", "Recuperato"),
+    "adr.h_to_recover": ("Days to recover", "Giorni al recupero"),
+    "adr.not_recovered": ("Not yet", "Non ancora"),
+    "adr.attribution_title": (
+        "Return attribution by position",
+        "Attribuzione del rendimento per posizione",
+    ),
+    "adr.h_contribution": ("Contribution", "Contributo"),
+    "adr.attribution_caption": (
+        "Current weight × security return over the window; an approximation that ignores "
+        "intra-period weight drift.",
+        "Peso attuale × rendimento del titolo nella finestra; approssimazione che ignora la "
+        "deriva dei pesi nel periodo.",
+    ),
+    "adr.s4": ("Composition and concentration", "Composizione e concentrazione"),
+    "adr.h_sector": ("Sector", "Settore"),
+    "adr.currency_title": ("Currency of listing", "Valuta di quotazione"),
+    "adr.ccy_usd": ("USD", "USD"),
+    "adr.ccy_other": ("EUR and other", "EUR e altre"),
+    "adr.flagged": (
+        "Risk contribution materially above capital weight (ratio above 1.25×): {tickers}.",
+        "Contributo al rischio molto superiore al peso sul capitale (rapporto oltre 1,25×): {tickers}.",
+    ),
+    "adr.flagged_none": (
+        "No position has a risk contribution above 1.25 times its capital weight.",
+        "Nessuna posizione ha un contributo al rischio oltre 1,25 volte il peso sul capitale.",
+    ),
+    "adr.s5": ("Risk analysis", "Analisi dei rischi"),
+    "adr.s6": ("Stress testing", "Stress test"),
+    "adr.stress_note": (
+        "The market scenario applies the portfolio beta to a 20% benchmark decline; the "
+        "currency scenario is a translation effect on the USD-listed share and ignores any "
+        "correlation between currency and equity prices.",
+        "Lo scenario di mercato applica il beta del portafoglio a un calo del 20% del "
+        "benchmark; lo scenario valutario è un effetto di traduzione sulla quota quotata in "
+        "USD e ignora la correlazione tra cambio e prezzi azionari.",
+    ),
+    "adr.s7": ("Scenario analysis", "Analisi di scenario"),
+    "adr.mc_f_method": ("Methodology", "Metodologia"),
+    "adr.mc_f_sims": ("Number of simulations", "Numero di simulazioni"),
+    "adr.mc_f_history": ("Historical period", "Periodo storico"),
+    "adr.mc_f_weights": ("Weights", "Pesi"),
+    "adr.mc_v_weights": (
+        "Current weights held constant (daily rebalancing)",
+        "Pesi attuali mantenuti costanti (ribilanciamento giornaliero)",
+    ),
+    "adr.mc_f_costs": ("Costs, fees and taxes", "Costi, commissioni e imposte"),
+    "adr.mc_v_costs": (
+        "Excluded; no contributions or withdrawals",
+        "Esclusi; nessun versamento o prelievo",
+    ),
+    "adr.mc_f_nature": ("Nature of the output", "Natura del risultato"),
+    "adr.mc_v_nature": (
+        "Statistical scenario derived from history; not a forecast",
+        "Scenario statistico ricavato dallo storico; non una previsione",
+    ),
+    "adr.year_tick": ("Year {n}", "Anno {n}"),
+    "adr.fan_caption": (
+        "Dark band: 25th to 75th percentile; light band: 10th to 90th; line: median. Dotted "
+        "line: today's value.",
+        "Banda scura: dal 25° al 75° percentile; banda chiara: dal 10° al 90°; linea: mediana. "
+        "Linea punteggiata: valore di oggi.",
+    ),
+    "adr.mc_cagr": (
+        "Implied annual rates over {horizon} years: bear {p10}, base {p50}, bull {p90}.",
+        "Tassi annui impliciti su {horizon} anni: ribassista {p10}, centrale {p50}, rialzista {p90}.",
+    ),
+    "adr.mc_unavailable": (
+        "Monte Carlo projection not available: insufficient joint price history.",
+        "Proiezione Monte Carlo non disponibile: storico congiunto dei prezzi insufficiente.",
+    ),
+    "adr.hist_title": (
+        "Historical 12-month outcomes (for comparison)",
+        "Esiti storici a 12 mesi (per confronto)",
+    ),
+    "adr.s8": ("Suitability context", "Contesto di adeguatezza"),
+    "adr.s8_caption": (
+        "Internal monitoring thresholds applied to measured data. This section supports, and "
+        "does not replace, the MiFID II suitability assessment, which remains the "
+        "responsibility of the advisor.",
+        "Soglie interne di monitoraggio applicate ai dati misurati. Questa sezione supporta, "
+        "e non sostituisce, la valutazione di adeguatezza MiFID II, che resta responsabilità "
+        "del consulente.",
+    ),
+    "adr.s9": (
+        "Composite score and rule-based observations",
+        "Punteggio composito e rilievi da regole",
+    ),
+    "adr.obs_title": ("Observations", "Rilievi"),
+    "adr.whatif_title": (
+        "What-if analysis on current holdings",
+        "Analisi what-if sui titoli attuali",
+    ),
+    "adr.whatif_caption": (
+        "Mechanical recalculations of the same metrics under alternative weights; analysis "
+        "only, not a recommendation to trade.",
+        "Ricalcoli meccanici delle stesse metriche con pesi alternativi; solo analisi, non una "
+        "raccomandazione a operare.",
+    ),
+    "adr.s10": ("Review considerations", "Punti per la revisione"),
+    "adr.s10_caption": (
+        "Items to examine with the client in the light of objectives, horizon and the full "
+        "suitability assessment. Descriptive, not personalized recommendations.",
+        "Punti da esaminare con il cliente alla luce di obiettivi, orizzonte e valutazione di "
+        "adeguatezza completa. Descrittivi, non raccomandazioni personalizzate.",
+    ),
+    "adr.s11": (
+        "Methodology, data sources and disclosures",
+        "Metodologia, fonti dei dati e avvertenze",
+    ),
+    "adr.defs_title": ("Definitions", "Definizioni"),
+    "adr.def_te": (
+        "Tracking error: annualized standard deviation of the daily difference between "
+        "portfolio and benchmark returns.",
+        "Tracking error: deviazione standard annualizzata della differenza giornaliera tra "
+        "rendimenti del portafoglio e del benchmark.",
+    ),
+    "adr.def_ir": (
+        "Information ratio: difference between portfolio and benchmark CAGR divided by the "
+        "tracking error.",
+        "Information ratio: differenza tra il CAGR del portafoglio e quello del benchmark "
+        "divisa per il tracking error.",
+    ),
+    "adr.def_capture": (
+        "Up / down capture: average portfolio return in periods of positive (negative) "
+        "benchmark return divided by the average benchmark return in those periods; monthly "
+        "data with at least twelve months, otherwise daily.",
+        "Up / down capture: rendimento medio del portafoglio nei periodi di rendimento "
+        "positivo (negativo) del benchmark diviso per il rendimento medio del benchmark negli "
+        "stessi periodi; dati mensili con almeno dodici mesi, altrimenti giornalieri.",
+    ),
+    "adr.def_hhi": (
+        "HHI: sum of squared capital weights; effective number of positions = 1 / HHI.",
+        "HHI: somma dei quadrati dei pesi sul capitale; numero effettivo di posizioni = 1 / HHI.",
+    ),
+    "adr.def_risk": (
+        "Risk contribution: weight × covariance of the position with the portfolio, divided "
+        "by portfolio variance; contributions sum to 100%.",
+        "Contributo al rischio: peso × covarianza della posizione con il portafoglio, diviso "
+        "per la varianza del portafoglio; i contributi sommano al 100%.",
+    ),
+    "adr.def_episodes": (
+        "Drawdown episode: from a running peak to the lowest point before the peak is regained; "
+        "durations in calendar days.",
+        "Episodio di drawdown: da un massimo al punto più basso prima che il massimo venga "
+        "recuperato; durate in giorni di calendario.",
+    ),
+    "adr.def_scenarios": (
+        "Historical 12-month outcomes: returns of all overlapping 252-trading-day windows with "
+        "today's weights; percentiles of that distribution.",
+        "Esiti storici a 12 mesi: rendimenti di tutte le finestre sovrapposte di 252 giorni di "
+        "borsa con i pesi di oggi; percentili di quella distribuzione.",
+    ),
+    "ov.pdf_advisor": ("Portfolio review (PDF)", "Revisione di portafoglio (PDF)"),
+    "ov.pdf_client": ("Client report (PDF)", "Report per il cliente (PDF)"),
+    "ov.reports_note": (
+        "Portfolio review: working document for the advisor, with suitability context and "
+        "Monte Carlo methodology. Client report: four pages for the client. The heading is "
+        "printed only on the PDFs downloaded now, kept in this browser session and never "
+        "saved in the database.",
+        "Revisione di portafoglio: documento di lavoro per il consulente, con contesto di "
+        "adeguatezza e metodologia Monte Carlo. Report per il cliente: quattro pagine per il "
+        "cliente. L'intestazione compare solo sui PDF scaricati ora, resta in questa sessione "
+        "del browser e non viene mai salvata nel database.",
     ),
 }

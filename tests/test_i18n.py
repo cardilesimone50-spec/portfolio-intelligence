@@ -33,8 +33,8 @@ def test_missing_key_returns_key():
 
 
 def test_t_in_formats_placeholders():
-    assert t_in("it", "pdf.page", n=2) == "Pagina 2 di 3"
-    assert t_in("en", "pdf.page", n=2) == "Page 2 of 3"
+    assert t_in("it", "rep.page", n=2, total=4) == "Pagina 2 di 4"
+    assert t_in("en", "rep.page", n=2, total=4) == "Page 2 of 4"
 
 
 # ------------------------------------------------ copertura del catalogo
@@ -46,7 +46,8 @@ def _keys_used_in_code() -> set[str]:
 
     root = Path(__file__).resolve().parents[1]
     files = [*root.glob("portfolio_intelligence/**/*.py"), *root.glob("app*.py")]
-    pattern = re.compile(r"\bt\(\s*[\"']([a-z_]+\.[a-z0-9_]+)[\"']")
+    # t("k"), T("k") e r.T("k") nei report, t_in(lang, "k") nei moduli puri
+    pattern = re.compile(r"(?:\b[tT]\(|\bt_in\(\s*\w+\s*,)\s*[\"']([a-z_]+\.[a-z0-9_]+)[\"']")
     return {key for f in files for key in pattern.findall(f.read_text(encoding="utf-8"))}
 
 

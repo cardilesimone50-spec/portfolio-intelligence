@@ -51,8 +51,13 @@ def _inputs(ctx: ViewContext) -> tuple[pd.DataFrame, tuple[tuple[str, float], ..
     return returns, weights
 
 
-def report_projection(ctx: ViewContext) -> list[dict] | None:
-    """Scenari p10/p50/p90 a 1, 3 e 5 anni per il PDF (bootstrap, 1000 simulazioni)."""
+def report_projection(ctx: ViewContext) -> dict | None:
+    """Proiezione per il PDF: bootstrap, 1000 simulazioni, 5 anni.
+
+    Restituisce scenari p10/p50/p90 a 1, 3 e 5 anni ("rows"), i percentili mese
+    per mese per il ventaglio ("paths"), i tassi annui impliciti, la quota di
+    simulazioni in perdita e i parametri del metodo, da dichiarare nel report.
+    """
     if ctx.computed is None or not ctx.portfolio or ctx.total <= 0:
         return None
     returns, weights = _inputs(ctx)
@@ -60,7 +65,15 @@ def report_projection(ctx: ViewContext) -> list[dict] | None:
         result = cached_simulation(returns, weights, float(ctx.total), 5, 1000, "bootstrap")
     except ValueError:
         return None
-    return scenario_table(result)
+    return {
+        "rows": scenario_table(result),
+        "paths": result.paths,
+        "cagr": {f"p{p}": result.cagr(p) for p in (10, 50, 90)},
+        "prob_loss": result.prob_loss,
+        "method": result.method,
+        "n": result.n_simulations,
+        "horizon": result.horizon_years,
+    }
 
 
 def _kpi(label: str, value: str, sub: str) -> str:

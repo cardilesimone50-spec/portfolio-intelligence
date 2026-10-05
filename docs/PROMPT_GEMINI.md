@@ -21,7 +21,7 @@ Python con **Streamlit**. Ha due aree con interfacce diverse:
   composizione del portafoglio (manuale, import CSV/Excel del broker, portafoglio
   dimostrativo) → caricamento con avanzamento reale → piattaforma con Check-up
   (Health Score 0-100 su 6 componenti), Analisi (metriche, grafici), Mercato
-  (Nasdaq-100, correlazioni, fondamentali) e report PDF di 3 pagine.
+  (Nasdaq-100, correlazioni, fondamentali) e report PDF di 4 pagine (versione Investor).
 - **Advisor** (consulenti, login OIDC, dati salvati e isolati per consulente):
   spazio di lavoro con navigazione a sinistra → **Clienti** (book con KPI e una
   riga per cliente, prima chi va rivisto) → **Nuovo cliente** (codice cliente,
@@ -65,10 +65,12 @@ portfolio_intelligence/
                        cliente: indicatori, controlli di monitoraggio), advisor_welcome (login), checkup,
                        metrics, visual, optimize, backtest, options_overlay, monte_carlo,
                        market, correlations, fundamentals, clients (analisi rapida book), admin
-  visualization/       charts (Altair), monte_carlo_charts (fan chart), pdf_report
+  visualization/       charts (Altair), monte_carlo_charts (fan chart), pdf_common (stili,
+                       grafici vettoriali, ReportInput), pdf_report (report Investor, 4 pagine),
+                       pdf_advisor (revisione di portafoglio Advisor, 11 sezioni)
 migrations/            Alembic (initial_schema, client_risk_profile)
 docs/                  ENTERPRISE.md, COMPLIANCE_AUDIT.md, legal/*.md (privacy, termini, cookie, note legali)
-tests/                 371 test (pytest), senza rete
+tests/                 390+ test (pytest), senza rete
 ```
 
 ## 4. Fonti dati (scelte per costo e licenza)
@@ -147,7 +149,10 @@ venv/bin/python -P -m pytest -q        # -P = come la CI (pytest senza cwd nel p
 - I test **non devono fare chiamate di rete**: mocka requests/yfinance/SEC/BCE.
 - Per le viste usa `streamlit.testing.v1.AppTest` con `DATABASE_URL` su un DB
   temporaneo e i fetch monkeypatchati (vedi `tests/test_advisor_workspace.py`).
-- Il PDF deve restare di **3 pagine** (test esistenti).
+- Report PDF: stessi numeri per le due versioni, da `analytics/report_metrics.py`
+  (calcoli) e `analytics/report_narrative.py` (testi da regole). Investor: sempre
+  **4 pagine**, nessuna proiezione Monte Carlo se generato dall'area Investor.
+  Advisor: revisione a scorrimento con metodologia Monte Carlo dichiarata.
 - Avvio locale: `streamlit run app.py` (scelta profilo), `app_investor.py`,
   `app_advisor.py`. Per provare l'Advisor senza login: `REQUIRE_AUTH=false` e un
   file secrets vuoto (`--secrets.files`), su un `DATABASE_URL` temporaneo.

@@ -1,1172 +1,574 @@
-"""Report PDF di 3 pagine in stile consulente (reportlab, solo vettoriale).
+"""Report Investor: quattro pagine di qualità istituzionale, leggibili da un investitore informato.
 
-Pagina 1 — Executive summary: KPI, sintesi, capitale vs benchmark, posizioni.
-Pagina 2 — Analisi scientifica: metriche con lettura, drawdown, mesi, health.
-Pagina 3 — Diversificazione, stress test, raccomandazioni, metodologia.
+Pagina 1 — Panoramica: cruscotto di indicatori, punteggio composito
+           proprietario, verifica del profilo, sintesi, performance in base 100.
+Pagina 2 — Performance e benchmark: assoluta, relativa, corretta per il
+           rischio; caratteristiche di recupero; drawdown e mesi.
+Pagina 3 — Composizione e rischio: posizioni con peso sul capitale e
+           contributo al rischio, concentrazione, settori, matrice dei rischi.
+Pagina 4 — Stress test, scenari storici (e proiezione Monte Carlo solo nella
+           copia predisposta dal consulente), punti di attenzione, metodologia.
 
-Impaginazione coerente col brand dell'app: wordmark, accento blu,
-etichette small-caps, footer con disclaimer e numero di pagina.
+Gli stessi numeri del report Advisor (visualization/pdf_advisor.py), da
+analytics/report_metrics.py: cambia solo la profondità della presentazione.
+Ogni pagina è racchiusa in un KeepInFrame: se il contenuto eccede si
+restringe, così il documento resta sempre di quattro pagine.
 """
 
-import hashlib
 from datetime import datetime
-from io import BytesIO
 
-import pandas as pd
-from reportlab.graphics.shapes import Drawing, Line, Polygon, PolyLine, Rect, String
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import (
-    HRFlowable,
-    KeepInFrame,
-    PageBreak,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
+from reportlab.platypus import HRFlowable, KeepInFrame, PageBreak, Paragraph, Spacer
+
+from portfolio_intelligence.analytics.report_metrics import finite, rebased
+from portfolio_intelligence.analytics.report_narrative import (
+    performance_blocks,
+    recovery_text,
+    risk_matrix,
+)
+from portfolio_intelligence.formatting import fmt_date, fmt_num, fmt_pp, missing
+from portfolio_intelligence.i18n import t_in
+from portfolio_intelligence.visualization.pdf_common import (
+    ACCENT,
+    CONTENT_W,
+    FRAME_H,
+    GREEN,
+    HALF_W,
+    INK,
+    LEVEL_COLORS,
+    MUTED,
+    RED,
+    ReportInput,
+    bar_list_chart,
+    callout,
+    clean,
+    data_table,
+    kpi_grid,
+    line_chart,
+    monthly_chart,
+    page_header,
+    render_pdf,
+    report_reference,
+    score_bars,
+    score_color,
+    section,
+    side_by_side,
+    styles,
+    underwater_chart,
+    weight_risk_chart,
 )
 
-from portfolio_intelligence.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD
-from portfolio_intelligence.i18n import t_in
-
-_ACCENT = colors.HexColor("#1E40AF")
-_INK = colors.HexColor("#14171e")
-_MUTED = colors.HexColor("#6b7280")
-_ROW = colors.HexColor("#f7f8fa")
-_GREEN = colors.HexColor("#0e9f6e")
-_AMBER = colors.HexColor("#d97706")
-_RED = colors.HexColor("#dc2626")
-_LINE = colors.HexColor("#e5e7eb")
-_ACCENT_SOFT = colors.Color(30 / 255, 64 / 255, 175 / 255, alpha=0.35)
-_RED_SOFT = colors.Color(220 / 255, 38 / 255, 38 / 255, alpha=0.16)
-
-_CONTENT_W = 174 * mm  # A4 (210) meno i margini 18+18
-_FRAME_H = 254 * mm  # altezza utile per pagina: oltre si restringe, mai pagina 4
+PAGES = 4
+MAX_HOLDINGS_ROWS = 12
 
 
-def _clean(text: str) -> str:
-    """Toglie il markdown (**) e fa l'escape XML per i Paragraph."""
-    return text.replace("**", "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+def _tone(value: float | None):
+    if value is None or not finite(value):
+        return INK
+    return GREEN if value >= 0 else RED
 
 
-def _eur(value: float) -> str:
-    return f"{value:,.0f} €".replace(",", ".")
-
-
-def _thin(series: pd.Series, max_points: int = 240) -> pd.Series:
-    """Sottocampiona la serie per il grafico (il PDF resta leggero)."""
-    valid = series.dropna()
-    if len(valid) <= max_points:
-        return valid
-    step = max(1, len(valid) // max_points)
-    thinned = valid.iloc[::step]
-    return (
-        thinned if thinned.index[-1] == valid.index[-1] else pd.concat([thinned, valid.iloc[[-1]]])
+def dashboard_cells(r: ReportInput) -> tuple[list[tuple[str, str, str]], dict[int, object]]:
+    """Le sedici celle della panoramica e i colori dei valori con segno."""
+    m, T, lang = r.metrics, r.T, r.lang
+    na = missing(lang)
+    has_cost = (
+        r.invested is not None and finite(r.invested) and r.pnl is not None and finite(r.pnl)
     )
-
-
-def _date_label(value) -> str:
-    try:
-        return pd.Timestamp(value).strftime("%d/%m/%Y")
-    except (TypeError, ValueError):
-        return str(value)
-
-
-def _footer(canvas, doc, report_id: str, lang: str = "en") -> None:
-    """Footer legale su ogni pagina: fonte, ID documento, avvertenze obbligatorie."""
-    canvas.saveState()
-    width, _ = A4
-    canvas.setStrokeColor(_LINE)
-    canvas.setLineWidth(0.5)
-    canvas.line(18 * mm, 14.5 * mm, width - 18 * mm, 14.5 * mm)
-    canvas.setFont("Helvetica", 6.5)
-    canvas.setFillColor(_MUTED)
-    canvas.drawString(18 * mm, 11 * mm, t_in(lang, "pdf.footer_line1", rid=report_id))
-    canvas.drawString(18 * mm, 7.5 * mm, t_in(lang, "pdf.footer_line2"))
-    canvas.drawRightString(width - 18 * mm, 11 * mm, t_in(lang, "pdf.page", n=doc.page))
-    canvas.restoreState()
-
-
-def _section(title: str) -> Table:
-    """Etichetta di sezione con barretta blu, come nell'app."""
-    bar = Table(
-        [["", title.upper()]],
-        colWidths=[1.2 * mm, _CONTENT_W - 1.2 * mm],
-        rowHeights=[5 * mm],
-    )
-    bar.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (0, 0), _ACCENT),
-                ("TEXTCOLOR", (1, 0), (1, 0), _MUTED),
-                ("FONTNAME", (1, 0), (1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (1, 0), (1, 0), 8),
-                ("LEFTPADDING", (1, 0), (1, 0), 6),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]
-        )
-    )
-    return bar
-
-
-# ---------------------------------------------------------------- grafici vettoriali
-
-
-def _axis_labels(low: float, high: float, steps: int = 4) -> list[float]:
-    if high <= low:
-        high = low + 1
-    return [low + (high - low) * i / steps for i in range(steps + 1)]
-
-
-def _equity_drawing(
-    pf_value: pd.Series,
-    bench_value: pd.Series | None,
-    invested: float,
-    benchmark: str,
-    width: float = _CONTENT_W,
-    height: float = 58 * mm,
-    label_portfolio: str = "Portfolio",
-    label_benchmark: str | None = None,
-) -> Drawing:
-    """Capitale nel tempo (€) contro il benchmark, linee vettoriali."""
-    drawing = Drawing(width, height)
-    pf = _thin(pf_value) * invested
-    bench = _thin(bench_value) * invested if bench_value is not None else None
-
-    left, right, bottom, top = 17 * mm, 2 * mm, 6 * mm, 6 * mm
-    plot_w, plot_h = width - left - right, height - bottom - top
-    lows = [float(pf.min())] + ([float(bench.min())] if bench is not None else [])
-    highs = [float(pf.max())] + ([float(bench.max())] if bench is not None else [])
-    low, high = min(lows), max(highs)
-    pad = (high - low) * 0.06 or high * 0.02 or 1
-    low, high = low - pad, high + pad
-
-    def y_at(value: float) -> float:
-        return bottom + (value - low) / (high - low) * plot_h
-
-    def points(series: pd.Series) -> list[float]:
-        n = len(series)
-        coords: list[float] = []
-        for i, value in enumerate(series.to_numpy(dtype=float)):
-            coords += [left + plot_w * i / max(1, n - 1), y_at(value)]
-        return coords
-
-    for level in _axis_labels(low, high):
-        y = y_at(level)
-        drawing.add(Line(left, y, left + plot_w, y, strokeColor=_LINE, strokeWidth=0.4))
-        drawing.add(
-            String(
-                left - 2 * mm,
-                y - 1,
-                _eur(level),
-                fontName="Helvetica",
-                fontSize=6.5,
-                fillColor=_MUTED,
-                textAnchor="end",
-            )
-        )
-    # linea del capitale investito (riferimento)
-    if low < invested < high:
-        drawing.add(
-            Line(
-                left,
-                y_at(invested),
-                left + plot_w,
-                y_at(invested),
-                strokeColor=_MUTED,
-                strokeWidth=0.6,
-                strokeDashArray=[1, 2],
-            )
-        )
-
-    if bench is not None and len(bench) >= 2:
-        drawing.add(
-            PolyLine(points(bench), strokeColor=_MUTED, strokeWidth=1.0, strokeDashArray=[3, 2])
-        )
-    if len(pf) >= 2:
-        drawing.add(PolyLine(points(pf), strokeColor=_ACCENT, strokeWidth=1.6))
-
-    drawing.add(
-        String(
-            left, 1, _date_label(pf.index[0]), fontName="Helvetica", fontSize=6.5, fillColor=_MUTED
-        )
-    )
-    drawing.add(
-        String(
-            left + plot_w,
-            1,
-            _date_label(pf.index[-1]),
-            fontName="Helvetica",
-            fontSize=6.5,
-            fillColor=_MUTED,
-            textAnchor="end",
-        )
-    )
-    # legenda in alto a sinistra
-    ly = height - 4 * mm
-    drawing.add(Rect(left + 2 * mm, ly, 4 * mm, 1.2 * mm, fillColor=_ACCENT, strokeColor=None))
-    drawing.add(
-        String(
-            left + 7 * mm,
-            ly - 1,
-            label_portfolio,
-            fontName="Helvetica",
-            fontSize=6.5,
-            fillColor=_INK,
-        )
-    )
-    if bench is not None:
-        drawing.add(Rect(left + 24 * mm, ly, 4 * mm, 1.2 * mm, fillColor=_MUTED, strokeColor=None))
-        drawing.add(
-            String(
-                left + 29 * mm,
-                ly - 1,
-                label_benchmark or f"{benchmark} benchmark",
-                fontName="Helvetica",
-                fontSize=6.5,
-                fillColor=_MUTED,
-            )
-        )
-    return drawing
-
-
-def _underwater_drawing(
-    pf_value: pd.Series,
-    width: float = 84 * mm,
-    height: float = 40 * mm,
-    trough_label: str | None = None,
-) -> Drawing:
-    """Distanza dal massimo precedente (underwater plot), area rossa."""
-    drawing = Drawing(width, height)
-    valid = _thin(pf_value)
-    dd = valid / valid.cummax() - 1
-
-    left, bottom, top = 11 * mm, 5 * mm, 3 * mm
-    plot_w, plot_h = width - left - 2 * mm, height - bottom - top
-    low = min(float(dd.min()), -0.01) * 1.08
-
-    def y_at(value: float) -> float:
-        return bottom + plot_h * (1 - value / low)
-
-    n = len(dd)
-    xs = [left + plot_w * i / max(1, n - 1) for i in range(n)]
-    top_y = y_at(0)
-    poly = [xs[0], top_y]
-    for x, value in zip(xs, dd.to_numpy(dtype=float), strict=True):
-        poly += [x, y_at(value)]
-    poly += [xs[-1], top_y]
-    drawing.add(Polygon(poly, fillColor=_RED_SOFT, strokeColor=None))
-    line_pts: list[float] = []
-    for x, value in zip(xs, dd.to_numpy(dtype=float), strict=True):
-        line_pts += [x, y_at(value)]
-    drawing.add(PolyLine(line_pts, strokeColor=_RED, strokeWidth=0.9))
-    drawing.add(Line(left, top_y, left + plot_w, top_y, strokeColor=_LINE, strokeWidth=0.5))
-
-    for level in (0.0, low / 2, low):
-        drawing.add(
-            String(
-                left - 1.5 * mm,
-                y_at(level) - 1,
-                f"{level:.0%}",
-                fontName="Helvetica",
-                fontSize=6,
-                fillColor=_MUTED,
-                textAnchor="end",
-            )
-        )
-    trough = dd.idxmin()
-    text = trough_label or f"trough {dd.min():.1%} on {_date_label(trough)}"
-    drawing.add(
-        String(
-            left + plot_w,
-            1,
-            text,
-            fontName="Helvetica",
-            fontSize=6,
-            fillColor=_MUTED,
-            textAnchor="end",
-        )
-    )
-    return drawing
-
-
-def _monthly_drawing(
-    monthly: pd.Series, width: float = 84 * mm, height: float = 40 * mm
-) -> Drawing:
-    """Barre dei rendimenti mensili, verde/rosso secondo il segno."""
-    drawing = Drawing(width, height)
-    valid = monthly.dropna()
-    left, bottom, top = 4 * mm, 6 * mm, 4 * mm
-    plot_w, plot_h = width - left - 2 * mm, height - bottom - top
-    biggest = max(abs(float(valid.max())), abs(float(valid.min())), 0.01)
-    zero_y = bottom + plot_h / 2
-    scale = (plot_h / 2 - 1) / biggest
-
-    n = len(valid)
-    slot = plot_w / max(1, n)
-    bar_w = slot * 0.62
-    drawing.add(Line(left, zero_y, left + plot_w, zero_y, strokeColor=_LINE, strokeWidth=0.5))
-    for i, (label, value) in enumerate(valid.items()):
-        x = left + slot * i + (slot - bar_w) / 2
-        h = float(value) * scale
-        color = _GREEN if value >= 0 else _RED
-        drawing.add(Rect(x, zero_y + min(0, h), bar_w, abs(h), fillColor=color, strokeColor=None))
-        value_y = zero_y + h + (1.5 * mm if value >= 0 else -3 * mm)
-        drawing.add(
-            String(
-                x + bar_w / 2,
-                value_y,
-                f"{value:+.0%}",
-                fontName="Helvetica",
-                fontSize=5.5,
-                fillColor=_MUTED,
-                textAnchor="middle",
-            )
-        )
-        month = pd.Timestamp(label).strftime("%b") if not isinstance(label, str) else str(label)
-        drawing.add(
-            String(
-                x + bar_w / 2,
-                1,
-                month,
-                fontName="Helvetica",
-                fontSize=5.5,
-                fillColor=_MUTED,
-                textAnchor="middle",
-            )
-        )
-    return drawing
-
-
-def _weight_risk_drawing(
-    weights: pd.Series,
-    contributions: pd.Series,
-    width: float = _CONTENT_W,
-    max_rows: int = 8,
-    legend_weight: str = "capital weight",
-    legend_risk: str = "share of portfolio risk",
-) -> Drawing:
-    """Peso a confronto col contributo al rischio, coppie di barre orizzontali."""
-    top_weights = weights.sort_values(ascending=False).head(max_rows)
-    row_h, legend_h = 8 * mm, 6 * mm
-    height = row_h * len(top_weights) + legend_h
-    drawing = Drawing(width, height)
-    left = 14 * mm
-    plot_w = width - left - 14 * mm
-    biggest = max(
-        float(top_weights.max()), float(contributions.max()) if len(contributions) else 0
-    )
-
-    for i, (ticker, weight) in enumerate(top_weights.items()):
-        base_y = height - legend_h - row_h * (i + 1)
-        risk = float(contributions.get(ticker, float("nan")))
-        drawing.add(
-            String(
-                left - 2 * mm,
-                base_y + 2.6 * mm,
-                str(ticker),
-                fontName="Helvetica-Bold",
-                fontSize=7.5,
-                fillColor=_INK,
-                textAnchor="end",
-            )
-        )
-        w_len = plot_w * float(weight) / biggest
-        drawing.add(
-            Rect(left, base_y + 4 * mm, w_len, 2.4 * mm, fillColor=_ACCENT_SOFT, strokeColor=None)
-        )
-        drawing.add(
-            String(
-                left + w_len + 1.5 * mm,
-                base_y + 4.4 * mm,
-                f"{weight:.1%}",
-                fontName="Helvetica",
-                fontSize=6,
-                fillColor=_MUTED,
-            )
-        )
-        if risk == risk:
-            r_len = plot_w * risk / biggest
-            drawing.add(
-                Rect(left, base_y + 1 * mm, r_len, 2.4 * mm, fillColor=_ACCENT, strokeColor=None)
-            )
-            drawing.add(
-                String(
-                    left + r_len + 1.5 * mm,
-                    base_y + 1.4 * mm,
-                    f"{risk:.1%}",
-                    fontName="Helvetica",
-                    fontSize=6,
-                    fillColor=_MUTED,
-                )
-            )
-
-    ly = height - 4 * mm
-    drawing.add(Rect(left, ly, 4 * mm, 2 * mm, fillColor=_ACCENT_SOFT, strokeColor=None))
-    drawing.add(
-        String(
-            left + 5 * mm, ly, legend_weight, fontName="Helvetica", fontSize=6.5, fillColor=_MUTED
-        )
-    )
-    drawing.add(Rect(left + 30 * mm, ly, 4 * mm, 2 * mm, fillColor=_ACCENT, strokeColor=None))
-    drawing.add(
-        String(
-            left + 35 * mm, ly, legend_risk, fontName="Helvetica", fontSize=6.5, fillColor=_MUTED
-        )
-    )
-    return drawing
-
-
-def _sector_drawing(
-    sector_weights: pd.Series,
-    width: float = 84 * mm,
-    max_rows: int = 7,
-    other_label: str = "Other sectors",
-) -> Drawing:
-    """Allocazione per settore, barre orizzontali ordinate per peso."""
-    top = sector_weights.sort_values(ascending=False).head(max_rows)
-    other = float(sector_weights.sum() - top.sum())
-    if other > 0.001:
-        top = pd.concat([top, pd.Series({other_label: other})])
-    row_h = 7 * mm
-    height = row_h * len(top)
-    drawing = Drawing(width, height)
-    left = 34 * mm
-    plot_w = width - left - 12 * mm
-    biggest = max(float(top.max()), 0.01)
-    for i, (sector, weight) in enumerate(top.items()):
-        base_y = height - row_h * (i + 1) + 2 * mm
-        drawing.add(
-            String(
-                left - 2 * mm,
-                base_y + 0.4 * mm,
-                str(sector)[:24],
-                fontName="Helvetica",
-                fontSize=7,
-                fillColor=_MUTED,
-                textAnchor="end",
-            )
-        )
-        drawing.add(
-            Rect(
-                left,
-                base_y,
-                plot_w * float(weight) / biggest,
-                2.8 * mm,
-                fillColor=_ACCENT if i == 0 else _ACCENT_SOFT,
-                strokeColor=None,
-            )
-        )
-        drawing.add(
-            String(
-                left + plot_w * float(weight) / biggest + 1.5 * mm,
-                base_y + 0.4 * mm,
-                f"{weight:.0%}",
-                fontName="Helvetica-Bold",
-                fontSize=6.5,
-                fillColor=_INK,
-            )
-        )
-    return drawing
-
-
-def _breakdown_drawing(breakdown: dict[str, float], width: float = _CONTENT_W) -> Drawing:
-    """Le sei componenti dell'Health Score come barre 0-100."""
-    row_h = 6.5 * mm
-    height = row_h * len(breakdown)
-    drawing = Drawing(width, height)
-    left = 42 * mm
-    plot_w = width - left - 14 * mm
-    for i, (label, score) in enumerate(breakdown.items()):
-        base_y = height - row_h * (i + 1) + 1.5 * mm
-        color = (
-            _GREEN
-            if score >= HEALTH_SCORE_GOOD
-            else _AMBER
-            if score >= HEALTH_SCORE_FAIR
-            else _RED
-        )
-        drawing.add(
-            String(
-                left - 2 * mm,
-                base_y + 0.6 * mm,
-                str(label),
-                fontName="Helvetica",
-                fontSize=7.5,
-                fillColor=_MUTED,
-                textAnchor="end",
-            )
-        )
-        drawing.add(
-            Rect(
-                left, base_y, plot_w, 2.6 * mm, fillColor=_ROW, strokeColor=_LINE, strokeWidth=0.3
-            )
-        )
-        drawing.add(
-            Rect(
-                left,
-                base_y,
-                plot_w * min(100, max(0, score)) / 100,
-                2.6 * mm,
-                fillColor=color,
-                strokeColor=None,
-            )
-        )
-        drawing.add(
-            String(
-                left + plot_w + 2 * mm,
-                base_y + 0.4 * mm,
-                f"{score:.0f}",
-                fontName="Helvetica-Bold",
-                fontSize=7.5,
-                fillColor=_INK,
-            )
-        )
-    return drawing
-
-
-# ---------------------------------------------------------------- report
-
-
-def build_report(
-    portfolio_name: str,
-    positions: dict[str, float],
-    period: str,
-    cum_return: float,
-    health_score: int,
-    metric_rows: list[tuple],
-    insights: list[str],
-    suggestions: list[str],
-    names: dict[str, str] | None = None,
-    *,
-    advisor: str | None = None,
-    recipient: str | None = None,
-    projection: list[dict] | None = None,
-    risk_profile: str | None = None,
-    benchmark: str = "QQQ",
-    currency_note: str | None = None,
-    executive: str | None = None,
-    suitability: dict | None = None,
-    annual_return: float | None = None,
-    pf_value: pd.Series | None = None,
-    bench_value: pd.Series | None = None,
-    monthly: pd.Series | None = None,
-    contributions: pd.Series | None = None,
-    breakdown: dict[str, float] | None = None,
-    per_ticker_returns: pd.Series | None = None,
-    sector_weights: pd.Series | None = None,
-    scenario: dict | None = None,
-    coverage_notes: list[str] | None = None,
-    risk_free: float | None = None,
-    invested: float | None = None,
-    pnl: float | None = None,
-    pnl_pct: float | None = None,
-    per_ticker_pnl: pd.Series | None = None,
-    lang: str = "en",
-) -> bytes:
-    """Costruisce il PDF di 3 pagine e lo restituisce come bytes.
-
-    I dati opzionali arricchiscono grafici e sezioni; se mancano, la relativa
-    sezione mostra una nota invece di rompere il layout (sempre 3 pagine).
-    Le righe di `metric_rows` sono (metrica, portafoglio, lettura) oppure
-    (metrica, portafoglio, benchmark, lettura) per il confronto col mercato.
-    `scenario` = {"label": str, "direct": float, "total": float} (frazioni).
-    `suitability` = {"ok": bool, "text": str} — esito del check di adeguatezza.
-    """
-
-    def T(key: str, **kwargs) -> str:
-        return t_in(lang, key, **kwargs)
-
-    def comp_name(name: str) -> str:
-        translated = t_in(lang, f"comp.{name}")
-        return name if translated.startswith("comp.") else translated
-
-    if currency_note is None:
-        currency_note = T("pdf.currency_eur")
-
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=18 * mm,
-        rightMargin=18 * mm,
-        topMargin=14 * mm,
-        bottomMargin=20 * mm,
-        title=T("pdf.doc_title"),
-    )
-    styles = getSampleStyleSheet()
-    wordmark = ParagraphStyle(
-        "wordmark",
-        parent=styles["Normal"],
-        fontSize=9,
-        textColor=_MUTED,
-        fontName="Helvetica-Bold",
-    )
-    h1 = ParagraphStyle(
-        "h1",
-        parent=styles["Title"],
-        fontSize=23,
-        alignment=0,
-        textColor=_INK,
-        spaceBefore=6,
-        spaceAfter=0,
-        leading=27,
-    )
-    h2 = ParagraphStyle(
-        "h2",
-        parent=styles["Heading2"],
-        fontSize=14,
-        textColor=_INK,
-        spaceBefore=2,
-        spaceAfter=2,
-        fontName="Helvetica-Bold",
-    )
-    subtitle = ParagraphStyle(
-        "sub", parent=styles["Normal"], fontSize=9.5, textColor=_MUTED, spaceAfter=10, leading=13
-    )
-    body = ParagraphStyle(
-        "body", parent=styles["Normal"], fontSize=9.5, leading=14, textColor=_INK
-    )
-    small = ParagraphStyle(
-        "small", parent=styles["Normal"], fontSize=8, leading=11.5, textColor=_MUTED
-    )
-    reading = ParagraphStyle(
-        "reading", parent=styles["Normal"], fontSize=8, leading=10.5, textColor=_MUTED
-    )
-    caption = ParagraphStyle(
-        "caption",
-        parent=styles["Normal"],
-        fontSize=7.5,
-        leading=10,
-        textColor=_MUTED,
-        spaceBefore=2,
-    )
-
-    total = sum(positions.values())
-    now = datetime.now().strftime("%d/%m/%Y %H:%M")
-    # identificativo documento per riferimento e tracciabilità nelle revisioni
-    report_id = (
-        hashlib.sha1(f"{portfolio_name}|{advisor or ''}|{now}".encode()).hexdigest()[:8].upper()
-    )
-    names = names or {}
-    weights = pd.Series(positions, dtype=float) / total if total else pd.Series(dtype=float)
-    health_color = (
-        _GREEN
-        if health_score >= HEALTH_SCORE_GOOD
-        else _AMBER
-        if health_score >= HEALTH_SCORE_FAIR
-        else _RED
-    )
-    return_color = _GREEN if cum_return >= 0 else _RED
-
-    def page_header(topic: str) -> list:
-        return [
-            Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", wordmark),
-            HRFlowable(width="100%", thickness=1, color=_ACCENT, spaceAfter=6),
-            Paragraph(topic, h2),
-            Paragraph(_clean(f"{portfolio_name} · {now}"), subtitle),
-        ]
-
-    def bullets(items: list[str], cap: int) -> list:
-        flow = []
-        for item in items[:cap]:
-            flow.append(Paragraph(f"–&nbsp;&nbsp;{_clean(item)}", body))
-            flow.append(Spacer(1, 3))
-        if not items:
-            flow.append(Paragraph(T("pdf.none_flagged"), small))
-        return flow
-
-    # ------------------------------------------------------------ pagina 1
-    meta_bits = [portfolio_name]
-    if advisor:
-        meta_bits.append(T("pdf.prepared_by", advisor=advisor))
-    if risk_profile and risk_profile != "Not set":
-        profile_label = t_in(lang, f"prof.{risk_profile}")
-        if profile_label.startswith("prof."):
-            profile_label = risk_profile
-        meta_bits.append(T("pdf.profile", profile=profile_label.lower()))
-    if pf_value is not None and len(pf_value.dropna()) >= 2:
-        window = pf_value.dropna().index
-        meta_bits.append(
-            T("pdf.window", start=_date_label(window[0]), end=_date_label(window[-1]))
-        )
-    meta_bits += [T("pdf.generated", now=now), f"Ref. {report_id}", currency_note]
-
-    page1: list = [
-        Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", wordmark),
-        HRFlowable(width="100%", thickness=2, color=_ACCENT, spaceAfter=10),
-        Paragraph(T("pdf.title"), h1),
-        *(
-            [Paragraph(_clean(T("pdf.prepared_for", recipient=recipient)), subtitle)]
-            if recipient
-            else []
+    cells = [
+        (T("inv.k_value"), r.eur(r.total), T("inv.k_value_note", n=len(r.positions))),
+        (
+            T("inv.k_invested"),
+            r.eur(r.invested) if has_cost else na,
+            T("inv.k_invested_note") if has_cost else T("inv.k_cost_unknown"),
         ),
-        Paragraph(_clean(" · ".join(meta_bits)), subtitle),
+        (
+            T("inv.k_pnl"),
+            r.eur(r.pnl, signed=True) if has_cost else na,
+            r.pct(r.pnl_pct, signed=True) if has_cost else T("inv.k_cost_unknown"),
+        ),
+        (
+            T("inv.k_total_return", period=r.period),
+            r.pct(m.cum_return, signed=True),
+            T("inv.k_window", start=fmt_date(m.start), end=fmt_date(m.end)),
+        ),
+        (
+            T("rpt.m_cagr"),
+            r.pct(m.cagr, signed=True),
+            T("inv.k_bench", benchmark=r.benchmark, value=r.pct(m.bench_cagr, signed=True)),
+        ),
+        (
+            T("rpt.m_vol"),
+            r.pct(m.vol),
+            T("inv.k_bench", benchmark=r.benchmark, value=r.pct(m.bench_vol)),
+        ),
+        (
+            T("rpt.m_maxdd"),
+            r.pct(m.max_dd),
+            T("inv.k_bench", benchmark=r.benchmark, value=r.pct(m.bench_max_dd)),
+        ),
+        (
+            T("rpt.m_sharpe"),
+            fmt_num(m.sharpe, lang),
+            T("inv.k_bench", benchmark=r.benchmark, value=fmt_num(m.bench_sharpe, lang)),
+        ),
+        (
+            T("rpt.m_sortino"),
+            fmt_num(m.sortino, lang),
+            T("inv.k_bench", benchmark=r.benchmark, value=fmt_num(m.bench_sortino, lang)),
+        ),
+        (
+            T("rpt.m_beta", benchmark=r.benchmark),
+            fmt_num(m.beta, lang),
+            T("inv.k_corr", corr=fmt_num(m.correlation, lang)),
+        ),
+        (T("rpt.m_alpha"), r.pct(m.alpha, signed=True), T("inv.k_alpha_note")),
+        (T("rpt.m_var"), r.pct(m.var95), r.eur(r.total * m.var95) if finite(m.var95) else na),
+        (T("rpt.m_es"), r.pct(m.es95), r.eur(r.total * m.es95) if finite(m.es95) else na),
+        (
+            T("inv.k_concentration"),
+            T("inv.k_hhi", hhi=fmt_num(m.hhi, lang)),
+            T(
+                "inv.k_concentration_note",
+                n=fmt_num(m.effective_n, lang, 1),
+                ticker=m.top_ticker,
+                weight=r.pct(m.top_weight, 0),
+            ),
+        ),
+        (
+            T("inv.k_bench_return"),
+            r.pct(m.bench_cum_return, signed=True),
+            T("inv.k_bench_note", benchmark=r.benchmark),
+        ),
+        (
+            T("inv.k_relative"),
+            fmt_pp(m.excess_return, lang),
+            T("inv.k_relative_note", benchmark=r.benchmark),
+        ),
     ]
+    colors_by_index = {
+        2: _tone(r.pnl if has_cost else None),
+        3: _tone(m.cum_return),
+        4: _tone(m.cagr),
+        10: _tone(m.alpha),
+        14: _tone(m.bench_cum_return),
+        15: _tone(m.excess_return),
+    }
+    return cells, colors_by_index
 
-    has_pnl = pnl is not None and pnl == pnl
-    gain_color = _GREEN if has_pnl and pnl is not None and pnl >= 0 else _RED
-    gain_value = "—"
-    gain_label = T("pdf.kpi_gain")
-    if has_pnl and pnl is not None:
-        gain_value = ("+" if pnl >= 0 else "") + _eur(pnl)
-        if pnl_pct is not None and pnl_pct == pnl_pct:
-            gain_label += f" ({pnl_pct:+.1%})"
-    kpi_labels = [
-        T("pdf.kpi_health"),
-        T("pdf.kpi_value"),
-        gain_label,
-        T("pdf.kpi_return", period=period.upper()),
-        T("pdf.kpi_cagr"),
-        T("pdf.kpi_invested"),
+
+def _page1(r: ReportInput, now: str, rid: str) -> list:
+    s, T = styles(), r.T
+    m = r.metrics
+    meta = [r.portfolio_name]
+    if r.advisor:
+        meta.append(T("pdf.prepared_by", advisor=r.advisor))
+    if r.profile_label:
+        meta.append(T("pdf.profile", profile=r.profile_label.lower()))
+    meta += [
+        T("pdf.window", start=fmt_date(m.start), end=fmt_date(m.end)),
+        T("pdf.generated", now=now),
+        f"Ref. {rid}",
+        T("pdf.currency_eur") if r.in_eur else T("pdf.currency_orig"),
     ]
-    kpi_values = [
-        f"{health_score}/100",
-        _eur(total),
-        gain_value,
-        f"{cum_return:+.1%}",
-        f"{annual_return:+.1%}" if annual_return is not None else "—",
-        _eur(invested) if invested is not None else _eur(total),
+    story: list = [
+        Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", s["wordmark"]),
+        HRFlowable(width="100%", thickness=2, color=ACCENT, spaceAfter=8),
+        Paragraph(T("inv.title"), s["h1"]),
     ]
-    kpi = Table([kpi_labels, kpi_values], colWidths=[_CONTENT_W / 6] * 6)
-    kpi.setStyle(
-        TableStyle(
-            [
-                ("TEXTCOLOR", (0, 0), (-1, 0), _MUTED),
-                ("FONTSIZE", (0, 0), (-1, 0), 6),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 1), (-1, 1), 11.5),
-                ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
-                ("TEXTCOLOR", (0, 1), (-1, 1), _INK),
-                ("TEXTCOLOR", (0, 1), (0, 1), health_color),
-                ("TEXTCOLOR", (2, 1), (2, 1), gain_color),
-                ("TEXTCOLOR", (3, 1), (3, 1), return_color),
-                ("TOPPADDING", (0, 1), (-1, 1), 5),
-                ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
-                ("LINEBELOW", (0, 1), (-1, 1), 0.5, _LINE),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ]
+    if r.recipient:
+        story.append(Paragraph(clean(T("pdf.prepared_for", recipient=r.recipient)), s["sub"]))
+    story += [Paragraph(clean(" · ".join(meta)), s["sub"]), Spacer(1, 2)]
+
+    story += [section(T("inv.s_overview")), Spacer(1, 4)]
+    cells, tones = dashboard_cells(r)
+    story += [kpi_grid(cells, cols=4, colors_by_index=tones), Spacer(1, 6)]
+
+    score = Paragraph(
+        T("inv.score_line", score=r.health)
+        + f" <font size=7 color='#5b6472'>{T('inv.score_caption')}</font>",
+        s["body"],
+    )
+    story += [callout([score], color=score_color(r.health)), Spacer(1, 5)]
+
+    if r.profile_band is not None and r.profile_label:
+        ok = finite(m.vol) and m.vol <= r.profile_band
+        check = Paragraph(
+            T(
+                "inv.profile_check",
+                status=T("pdf.within") if ok else T("pdf.outside"),
+                vol=r.pct(m.vol),
+                band=r.pct(r.profile_band, 0),
+                profile=r.profile_label.lower(),
+            )
+            + f" <font size=7 color='#5b6472'>{T('pdf.check_caveat')}</font>",
+            s["body"],
+        )
+        story += [callout([check], color=GREEN if ok else RED), Spacer(1, 5)]
+
+    story += [section(T("inv.s_summary")), Spacer(1, 4)]
+    story.append(Paragraph(clean(r.executive) if r.executive else T("pdf.no_summary"), s["body"]))
+    story.append(Spacer(1, 7))
+
+    story += [section(T("inv.s_growth", benchmark=r.benchmark)), Spacer(1, 4)]
+    series = [(T("pdf.portfolio_legend"), rebased(r.pf_value), ACCENT, False)]
+    if r.bench_value is not None:
+        series.append((r.benchmark, rebased(r.bench_value), MUTED, True))
+    story.append(
+        line_chart(series, lambda v: fmt_num(v, r.lang, 0), height=54 * mm, reference=100.0)
+    )
+    story.append(Paragraph(T("inv.growth_caption"), s["caption"]))
+    if r.coverage_notes:
+        story.append(
+            Paragraph(
+                T("pdf.coverage") + " · ".join(clean(note) for note in r.coverage_notes),
+                s["caption"],
+            )
+        )
+    return story
+
+
+def _page2(r: ReportInput, now: str) -> list:
+    s, T, m, lang = styles(), r.T, r.metrics, r.lang
+    story = page_header(r, T("inv.p2_title", benchmark=r.benchmark), now)
+    header = [T("pdf.h_metric"), T("pdf.h_portfolio"), r.benchmark, T("inv.h_difference")]
+    widths = [70 * mm, 34 * mm, 34 * mm, 36 * mm]
+    for title, rows in performance_blocks(m, r.benchmark, lang):
+        story += [section(title), Spacer(1, 3)]
+        story += [data_table([header, *[list(row) for row in rows]], widths), Spacer(1, 6)]
+    story.append(Paragraph(T("inv.alpha_caveat"), s["caption"]))
+    story.append(Spacer(1, 6))
+
+    story += [section(T("inv.s_recovery")), Spacer(1, 4)]
+    story.append(Paragraph(clean(recovery_text(m, lang)), s["body"]))
+    story.append(Spacer(1, 6))
+
+    left: list = [Paragraph(T("pdf.underwater_title").upper(), s["h3"])]
+    left.append(
+        underwater_chart(
+            r.pf_value,
+            note=T("pdf.trough", dd=r.pct(m.max_dd), date=fmt_date(m.episodes[0].trough))
+            if m.episodes
+            else "",
         )
     )
-    page1 += [kpi, Spacer(1, 10)]
-
-    page1 += [_section(T("pdf.exec_summary")), Spacer(1, 5)]
-    if executive:
-        page1.append(Paragraph(_clean(executive), body))
+    right: list = [Paragraph(T("pdf.monthly_title").upper(), s["h3"])]
+    if r.monthly is not None and len(r.monthly.dropna()) >= 2:
+        right.append(monthly_chart(r.monthly.tail(12), lang))
     else:
-        page1.append(Paragraph(T("pdf.no_summary"), small))
-    if suitability:
-        ok = bool(suitability.get("ok"))
-        box = Table(
-            [
-                [
-                    "",
-                    Paragraph(
-                        T(
-                            "pdf.check_text",
-                            status=T("pdf.within") if ok else T("pdf.outside"),
-                            text=_clean(suitability.get("text", "")),
-                        )
-                        + f"<font size=7 color='#6b7280'>{T('pdf.check_caveat')}</font>",
-                        body,
-                    ),
-                ]
-            ],
-            colWidths=[1.2 * mm, _CONTENT_W - 1.2 * mm],
-        )
-        box.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (0, 0), _GREEN if ok else _RED),
-                    ("BACKGROUND", (1, 0), (1, 0), _ROW),
-                    ("TOPPADDING", (1, 0), (1, 0), 4),
-                    ("BOTTOMPADDING", (1, 0), (1, 0), 4),
-                    ("LEFTPADDING", (1, 0), (1, 0), 6),
-                ]
-            )
-        )
-        page1 += [Spacer(1, 5), box]
-    page1.append(Spacer(1, 10))
+        right.append(Paragraph(T("pdf.no_history"), s["small"]))
+    story += [side_by_side(left, right), Spacer(1, 8)]
 
-    page1 += [_section(T("pdf.capital_section", period=period, benchmark=benchmark)), Spacer(1, 5)]
-    if pf_value is not None and len(pf_value.dropna()) >= 2:
-        page1.append(
-            _equity_drawing(
-                pf_value,
-                bench_value,
-                total,
-                benchmark,
-                label_portfolio=T("pdf.portfolio_legend"),
-                label_benchmark=T("pdf.benchmark_legend", benchmark=benchmark),
-            )
+    story += [section(T("inv.s_score")), Spacer(1, 4)]
+    comp = {_component(lang, k): v for k, v in r.breakdown.items()}
+    story.append(
+        side_by_side(
+            [score_bars(comp)],
+            [Paragraph(T("inv.score_components_text", score=r.health), s["small"])],
         )
-        page1.append(Paragraph(T("pdf.capital_caption", benchmark=benchmark), caption))
-    else:
-        page1.append(Paragraph(T("pdf.no_history"), small))
-    page1.append(Spacer(1, 10))
+    )
+    return story
 
-    page1 += [_section(T("pdf.holdings")), Spacer(1, 5)]
-    sorted_pos = sorted(positions.items(), key=lambda kv: -kv[1])
-    shown, rest = sorted_pos[:12], sorted_pos[12:]
-    rows = [
-        [
-            T("pdf.h_ticker"),
-            T("pdf.h_company"),
-            T("pdf.h_value"),
-            T("pdf.h_pnl"),
-            T("pdf.h_weight"),
-            T("pdf.h_return", period=period),
-            T("pdf.h_risk"),
-        ]
+
+def _component(lang: str, name: str) -> str:
+    translated = t_in(lang, f"comp.{name}")
+    return name if translated.startswith("comp.") else translated
+
+
+def holdings_table(r: ReportInput, with_sector: bool = False, max_rows: int = MAX_HOLDINGS_ROWS):
+    """Posizioni con peso sul capitale accanto al contributo al rischio.
+
+    I rapporti rischio/peso oltre la soglia sono in rosso grassetto; le celle
+    restano testo semplice, così righe e colonne numeriche restano allineate.
+    """
+    T, m = r.T, r.metrics
+    na = missing(r.lang)
+    header = [T("pdf.h_ticker"), T("pdf.h_company")]
+    if with_sector:
+        header.append(T("adr.h_sector"))
+    header += [
+        T("inv.h_value"),
+        T("inv.h_weight"),
+        T("inv.h_risk"),
+        T("inv.h_ratio"),
+        T("pdf.h_return", period=r.period),
+        T("pdf.h_pnl"),
     ]
+    first_num = 3 if with_sector else 2
+    ratio_col = first_num + 3
+    rows: list[list] = [header]
+    extra: list = []
+    ordered = sorted(r.positions.items(), key=lambda kv: -kv[1])
+    shown, rest = ordered[:max_rows], ordered[max_rows:]
     for ticker, amount in shown:
-        ret = per_ticker_returns.get(ticker) if per_ticker_returns is not None else None
-        risk = contributions.get(ticker) if contributions is not None else None
-        row_pnl = per_ticker_pnl.get(ticker) if per_ticker_pnl is not None else None
-        pnl_cell = "—"
-        if row_pnl is not None and row_pnl == row_pnl:
-            pnl_cell = ("+" if row_pnl >= 0 else "") + _eur(row_pnl)
-        rows.append(
-            [
-                ticker,
-                names.get(ticker, "")[:26],
-                _eur(amount),
-                pnl_cell,
-                f"{amount / total:.1%}",
-                f"{ret:+.1%}" if ret is not None and ret == ret else "—",
-                f"{risk:.1%}" if risk is not None and risk == risk else "—",
+        weight = amount / r.total if r.total else float("nan")
+        risk = float(m.risk.get(ticker, float("nan")))
+        ratio = risk / weight if finite(risk) and weight else float("nan")
+        ret = r.per_ticker_returns.get(ticker) if r.per_ticker_returns is not None else None
+        pnl = r.per_ticker_pnl.get(ticker) if r.per_ticker_pnl is not None else None
+        row = [ticker, r.names.get(ticker, "")[: 24 if with_sector else 30]]
+        if with_sector:
+            row.append(str(r.sector_of.get(ticker, ""))[:18])
+        row += [
+            r.eur(amount),
+            r.pct(weight),
+            r.pct(risk),
+            f"{fmt_num(ratio, r.lang, 2)}×" if finite(ratio) else na,
+            r.pct(ret, signed=True) if ret is not None else na,
+            r.eur(pnl, signed=True) if pnl is not None and finite(pnl) else na,
+        ]
+        rows.append(row)
+        if ticker in m.risk_over_weight:
+            n = len(rows) - 1
+            extra += [
+                ("TEXTCOLOR", (ratio_col, n), (ratio_col, n), RED),
+                ("FONTNAME", (ratio_col, n), (ratio_col, n), "Helvetica-Bold"),
             ]
-        )
     if rest:
         rest_total = sum(amount for _, amount in rest)
+        filler = [""] * (len(header) - first_num - 2)
+        rows.append(
+            [f"+{len(rest)}", T("pdf.other_holdings")]
+            + ([""] if with_sector else [])
+            + [r.eur(rest_total), r.pct(rest_total / r.total), *filler]
+        )
+    names_muted = [
+        ("TEXTCOLOR", (1, 1), (first_num - 1, -1), MUTED),
+        ("FONTSIZE", (1, 1), (first_num - 1, -1), 7.2),
+    ]
+    if with_sector:
+        widths = [14 * mm, 33 * mm, 25 * mm, 20 * mm, 14 * mm, 14 * mm, 14 * mm, 20 * mm, 20 * mm]
+    else:
+        widths = [15 * mm, 41 * mm, 23 * mm, 17 * mm, 17 * mm, 17 * mm, 22 * mm, 22 * mm]
+    return data_table(
+        rows,
+        widths,
+        right_from=first_num,
+        bold_first_col=True,
+        font_size=7.4 if with_sector else 7.8,
+        extra=names_muted + extra,
+    )
+
+
+def _page3(r: ReportInput, now: str) -> list:
+    s, T, m, lang = styles(), r.T, r.metrics, r.lang
+    story = page_header(r, T("inv.p3_title"), now)
+    story += [section(T("inv.s_holdings")), Spacer(1, 3)]
+    story.append(holdings_table(r))
+    story.append(Paragraph(T("inv.holdings_caption"), s["caption"]))
+    story.append(Spacer(1, 6))
+
+    strip = [
+        (T("pdf.c_holdings"), str(len(r.positions)), ""),
+        (T("pdf.c_effective"), fmt_num(m.effective_n, lang, 1), T("inv.eff_note")),
+        (T("pdf.c_hhi"), fmt_num(m.hhi, lang), ""),
+        (T("inv.c_top3"), r.pct(m.top3_weight, 0), ""),
+        (T("rpt.m_usd"), r.pct(m.usd_weight, 0), ""),
+        (T("inv.c_sector"), r.pct(m.top_sector_weight, 0), m.top_sector),
+    ]
+    story += [kpi_grid(strip, cols=6), Spacer(1, 6)]
+
+    left = [
+        Paragraph(T("pdf.wr_title").upper(), s["h3"]),
+        weight_risk_chart(
+            m.weights,
+            m.risk,
+            lang,
+            T("pdf.legend_weight"),
+            T("pdf.legend_risk"),
+            width=HALF_W,
+            max_rows=6,
+        ),
+    ]
+    right = [
+        Paragraph(T("pdf.sector_title").upper(), s["h3"]),
+        bar_list_chart(m.sector_weights, lang, other_label=T("pdf.other_sectors")),
+        Paragraph(T("inv.sector_caption"), s["caption"]),
+    ]
+    story += [side_by_side(left, right), Spacer(1, 6)]
+
+    story += [section(T("inv.s_risk")), Spacer(1, 3)]
+    story.append(_risk_table(r))
+    story.append(Paragraph(T("inv.risk_caption"), s["caption"]))
+    return story
+
+
+def _risk_table(r: ReportInput):
+    s, T = styles(), r.T
+    rows: list[list] = [
+        [T("inv.h_category"), T("inv.h_measure"), T("inv.h_level"), T("inv.h_evidence")]
+    ]
+    for row in risk_matrix(r.metrics, r.in_eur, r.benchmark, r.lang):
+        color = LEVEL_COLORS.get(row["level"], INK).hexval()[2:]
         rows.append(
             [
-                f"+{len(rest)}",
-                T("pdf.other_holdings"),
-                _eur(rest_total),
-                "",
-                f"{rest_total / total:.1%}",
-                "",
-                "",
-            ]
-        )
-    composition = Table(
-        rows, colWidths=[16 * mm, 48 * mm, 25 * mm, 23 * mm, 16 * mm, 24 * mm, 22 * mm]
-    )
-    composition.setStyle(
-        TableStyle(
-            [
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, 0), 7.5),
-                ("TEXTCOLOR", (0, 0), (-1, 0), _MUTED),
-                ("FONTSIZE", (0, 1), (-1, -1), 9),
-                ("TEXTCOLOR", (0, 1), (-1, -1), _INK),
-                ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
-                ("TEXTCOLOR", (1, 1), (1, -1), _MUTED),
-                ("LINEBELOW", (0, 0), (-1, 0), 0.75, _ACCENT),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _ROW]),
-                ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
-                ("TOPPADDING", (0, 0), (-1, -1), 3.5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
-            ]
-        )
-    )
-    page1.append(composition)
-    if coverage_notes:
-        page1.append(
-            Paragraph(
-                T("pdf.coverage") + " · ".join(_clean(note) for note in coverage_notes),
-                caption,
-            )
-        )
-
-    # ------------------------------------------------------------ pagina 2
-    page2: list = page_header(T("pdf.p2_title"))
-
-    page2 += [_section(T("pdf.metrics_section", benchmark=benchmark)), Spacer(1, 5)]
-    metric_table_rows = [[T("pdf.h_metric"), T("pdf.h_portfolio"), benchmark, T("pdf.h_reading")]]
-    for row in metric_rows:
-        if len(row) == 4:
-            name, value, bench_cell, interpretation = row
-        else:
-            name, value, interpretation = row
-            bench_cell = "—"
-        metric_table_rows.append(
-            [name, value, bench_cell, Paragraph(_clean(interpretation), reading)]
-        )
-    metrics_table = Table(metric_table_rows, colWidths=[40 * mm, 23 * mm, 23 * mm, 88 * mm])
-    metrics_table.setStyle(
-        TableStyle(
-            [
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, 0), 7.5),
-                ("TEXTCOLOR", (0, 0), (-1, 0), _MUTED),
-                ("LINEBELOW", (0, 0), (-1, 0), 0.75, _ACCENT),
-                ("FONTSIZE", (0, 1), (2, -1), 9),
-                ("TEXTCOLOR", (0, 1), (0, -1), _MUTED),
-                ("FONTNAME", (1, 1), (1, -1), "Helvetica-Bold"),
-                ("TEXTCOLOR", (1, 1), (1, -1), _INK),
-                ("TEXTCOLOR", (2, 1), (2, -1), _MUTED),
-                ("ALIGN", (1, 0), (2, -1), "RIGHT"),
-                ("VALIGN", (0, 1), (-1, -1), "MIDDLE"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _ROW]),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ]
-        )
-    )
-    page2 += [metrics_table, Spacer(1, 12)]
-
-    half_w = (_CONTENT_W - 6 * mm) / 2
-    chart_cells: list = []
-    if pf_value is not None and len(pf_value.dropna()) >= 2:
-        chart_cells.append(
-            [
-                _section_mini(T("pdf.underwater_title")),
-                _underwater_drawing(
-                    pf_value,
-                    width=half_w,
-                    trough_label=T(
-                        "pdf.trough",
-                        dd=f"{(pf_value.dropna() / pf_value.dropna().cummax() - 1).min():.1%}",
-                        date=_date_label(
-                            (pf_value.dropna() / pf_value.dropna().cummax() - 1).idxmin()
-                        ),
-                    ),
+                Paragraph(f"<b>{clean(row['category'])}</b>", s["cell"]),
+                Paragraph(clean(row["measure"]), s["cell"]),
+                Paragraph(
+                    f"<b><font color='#{color}'>{clean(row['level_label'])}</font></b>", s["cell"]
                 ),
+                Paragraph(clean(row["evidence"]), s["cell_muted"]),
             ]
         )
-    if monthly is not None and len(monthly.dropna()) >= 2:
-        chart_cells.append(
-            [
-                _section_mini(T("pdf.monthly_title")),
-                _monthly_drawing(monthly, width=half_w),
-            ]
-        )
-    if chart_cells:
-        while len(chart_cells) < 2:
-            chart_cells.append(["", Spacer(1, 1)])
-        charts_row = Table(
-            [[cell[0] for cell in chart_cells], [cell[1] for cell in chart_cells]],
-            colWidths=[half_w + 3 * mm] * 2,
-        )
-        charts_row.setStyle(
-            TableStyle(
-                [
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ]
-            )
-        )
-        page2 += [charts_row, Spacer(1, 12)]
+    return data_table(rows, [34 * mm, 42 * mm, 20 * mm, 78 * mm], right_from=None)
 
-    page2 += [_section(T("pdf.breakdown_section")), Spacer(1, 5)]
-    if breakdown:
-        page2.append(_breakdown_drawing({comp_name(k): v for k, v in breakdown.items()}))
-        page2.append(Paragraph(T("pdf.breakdown_caption"), caption))
-    else:
-        page2.append(Paragraph(T("pdf.no_breakdown"), small))
 
-    # ------------------------------------------------------------ pagina 3
-    page3: list = page_header(T("pdf.p3_title"))
-
-    half_w3 = (_CONTENT_W - 6 * mm) / 2
-    div_cells: list = []
-    if contributions is not None and len(contributions) and len(weights):
-        div_cells.append(
-            [
-                _section_mini(T("pdf.wr_title")),
-                _weight_risk_drawing(
-                    weights,
-                    contributions,
-                    width=half_w3,
-                    max_rows=6,
-                    legend_weight=T("pdf.legend_weight"),
-                    legend_risk=T("pdf.legend_risk"),
-                ),
-                Paragraph(T("pdf.wr_caption"), caption),
-            ]
-        )
-    if sector_weights is not None and len(sector_weights):
-        div_cells.append(
-            [
-                _section_mini(T("pdf.sector_title")),
-                _sector_drawing(sector_weights, width=half_w3, other_label=T("pdf.other_sectors")),
-                Paragraph(T("pdf.sector_caption"), caption),
-            ]
-        )
-    if div_cells:
-        while len(div_cells) < 2:
-            div_cells.append(["", Spacer(1, 1), ""])
-        div_row = Table(
-            [
-                [cell[0] for cell in div_cells],
-                [cell[1] for cell in div_cells],
-                [cell[2] for cell in div_cells],
-            ],
-            colWidths=[half_w3 + 3 * mm] * 2,
-        )
-        div_row.setStyle(
-            TableStyle(
-                [
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ]
-            )
-        )
-        page3.append(div_row)
-    else:
-        page3.append(Paragraph(T("pdf.no_risk_decomp"), small))
-    page3.append(Spacer(1, 8))
-
-    hhi = float((weights**2).sum()) if len(weights) else float("nan")
-    eff_n = 1 / hhi if hhi and hhi == hhi else float("nan")
-    conc = Table(
-        [
-            [T("pdf.c_holdings"), T("pdf.c_effective"), T("pdf.c_top"), T("pdf.c_hhi")],
-            [
-                f"{len(weights)}",
-                f"{eff_n:.1f}" if eff_n == eff_n else "—",
-                f"{float(weights.max()):.0%}" if len(weights) else "—",
-                f"{hhi:.2f}" if hhi == hhi else "—",
-            ],
-        ],
-        colWidths=[_CONTENT_W / 4] * 4,
-    )
-    conc.setStyle(
-        TableStyle(
-            [
-                ("TEXTCOLOR", (0, 0), (-1, 0), _MUTED),
-                ("FONTSIZE", (0, 0), (-1, 0), 6.5),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 1), (-1, 1), 12),
-                ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
-                ("TEXTCOLOR", (0, 1), (-1, 1), _INK),
-                ("TOPPADDING", (0, 1), (-1, 1), 4),
-                ("BOTTOMPADDING", (0, 1), (-1, 1), 6),
-                ("LINEBELOW", (0, 1), (-1, 1), 0.5, _LINE),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ]
-        )
-    )
-    page3 += [
-        conc,
-        Paragraph(T("pdf.conc_caption"), caption),
-        Spacer(1, 8),
+def stress_rows(r: ReportInput) -> list[list]:
+    """Tabella degli stress test: impatto diretto e corretto per le correlazioni, in % e importo."""
+    s, T = styles(), r.T
+    na = missing(r.lang)
+    rows: list[list] = [
+        [T("inv.h_scenario"), T("inv.h_direct"), T("inv.h_total"), T("inv.h_amount")]
     ]
+    for test in r.stress:
+        args = dict(test.get("label_args", {}))
+        if "weight" in args:
+            args["weight"] = r.pct(args["weight"], 0)
+        if "share" in args:
+            args["share"] = r.pct(args["share"], 0)
+        label = T(f"stress.{test['key']}", benchmark=r.benchmark, **args)
+        impact = test["total"] if test["total"] is not None else test["direct"]
+        rows.append(
+            [
+                Paragraph(clean(label), s["cell"]),
+                r.pct(test["direct"], signed=True) if test["direct"] is not None else na,
+                r.pct(test["total"], signed=True) if test["total"] is not None else na,
+                r.eur(r.total * impact, signed=True) if impact is not None else na,
+            ]
+        )
+    return rows
 
-    page3 += [_section(T("pdf.stress_title")), Spacer(1, 5)]
-    if scenario:
-        page3.append(
+
+def _page4(r: ReportInput, now: str) -> list:
+    s, T, m, lang = styles(), r.T, r.metrics, r.lang
+    story = page_header(r, T("inv.p4_title"), now)
+
+    story += [section(T("inv.s_stress")), Spacer(1, 3)]
+    if r.stress:
+        story.append(data_table(stress_rows(r), [86 * mm, 28 * mm, 30 * mm, 30 * mm]))
+        story.append(Paragraph(T("inv.stress_caption"), s["caption"]))
+    else:
+        story.append(Paragraph(T("pdf.no_scenario"), s["small"]))
+    story.append(Spacer(1, 7))
+
+    story += [section(T("inv.s_scenarios")), Spacer(1, 3)]
+    sc = m.scenarios
+    if sc is not None:
+        rows = [
+            [T("inv.h_scenario"), T("inv.h_12m_return"), T("inv.h_value_after")],
+            [T("inv.sc_bear"), r.pct(sc.bear, signed=True), r.eur(r.total * (1 + sc.bear))],
+            [T("inv.sc_base"), r.pct(sc.base, signed=True), r.eur(r.total * (1 + sc.base))],
+            [T("inv.sc_bull"), r.pct(sc.bull, signed=True), r.eur(r.total * (1 + sc.bull))],
+        ]
+        story.append(data_table(rows, [86 * mm, 44 * mm, 44 * mm]))
+        story.append(
             Paragraph(
                 T(
-                    "pdf.stress_text",
-                    label=_clean(scenario["label"]),
-                    direct=f"{scenario['direct']:+.1%}",
-                    direct_eur=_eur(total * scenario["direct"]),
-                    total=f"{scenario['total']:+.1%}",
-                    total_eur=_eur(total * scenario["total"]),
+                    "inv.sc_method",
+                    windows=fmt_num(sc.windows, lang, 0),
+                    start=fmt_date(m.start),
+                    end=fmt_date(m.end),
+                    negative=r.pct(sc.share_negative, 0),
+                    worst=r.pct(sc.worst, signed=True),
+                    best=r.pct(sc.best, signed=True),
                 ),
-                body,
+                s["caption"],
             )
         )
-        page3.append(Paragraph(T("pdf.stress_caption"), caption))
     else:
-        page3.append(Paragraph(T("pdf.no_scenario"), small))
-    page3.append(Spacer(1, 8))
+        story.append(Paragraph(T("inv.sc_short"), s["small"]))
+    story.append(Spacer(1, 7))
 
-    if projection:
-        # scenari Monte Carlo (solo PDF Advisor): righe p10/p50/p90, colonne per anno
-        def year_label(years: int) -> str:
-            return T("pdf.mc_year1") if years == 1 else T("pdf.mc_years", n=years)
+    if r.projection:
+        story += [section(T("inv.s_projection")), Spacer(1, 3)]
+        story.append(projection_table(r))
+        story.append(Paragraph(projection_method(r), s["caption"]))
+        story.append(Spacer(1, 7))
 
-        header = [T("pdf.mc_scenario")] + [year_label(row["years"]) for row in projection]
-        rows = [header]
-        for key in ("p10", "p50", "p90"):
-            rows.append(
-                [T(f"pdf.mc_{key}")]
-                + [
-                    f"{_eur(row[key])} ({row[key] / row['initial'] - 1:+.0%})"
-                    for row in projection
-                ]
-            )
-        widths = [_CONTENT_W * 0.28] + [_CONTENT_W * 0.72 / len(projection)] * len(projection)
-        mc_table = Table(rows, colWidths=widths)
-        mc_table.setStyle(
-            TableStyle(
-                [
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 7.5),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), _MUTED),
-                    ("TEXTCOLOR", (0, 1), (-1, -1), _INK),
-                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-                    ("LINEBELOW", (0, 0), (-1, 0), 0.75, _ACCENT),
-                    ("LINEBELOW", (0, 1), (-1, -2), 0.25, _LINE),
-                    ("TOPPADDING", (0, 0), (-1, -1), 3),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ]
-            )
+    story += [section(T("pdf.attention_title")), Spacer(1, 3)]
+    if r.observations:
+        for item in r.observations[:4]:
+            story.append(Paragraph(f"–&nbsp;&nbsp;{clean(item)}", s["body"]))
+            story.append(Spacer(1, 2))
+    else:
+        story.append(Paragraph(T("pdf.none_flagged"), s["small"]))
+    story.append(Paragraph(T("inv.obs_caption"), s["caption"]))
+    story.append(Spacer(1, 7))
+
+    story += [section(T("pdf.notices_title")), Spacer(1, 3)]
+    story.append(notices_block(r))
+    return story
+
+
+def projection_table(r: ReportInput):
+    """Scenari Monte Carlo: ribassista (p10), centrale (p50), rialzista (p90) per orizzonte."""
+    T = r.T
+    rows_in = (r.projection or {}).get("rows", [])
+    header = [T("inv.h_scenario")] + [
+        T("pdf.mc_year1") if row["years"] == 1 else T("pdf.mc_years", n=row["years"])
+        for row in rows_in
+    ]
+    rows: list[list] = [header]
+    for key in ("p10", "p50", "p90"):
+        rows.append(
+            [T(f"rep.mc_{key}")]
+            + [
+                f"{r.eur(row[key])} ({r.pct(row[key] / row['initial'] - 1, 0, signed=True)})"
+                for row in rows_in
+            ]
         )
-        page3 += [
-            _section(T("pdf.mc_title")),
-            Spacer(1, 5),
-            mc_table,
-            Paragraph(T("pdf.mc_caption"), caption),
-            Spacer(1, 8),
-        ]
+    first = CONTENT_W * 0.3
+    rest = (CONTENT_W - first) / max(1, len(rows_in))
+    return data_table(rows, [first] + [rest] * len(rows_in))
 
-    page3 += [_section(T("pdf.attention_title")), Spacer(1, 5)]
-    page3 += bullets(insights, cap=3)
-    page3.append(Spacer(1, 6))
 
-    page3 += [_section(T("pdf.obs_title")), Spacer(1, 5)]
-    page3 += bullets(suggestions, cap=3)
-    page3.append(Paragraph(T("pdf.obs_caption"), caption))
-    page3.append(Spacer(1, 8))
-
-    fine = ParagraphStyle(
-        "fine",
-        parent=styles["Normal"],
-        fontSize=6.2,
-        leading=8.2,
-        textColor=_MUTED,
-        spaceAfter=3,
+def projection_method(r: ReportInput) -> str:
+    p = r.projection or {}
+    m = r.metrics
+    return r.T(
+        "rep.mc_method",
+        method=r.T(f"rep.mc_method_{p.get('method', 'bootstrap')}"),
+        n=fmt_num(p.get("n", 0), r.lang, 0),
+        start=fmt_date(m.start),
+        end=fmt_date(m.end),
+        loss=r.pct(p.get("prob_loss"), 0),
+        horizon=p.get("horizon", 5),
     )
-    rf_note = T("pdf.notice_rf", rate=f"{risk_free:.2%}") if risk_free is not None else ""
-    notice_bits = [
-        T("pdf.notice_data", period=period),
-        *([T("pdf.notice_pnl")] if has_pnl else []),
+
+
+def notices_block(r: ReportInput):
+    """Metodologia e avvertenze in due colonne di testo piccolo."""
+    from reportlab.platypus import Table, TableStyle
+
+    s, T = styles(), r.T
+    rf = T("pdf.notice_rf2", rate=r.pct(r.risk_free, 2)) if r.risk_free is not None else ""
+    bits = [
+        T("rep.n_data", period=r.period, source=r.price_source or T("rep.source_unknown")),
+        T("rep.n_fundamentals"),
+        *([T("pdf.notice_pnl")] if r.pnl is not None and finite(r.pnl) else []),
         T("pdf.notice_costs"),
-        T("pdf.notice_returns", rf=rf_note),
-        T("pdf.notice_var", benchmark=benchmark),
-        T("pdf.notice_estimates"),
+        T("rep.n_returns", rf=rf),
+        T("rep.n_risk", benchmark=r.benchmark),
+        T("rep.n_weights"),
+        T("rep.n_scenarios"),
+        T("rep.n_score"),
         T("pdf.notice_no_advice"),
         T("pdf.notice_profile"),
-        T("pdf.notice_confidential"),
+        T("pdf.notice_confidential") if r.advisor_issued else T("rep.n_personal_use"),
     ]
-    if pf_value is not None and 2 <= len(pf_value.dropna()) < 200:
-        notice_bits.insert(0, T("pdf.notice_caution"))
-    page3 += [_section(T("pdf.notices_title")), Spacer(1, 5)]
-    half = (len(notice_bits) + 1) // 2
-    notice_cols = Table(
+    if r.metrics.observations < 200:
+        bits.insert(0, T("pdf.notice_caution"))
+    half = (len(bits) + 1) // 2
+    table = Table(
         [
             [
-                [Paragraph(_clean(bit), fine) for bit in notice_bits[:half]],
-                [Paragraph(_clean(bit), fine) for bit in notice_bits[half:]],
+                [Paragraph(clean(bit), s["fine"]) for bit in bits[:half]],
+                [Paragraph(clean(bit), s["fine"]) for bit in bits[half:]],
             ]
         ],
-        colWidths=[_CONTENT_W / 2] * 2,
+        colWidths=[CONTENT_W / 2] * 2,
     )
-    notice_cols.setStyle(
+    table.setStyle(
         TableStyle(
             [
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -1177,42 +579,17 @@ def build_report(
             ]
         )
     )
-    page3.append(notice_cols)
-
-    story = [
-        KeepInFrame(_CONTENT_W, _FRAME_H, page1, mode="shrink"),
-        PageBreak(),
-        KeepInFrame(_CONTENT_W, _FRAME_H, page2, mode="shrink"),
-        PageBreak(),
-        KeepInFrame(_CONTENT_W, _FRAME_H, page3, mode="shrink"),
-    ]
-
-    def footer(canvas, doc_) -> None:
-        _footer(canvas, doc_, report_id, lang)
-
-    doc.build(story, onFirstPage=footer, onLaterPages=footer)
-    return buffer.getvalue()
+    return table
 
 
-def _section_mini(title: str) -> Table:
-    """Variante stretta dell'etichetta di sezione per le mezze colonne."""
-    bar = Table(
-        [["", title.upper()]],
-        colWidths=[1.2 * mm, 80 * mm],
-        rowHeights=[5 * mm],
-    )
-    bar.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (0, 0), _ACCENT),
-                ("TEXTCOLOR", (1, 0), (1, 0), _MUTED),
-                ("FONTNAME", (1, 0), (1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (1, 0), (1, 0), 7),
-                ("LEFTPADDING", (1, 0), (1, 0), 6),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]
-        )
-    )
-    return bar
+def build_investor_report(r: ReportInput) -> bytes:
+    """Il report Investor di quattro pagine come bytes PDF."""
+    now = datetime.now().strftime("%d/%m/%Y %H:%M")
+    rid = report_reference(r, now)
+    pages = [_page1(r, now, rid), _page2(r, now), _page3(r, now), _page4(r, now)]
+    story: list = []
+    for i, page in enumerate(pages):
+        if i:
+            story.append(PageBreak())
+        story.append(KeepInFrame(CONTENT_W, FRAME_H, page, mode="shrink"))
+    return render_pdf(story, r, r.T("inv.doc_title"), rid)

@@ -39,6 +39,8 @@ from portfolio_intelligence.visualization.charts import (
     LOSS,
     benchmark_overlay,
 )
+from portfolio_intelligence.visualization.pdf_advisor import build_advisor_report
+from portfolio_intelligence.visualization.pdf_report import build_investor_report
 
 OK, BREACH, NA = "ok", "breach", "na"
 
@@ -527,19 +529,35 @@ def render(ctx: ViewContext, recipient_field) -> None:
 
     sec(t("ov.reporting_title"))
     with st.container(border=True):
-        field_col, pdf_col, save_col = st.columns([1.6, 1, 1], vertical_alignment="bottom")
+        field_col, adv_col, client_col, save_col = st.columns(
+            [1.5, 1.1, 1.1, 0.9], vertical_alignment="bottom"
+        )
         with field_col:
             ctx.report_recipient = recipient_field()
-        with pdf_col:
+        # dati preparati qui (sessione, lingua, Monte Carlo in cache); il PDF si
+        # impagina solo al clic, in un thread separato
+        report = checkup.report_input(ctx, exec_text, problems, simulations, monitoring=checks)
+        stamp = f"{pd.Timestamp.now():%Y%m%d}"
+        with adv_col:
             st.download_button(
-                t("chk.pdf_btn"),
-                data=checkup.report_pdf(ctx, exec_text, problems, simulations),
-                file_name=f"{ctx.portfolio_name}_report_{pd.Timestamp.now():%Y%m%d}.pdf",
+                t("ov.pdf_advisor"),
+                data=lambda: build_advisor_report(report),
+                file_name=f"{ctx.portfolio_name}_review_{stamp}.pdf",
                 mime="application/pdf",
                 width="stretch",
                 type="primary",
+                key="ov_pdf_advisor",
+            )
+        with client_col:
+            st.download_button(
+                t("ov.pdf_client"),
+                data=lambda: build_investor_report(report),
+                file_name=f"{ctx.portfolio_name}_report_{stamp}.pdf",
+                mime="application/pdf",
+                width="stretch",
+                key="ov_pdf_client",
             )
         with save_col:
             checkup.save_snapshot_button(ctx)
-        st.caption(t("adv.recipient_note"))
+        st.caption(t("ov.reports_note"))
         checkup.history_panel(ctx)
