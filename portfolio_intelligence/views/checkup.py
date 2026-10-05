@@ -56,6 +56,7 @@ from portfolio_intelligence.views.common import (
     load_market_db,
 )
 from portfolio_intelligence.views.context import ViewContext
+from portfolio_intelligence.views.monte_carlo import report_projection
 from portfolio_intelligence.visualization.charts import equity_area, simple_line
 from portfolio_intelligence.visualization.pdf_report import build_report
 
@@ -459,6 +460,8 @@ def render(ctx: ViewContext) -> None:
                 names=ctx.names,
                 advisor=advisor if advisor != DEV_ADVISOR else None,
                 recipient=ctx.report_recipient or None,
+                # proiezione Monte Carlo solo nel PDF Advisor: Investor non fa previsioni
+                projection=report_projection(ctx) if ctx.stateful else None,
                 risk_profile=risk_profile,
                 benchmark=BENCHMARK,
                 currency_note=t("pdf.currency_eur") if in_eur else t("pdf.currency_orig"),

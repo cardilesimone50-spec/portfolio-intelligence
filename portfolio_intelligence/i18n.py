@@ -477,6 +477,96 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Downloading five years of prices…",
         "Download di cinque anni di prezzi in corso…",
     ),
+    # ---------------------------------------------------------------- monte carlo
+    "nav.montecarlo": ("Monte Carlo", "Monte Carlo"),
+    "mc.title": ("Scenario simulation (Monte Carlo)", "Simulazione scenari (Monte Carlo)"),
+    "mc.intro": (
+        "Thousands of possible paths of the portfolio value, built from its own daily "
+        "history: the bands show the range of outcomes, not a target.",
+        "Migliaia di traiettorie possibili del valore del portafoglio, costruite dal suo "
+        "storico giornaliero: le fasce mostrano l'ampiezza degli esiti, non un obiettivo.",
+    ),
+    "mc.horizon": ("Horizon", "Orizzonte"),
+    "mc.years": ("{n} years", "{n} anni"),
+    "mc.method": ("Method", "Metodo"),
+    "mc.method_bootstrap": ("Historical bootstrap", "Bootstrap storico"),
+    "mc.method_gbm": ("Parametric (GBM)", "Parametrico (GBM)"),
+    "mc.simulations": ("Simulations", "Simulazioni"),
+    "mc.kpi_median": ("Median value in {years} years", "Valore mediano a {years} anni"),
+    "mc.kpi_prudent": ("Prudent value (10th percentile)", "Valore prudenziale (10° percentile)"),
+    "mc.kpi_positive": ("Chance of a positive result", "Probabilità di risultato positivo"),
+    "mc.kpi_vs_today": (
+        "{pct} vs today · {cagr} per year",
+        "{pct} rispetto a oggi · {cagr} annuo",
+    ),
+    "mc.kpi_positive_sub": (
+        "95% of scenarios end above {p5}.",
+        "Il 95% degli scenari termina sopra {p5}.",
+    ),
+    "mc.history": (
+        "Based on {n} days of joint history ({start} – {end}) · {sims} simulations · "
+        "constant weights, no costs, no contributions or withdrawals.",
+        "Basata su {n} giorni di storico congiunto ({start} – {end}) · {sims} simulazioni · "
+        "pesi costanti, senza costi, versamenti o prelievi.",
+    ),
+    "mc.short_history": (
+        "The history used is shorter than two years: the projection inherits the returns "
+        "of a single, possibly exceptional, period. Set a longer historical horizon in "
+        "Analysis parameters.",
+        "Lo storico usato è più corto di due anni: la proiezione eredita i rendimenti di "
+        "un solo periodo, forse eccezionale. Imposta un orizzonte storico più lungo nei "
+        "Parametri di analisi.",
+    ),
+    "mc.unavailable": ("Simulation not available: {err}", "Simulazione non disponibile: {err}"),
+    "mc.disclaimer": (
+        "Probabilistic projection based on the historical series. It is not a guarantee "
+        "of future returns, nor a forecast or an investment recommendation.",
+        "Proiezione probabilistica basata sulla serie storica. Non costituisce garanzia "
+        "di rendimento futuro, né previsione o raccomandazione di investimento.",
+    ),
+    "mc.method_title": ("Methodology", "Metodologia"),
+    "mc.method_text": (
+        "**Historical bootstrap**: each simulated day is a real day of the selected "
+        "history for all holdings at once, drawn at random in blocks of five trading "
+        "days. Correlations and fat tails stay as they actually were.\n\n"
+        "**Parametric (GBM)**: daily log-returns drawn from a normal distribution with "
+        "the portfolio's historical geometric growth and its volatility from the "
+        "covariance matrix. Smoother than reality: it underestimates extreme days.\n\n"
+        "Both use constant weights (daily rebalancing), values in EUR when the analysis "
+        "is in EUR, and a fixed random seed, so the same inputs give the same result.",
+        "**Bootstrap storico**: ogni giorno simulato è un giorno reale dello storico "
+        "selezionato per tutti i titoli insieme, estratto a caso in blocchi di cinque "
+        "giorni di borsa. Correlazioni e code grasse restano quelle effettive.\n\n"
+        "**Parametrico (GBM)**: log-rendimenti giornalieri estratti da una normale con la "
+        "crescita geometrica storica del portafoglio e la volatilità dalla matrice di "
+        "covarianza. Più regolare della realtà: sottostima i giorni estremi.\n\n"
+        "Entrambi usano pesi costanti (ribilanciamento giornaliero), valori in EUR se "
+        "l'analisi è in EUR e un seme casuale fisso: a parità di dati, stesso risultato.",
+    ),
+    "mc.axis_years": ("Years from today", "Anni da oggi"),
+    "mc.month0": ("Today", "Oggi"),
+    "mc.when": ("Year {years}, month {months}", "Anno {years}, mese {months}"),
+    "mc.tt_when": ("When", "Quando"),
+    "mc.tt_p90": ("Optimistic (p90)", "Ottimistico (p90)"),
+    "mc.tt_p75": ("p75", "p75"),
+    "mc.tt_p50": ("Median (p50)", "Mediano (p50)"),
+    "mc.tt_p25": ("p25", "p25"),
+    "mc.tt_p10": ("Pessimistic (p10)", "Pessimistico (p10)"),
+    "pdf.mc_title": ("PROJECTION SCENARIOS (MONTE CARLO)", "SCENARI DI PROIEZIONE (MONTE CARLO)"),
+    "pdf.mc_scenario": ("Scenario", "Scenario"),
+    "pdf.mc_years": ("{n} yr", "{n} anni"),
+    "pdf.mc_year1": ("1 yr", "1 anno"),
+    "pdf.mc_p10": ("Pessimistic (p10)", "Pessimistico (p10)"),
+    "pdf.mc_p50": ("Median (p50)", "Mediano (p50)"),
+    "pdf.mc_p90": ("Optimistic (p90)", "Ottimistico (p90)"),
+    "pdf.mc_caption": (
+        "Historical bootstrap, 1,000 simulations on the daily returns of the period, "
+        "constant weights, no costs. Probabilistic projection: not a guarantee of future "
+        "returns nor a forecast.",
+        "Bootstrap storico, 1.000 simulazioni sui rendimenti giornalieri del periodo, "
+        "pesi costanti, senza costi. Proiezione probabilistica: non è garanzia di "
+        "rendimento futuro né una previsione.",
+    ),
     # ---------------------------------------------------------------- legal
     "legal.privacy": ("Privacy policy", "Informativa privacy"),
     "legal.terms": ("Terms of service", "Termini di servizio"),

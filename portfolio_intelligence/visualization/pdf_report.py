@@ -546,6 +546,7 @@ def build_report(
     *,
     advisor: str | None = None,
     recipient: str | None = None,
+    projection: list[dict] | None = None,
     risk_profile: str | None = None,
     benchmark: str = "QQQ",
     currency_note: str | None = None,
@@ -1080,6 +1081,48 @@ def build_report(
     else:
         page3.append(Paragraph(T("pdf.no_scenario"), small))
     page3.append(Spacer(1, 8))
+
+    if projection:
+        # scenari Monte Carlo (solo PDF Advisor): righe p10/p50/p90, colonne per anno
+        def year_label(years: int) -> str:
+            return T("pdf.mc_year1") if years == 1 else T("pdf.mc_years", n=years)
+
+        header = [T("pdf.mc_scenario")] + [year_label(row["years"]) for row in projection]
+        rows = [header]
+        for key in ("p10", "p50", "p90"):
+            rows.append(
+                [T(f"pdf.mc_{key}")]
+                + [
+                    f"{_eur(row[key])} ({row[key] / row['initial'] - 1:+.0%})"
+                    for row in projection
+                ]
+            )
+        widths = [_CONTENT_W * 0.28] + [_CONTENT_W * 0.72 / len(projection)] * len(projection)
+        mc_table = Table(rows, colWidths=widths)
+        mc_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), _MUTED),
+                    ("TEXTCOLOR", (0, 1), (-1, -1), _INK),
+                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+                    ("LINEBELOW", (0, 0), (-1, 0), 0.75, _ACCENT),
+                    ("LINEBELOW", (0, 1), (-1, -2), 0.25, _LINE),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        page3 += [
+            _section(T("pdf.mc_title")),
+            Spacer(1, 5),
+            mc_table,
+            Paragraph(T("pdf.mc_caption"), caption),
+            Spacer(1, 8),
+        ]
 
     page3 += [_section(T("pdf.attention_title")), Spacer(1, 5)]
     page3 += bullets(insights, cap=3)

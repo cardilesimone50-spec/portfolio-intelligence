@@ -45,6 +45,7 @@ from portfolio_intelligence.views import (
     fundamentals,
     market,
     metrics,
+    monte_carlo,
     optimize,
     options_overlay,
     visual,
@@ -750,6 +751,7 @@ def _client_analysis(
                 ("nav.optimization", optimize.render),
                 ("nav.backtest", backtest.render),
                 ("nav.options", options_overlay.render),
+                ("nav.montecarlo", monte_carlo.render),
             ],
         )
     else:

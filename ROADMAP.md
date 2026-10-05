@@ -149,13 +149,13 @@ identità consulente multi-tenant (B2B).
 | **Supporto multi-valuta (EUR/USD)** | Risolveva anche P0-2, ora chiuso. |
 | **Risoluzione ISIN → ticker** | Via OpenFIGI, chiudeva P1-8. |
 | **Deploy pubblico** | Dockerfile + guida Streamlit Cloud, chiudeva P3-20. |
+| **Monte Carlo (area Advisor)** | ✅ Operativo (2026-10-05). `analytics/monte_carlo.py`: bootstrap storico a blocchi e GBM parametrico, seed fisso, percentili p5-p95 mese per mese, probabilità di perdita, VaR al 95%, CAGR per percentile. Fan chart Altair nella scheda cliente (Strategie → Monte Carlo) e tabella p10/p50/p90 a 1-3-5 anni nel PDF Advisor. Escluso dall'area Investor, che dichiara di non fare previsioni. Test: `tests/test_monte_carlo.py`. |
 
 ### Ancora da fare (ordinate per rapporto valore/sforzo)
 
 | Priorità | Feature | Note |
 |----------|---------|------|
 | Media | **Universi aggiuntivi** | S&P 500 (lista Wikipedia stabile), FTSE MIB, watchlist custom salvate nel DB. |
-| Media | **Monte Carlo** | Simulazione di scenari sul portafoglio (bootstrap dei rendimenti storici), fan chart del valore a 1-5 anni. |
 | Media | **Factor analysis reale** | `portfolio_intelligence/analytics/factors.py` oggi calcola solo i fattori per lo stock-picking del backtest (momentum, low-vol, trend); manca la regressione dei rendimenti del portafoglio su fattori di mercato. |
 | Media | **Export Excel** | Il gemello del PDF per chi lavora in spreadsheet. |
 | Bassa | **API REST (FastAPI)** | Separa engine e UI; abilita app mobile/terze parti. Solo dopo aver chiuso il packaging (P2-13, ancora parziale). |
@@ -184,8 +184,9 @@ mercato (.MI, .DE) per i titoli non-USA, universi S&P 500 e FTSE MIB.
 ### v1.0 — "Prodotto" 🟡 parziale
 ✅ Deploy pubblico (Docker + Streamlit Cloud) · ✅ i18n EN/IT · ✅ identità
 consulente multi-tenant (base per l'auth, non ancora login OIDC attivo in
-produzione) — restano: alert Telegram/email schedulati, Monte Carlo, factor
-analysis, storico constituent per backtest senza survivorship bias.
+produzione) · ✅ Monte Carlo (area Advisor) — restano: alert Telegram/email
+schedulati, factor analysis, storico constituent per backtest senza
+survivorship bias.
 
 ### v1.1 — non pianificata in origine, emersa dallo sviluppo reale
 Posizioni a lotti con IRR vero · overlay di opzioni protettive con catene
