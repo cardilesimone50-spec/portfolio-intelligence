@@ -26,7 +26,8 @@ def test_switching_area_keeps_each_area_portfolio_separate():
 
     at.button_group[0].set_value("advisor").run()
 
-    assert at.query_params["profile"] == ["advisor"]
+    # a seconda della versione di Streamlit il valore è "advisor" o ["advisor"]
+    assert at.query_params["profile"] in ("advisor", ["advisor"])
     assert at.session_state["positions"] == {"MSFT": 500.0}
     assert at.session_state["area_positions_investor"] == {"AAPL": 1000.0}
 
