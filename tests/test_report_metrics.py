@@ -160,7 +160,7 @@ def test_risk_matrix_declares_liquidity_as_not_assessed():
 
 def test_profile_rows_compare_against_the_benchmark():
     m, _, _ = _metrics()
-    rows = {row[0]: row for row in profile_rows(m, 10_000.0, "QQQ", "en")}
+    rows = {row[0]: row for row in profile_rows(m, "€10,000", "QQQ", "en")}
     assert rows["Portfolio value"][1] == "€10,000"
     assert rows["Beta vs QQQ"][3] == "Amplifies QQQ moves"
     assert "not evidence of skill" in rows["Alpha (ann.)"][3]
@@ -175,9 +175,9 @@ def test_investment_view_statements_cite_the_data():
     vulnerabilities = " ".join(view["Key vulnerabilities"])
     assert "A contributes 75.0% of risk on a 50.0% capital weight" in vulnerabilities
     assert "exceeds the 10% band" in vulnerabilities
-    assert any(
-        "not evidence of persistent skill" in s for s in view["Material investment implications"]
-    )
+    implications = " ".join(view["Material investment implications"])
+    # il primo contributore al rischio, non la prima posizione per peso
+    assert "depend primarily on A, which explains 75% of total risk" in implications
 
 
 def test_review_points_are_descriptive_and_flag_missing_profile():
@@ -194,3 +194,79 @@ def test_narrative_is_translated():
     view = investment_view(m, "QQQ", "Moderato", 0.18, "it")
     assert view[0][0] == "Posizionamento del portafoglio"
     assert "posizioni" in view[0][1][0]
+
+
+# ------------------------------------------------------------------ rilievi della revisione
+
+
+def test_benchmark_is_measured_on_the_portfolio_window():
+    rng = np.random.default_rng(9)
+    index = pd.bdate_range("2021-01-04", periods=900)
+    bench = pd.Series(rng.normal(0.0005, 0.01, 900), index=index)
+    pf = bench.iloc[500:] * 1.1  # titoli quotati solo negli ultimi 400 giorni
+    fund = empty_fundamentals(["A"])
+    m = compute_report_metrics(pf, bench, pd.Series({"A": 1.0}), pd.Series({"A": 1.0}), fund, 1.0)
+    expected = float((1 + bench.iloc[500:]).prod() - 1)
+    assert m.bench_cum_return == pytest.approx(expected)
+    assert m.start == index[500]
+
+
+def test_report_volatility_is_the_one_used_by_the_app():
+    fund = empty_fundamentals(["A", "B", "C"])
+    rng = np.random.default_rng(5)
+    index = pd.bdate_range("2021-01-04", periods=300)
+    pf = pd.Series(rng.normal(0.0004, 0.01, 300), index=index)
+    w = pd.Series({"A": 0.5, "B": 0.3, "C": 0.2})
+    custom = compute_report_metrics(pf, pf, w, w, fund, 0.5, annual_vol=0.3385)
+    assert custom.vol == pytest.approx(0.3385)
+
+
+def test_first_day_loss_counts_in_the_drawdown():
+    index = pd.bdate_range("2024-01-01", periods=4)
+    pf = pd.Series([-0.10, 0.02, 0.01, 0.0], index=index)
+    fund = empty_fundamentals(["A"])
+    m = compute_report_metrics(pf, pf, pd.Series({"A": 1.0}), pd.Series({"A": 1.0}), fund, 1.0)
+    assert m.max_dd == pytest.approx(-0.10)
+    assert m.cum_return == pytest.approx(0.9 * 1.02 * 1.01 - 1)
+
+
+def test_unclassified_holdings_are_not_reported_as_sector_concentration():
+    rng = np.random.default_rng(2)
+    index = pd.bdate_range("2023-01-02", periods=300)
+    pf = pd.Series(rng.normal(0.0004, 0.01, 300), index=index)
+    w = pd.Series({"VWCE.DE": 0.4, "CSPX.L": 0.3, "EIMI.L": 0.3})
+    fund = empty_fundamentals(list(w.index))  # ETF: nessun settore
+    m = compute_report_metrics(pf, pf, w, w, fund, 0.0)
+    assert m.top_sector == "" and m.sector_coverage == 0.0
+    rows = {row["key"]: row for row in risk_matrix(m, in_eur=True, benchmark="QQQ", lang="en")}
+    assert rows["factor"]["level"] == NOT_ASSESSED
+    view = dict(investment_view(m, "QQQ", None, None, "en"))
+    assert not any("Sector concentration" in text for text in view["Key vulnerabilities"])
+    assert not any("Sector exposure" in text for text in review_points(m, None, None, True, "en"))
+
+
+def test_negative_sharpe_is_never_a_strength():
+    rng = np.random.default_rng(4)
+    index = pd.bdate_range("2022-01-03", periods=500)
+    bench = pd.Series(rng.normal(-0.0015, 0.012, 500), index=index)
+    pf = bench * 0.5 - 0.0005  # perde meno del benchmark, ma sotto il tasso privo di rischio
+    fund = empty_fundamentals(["A"])
+    one = pd.Series({"A": 1.0})
+    m = compute_report_metrics(pf, bench, one, one, fund, 0.0, risk_free=0.03)
+    assert m.sharpe < 0 and m.bench_sharpe < 0
+    view = dict(investment_view(m, "QQQ", None, None, "en"))
+    assert not any("Sharpe ratio" in text for text in view["Key strengths"])
+    rows = {row[0]: row for row in profile_rows(m, "€1", "QQQ", "en")}
+    assert rows["Sharpe ratio"][3] == "Both below the risk-free rate: comparison not meaningful"
+
+
+def test_risk_regime_compares_the_last_quarter_with_the_full_window():
+    rng = np.random.default_rng(6)
+    index = pd.bdate_range("2022-01-03", periods=600)
+    calm = rng.normal(0.0004, 0.006, 537)
+    stormy = rng.normal(0.0, 0.03, 63)
+    pf = pd.Series(np.concatenate([calm, stormy]), index=index)
+    fund = empty_fundamentals(["A"])
+    m = compute_report_metrics(pf, pf, pd.Series({"A": 1.0}), pd.Series({"A": 1.0}), fund, 0.0)
+    regime = " ".join(dict(investment_view(m, "QQQ", None, None, "en"))["Risk regime"])
+    assert "Over the last quarter volatility rose" in regime

@@ -84,7 +84,7 @@ def test_investor_report_has_four_pages_with_the_required_sections(make_report):
         assert category in p3, category
     assert "STRESS TESTING" in p4 and "Correlation-adjusted" in p4
     assert "HISTORICAL 12-MONTH OUTCOMES" in p4
-    assert "Bear (5th percentile)" in p4 and "not a forecast" in _text([p4])
+    assert "Historical 5th percentile (bear)" in p4 and "not a forecast" in _text([p4])
     assert "METHODOLOGY" in p4
     for page in pages:
         assert "Past performance is not a reliable indicator" in page
@@ -176,7 +176,7 @@ def test_advisor_report_follows_the_portfolio_review_structure(make_report):
         "6. STRESS TESTING",
         "7. SCENARIO ANALYSIS",
         "8. SUITABILITY CONTEXT",
-        "9. COMPOSITE SCORE AND RULE-BASED OBSERVATIONS",
+        "9. COMPOSITE SCORE AND WHAT-IF ANALYSIS",
         "10. REVIEW CONSIDERATIONS",
         "11. METHODOLOGY, DATA SOURCES AND DISCLOSURES",
     ]
@@ -238,3 +238,59 @@ def test_reports_survive_a_single_position_portfolio(make_report, builder):
     report = make_report()
     report.positions = {"NVDA": 10_000.0}
     assert len(_pages(builder(report))) >= 1
+
+
+# ------------------------------------------------------------------ rilievi della revisione
+
+
+def test_investor_area_report_shows_no_future_amounts(make_report):
+    """Esiti storici in percentuale: nessun "valore dopo 12 mesi" nell'area Investor."""
+    text = _text(_pages(build_investor_report(make_report())))
+    assert "Value after 12 months" not in text
+    assert "Historical median (base)" in text
+    assert "simulated past performance" in text  # nel piè di pagina di ogni pagina
+    assert "RETURN, CURRENT WEIGHTS" in text
+
+
+def test_monte_carlo_disclosure_states_the_history_actually_resampled(make_report):
+    import pandas as pd
+
+    projection = _projection()
+    projection.update(
+        hist_start=pd.Timestamp("2025-01-06"), hist_end=pd.Timestamp("2026-07-16"), hist_days=399
+    )
+    report = make_report(projection=projection, advisor_issued=True)
+    advisor = _text(_pages(build_advisor_report(report)))
+    assert "06/01/2025 to 16/07/2026 (399 trading days)" in advisor
+    assert "joint history is shorter than two years" in advisor
+    client = _text(_pages(build_investor_report(report)))
+    assert "history 06/01/2025 to 16/07/2026" in client
+
+
+def test_what_if_is_descriptive_and_includes_unfavourable_scenarios(make_report):
+    report = make_report(
+        what_if=[
+            "**Scenario: NVDA at half its current weight, redistributed pro rata**: Health Score from 50 to **55**.",
+            "**Scenario: equal weights across current holdings**: Health Score from 50 to **48**.",
+        ]
+    )
+    text = _text(_pages(build_advisor_report(report)))
+    assert "equal weights across current holdings" in text  # anche se peggiora il punteggio
+    assert "Halve" not in text and "Dimezza" not in text
+
+
+def test_italian_profile_check_is_grammatical(make_report):
+    text = _text(_pages(build_investor_report(make_report(lang="it"))))
+    assert "FUORI dal profilo dichiarato" in text or "entro il profilo dichiarato" in text
+    assert "FUORI DA il" not in text
+    assert "Rif. " in text and "Ref. " not in text
+
+
+def test_advisor_and_client_documents_have_distinct_references(make_report):
+    import re
+
+    report = make_report()
+    ref = re.compile(r"Ref\. ([0-9A-F]{8})")
+    advisor_ref = ref.search(_pages(build_advisor_report(report))[0]).group(1)
+    client_ref = ref.search(_pages(build_investor_report(report))[0]).group(1)
+    assert advisor_ref != client_ref

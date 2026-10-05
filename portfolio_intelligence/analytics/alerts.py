@@ -9,6 +9,7 @@ from portfolio_intelligence.config import (
     DAILY_MOVE_ALERT,
     DRAWDOWN_ALERT,
 )
+from portfolio_intelligence.formatting import ui_num, ui_pct
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio import Portfolio, weights_series
 
@@ -33,15 +34,15 @@ def evaluate_alerts(
                 t(
                     "alert.risk_driver",
                     ticker=contributions.index[0],
-                    share=f"{contributions.iloc[0]:.0%}",
+                    share=ui_pct(contributions.iloc[0], 0),
                 )
             )
 
     if avg_correlation == avg_correlation and avg_correlation > CORRELATION_HIGH:
-        alerts.append(t("alert.correlation", corr=f"{avg_correlation:.2f}"))
+        alerts.append(t("alert.correlation", corr=ui_num(avg_correlation, 2)))
 
     if drawdown == drawdown and drawdown < DRAWDOWN_ALERT:
-        alerts.append(t("alert.drawdown", dd=f"{drawdown:.0%}"))
+        alerts.append(t("alert.drawdown", dd=ui_pct(drawdown, 0)))
 
     # last available session move
     weights = weights_series(portfolio)
@@ -53,9 +54,9 @@ def evaluate_alerts(
         alerts.append(
             t(
                 "alert.last_session",
-                move=f"{day_move:+.1%}",
+                move=ui_pct(day_move, 1, signed=True),
                 ticker=str(worst),
-                contrib=f"{float(contribution_today[worst]):+.1%}",
+                contrib=ui_pct(float(contribution_today[worst]), 1, signed=True),
             )
         )
 

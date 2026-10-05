@@ -42,6 +42,7 @@ from portfolio_intelligence.config import (
     USD_EXPOSURE_HIGH,
     VOLATILITY_SCALE,
 )
+from portfolio_intelligence.formatting import ui_num, ui_pct
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio import Portfolio, weights_series
 
@@ -277,10 +278,10 @@ def executive_summary(
     benchmark: str,
 ) -> str:
     """Sintesi da analista in un paragrafo, composta solo dalle metriche calcolate."""
-    parts = [t("exec.ret", period=period, ret=f"{cumulative_return:+.1%}")]
+    parts = [t("exec.ret", period=period, ret=ui_pct(cumulative_return, 1, signed=True))]
 
     if avg_correlation == avg_correlation:
-        corr = f"{avg_correlation:.2f}"
+        corr = ui_num(avg_correlation, 2)
         if avg_correlation > CORRELATION_ELEVATED:
             parts.append(t("exec.corr_weak", corr=corr))
         elif avg_correlation < CORRELATION_LOW:
@@ -295,24 +296,24 @@ def executive_summary(
             t(
                 "exec.risk_conc",
                 ticker=contributions.index[0],
-                share=f"{contributions.iloc[0]:.0%}",
+                share=ui_pct(contributions.iloc[0], 0),
             )
         )
 
     if usd_weight >= USD_EXPOSURE_HIGH:
-        parts.append(t("exec.usd", share=f"{usd_weight:.0%}"))
+        parts.append(t("exec.usd", share=ui_pct(usd_weight, 0)))
 
     if drawdown == drawdown:
         if drawdown < DRAWDOWN_NARRATIVE_HIGH:
-            parts.append(t("exec.dd_high", dd=f"{-drawdown:.0%}"))
+            parts.append(t("exec.dd_high", dd=ui_pct(-drawdown, 0)))
         elif drawdown > DRAWDOWN_NARRATIVE_LOW:
-            parts.append(t("exec.dd_low", dd=f"{-drawdown:.0%}"))
+            parts.append(t("exec.dd_low", dd=ui_pct(-drawdown, 0)))
 
     if beta == beta:
         if beta > BETA_HIGH:
-            parts.append(t("exec.beta_high", beta=f"{beta:.2f}", benchmark=benchmark))
+            parts.append(t("exec.beta_high", beta=ui_num(beta, 2), benchmark=benchmark))
         elif beta < BETA_LOW:
-            parts.append(t("exec.beta_low", beta=f"{beta:.2f}", benchmark=benchmark))
+            parts.append(t("exec.beta_low", beta=ui_num(beta, 2), benchmark=benchmark))
 
     return " ".join(parts)
 
@@ -330,7 +331,7 @@ def find_problems(
 
     if len(weights) > 1 and weights.iloc[0] > CONCENTRATION_PROBLEM_WEIGHT:
         problems.append(
-            t("prob.concentration", ticker=weights.index[0], weight=f"{weights.iloc[0]:.0%}")
+            t("prob.concentration", ticker=weights.index[0], weight=ui_pct(weights.iloc[0], 0))
         )
     if len(contributions) >= 2 and contributions.iloc[0] > max(
         CONCENTRATION_MIN_ABS, CONCENTRATION_FAIR_SHARE_MULT / len(contributions)
@@ -339,11 +340,11 @@ def find_problems(
             t(
                 "prob.risk_driver",
                 ticker=contributions.index[0],
-                share=f"{contributions.iloc[0]:.0%}",
+                share=ui_pct(contributions.iloc[0], 0),
             )
         )
     if avg_correlation == avg_correlation and avg_correlation > CORRELATION_ELEVATED:
-        problems.append(t("prob.correlation", corr=f"{avg_correlation:.0%}"))
+        problems.append(t("prob.correlation", corr=ui_num(avg_correlation, 2)))
     if "dividend_yield" in fundamentals.columns:
         dy = fundamentals["dividend_yield"]
         mask = dy.notna()
@@ -353,7 +354,7 @@ def find_problems(
                 / weights.reindex(fundamentals.index)[mask].sum()
             )
             if weighted_yield < DIVIDEND_YIELD_LOW:  # in punti percentuali
-                problems.append(t("prob.dividend", dy=f"{weighted_yield:.1f}"))
+                problems.append(t("prob.dividend", dy=ui_num(weighted_yield, 1)))
     if radar.get("Volatility", 0) > RADAR_VOLATILITY_HIGH:
         problems.append(t("prob.volatility"))
     return problems
@@ -383,8 +384,8 @@ def find_opportunities(
                 t(
                     "opp.cheap",
                     ticker=ticker,
-                    pe=f"{cheap.loc[ticker, 'pe']:.0f}",
-                    ps=f"{cheap.loc[ticker, 'ps']:.1f}",
+                    pe=ui_num(cheap.loc[ticker, "pe"], 0),
+                    ps=ui_num(cheap.loc[ticker, "ps"], 1),
                 )
             )
 
@@ -428,22 +429,22 @@ def generate_insights(
     benchmark: str,
 ) -> list[str]:
     """Frasi di analisi, tutte derivate dai numeri calcolati (lingua da i18n)."""
-    insights = [t("ins.ret", ret=f"{cumulative_return:+.1%}", period=period_label)]
+    insights = [t("ins.ret", ret=ui_pct(cumulative_return, 1, signed=True), period=period_label)]
     if len(contributions) >= 2:
         top2 = contributions.head(2)
         insights.append(
-            t("ins.top2", t1=top2.index[0], t2=top2.index[1], share=f"{top2.sum():.0%}")
+            t("ins.top2", t1=top2.index[0], t2=top2.index[1], share=ui_pct(top2.sum(), 0))
         )
     if avg_correlation == avg_correlation:
         if avg_correlation > CORRELATION_ELEVATED:
-            insights.append(t("ins.corr_high", corr=f"{avg_correlation:.2f}"))
+            insights.append(t("ins.corr_high", corr=ui_num(avg_correlation, 2)))
         elif avg_correlation < CORRELATION_LOW:
-            insights.append(t("ins.corr_good", corr=f"{avg_correlation:.2f}"))
+            insights.append(t("ins.corr_good", corr=ui_num(avg_correlation, 2)))
     if drawdown == drawdown and drawdown < DRAWDOWN_NARRATIVE_MENTION:
-        insights.append(t("ins.drawdown", dd=f"{drawdown:.0%}"))
+        insights.append(t("ins.drawdown", dd=ui_pct(drawdown, 0)))
     if beta == beta:
         if beta > BETA_HIGH:
-            insights.append(t("ins.beta_high", beta=f"{beta:.2f}", benchmark=benchmark))
+            insights.append(t("ins.beta_high", beta=ui_num(beta, 2), benchmark=benchmark))
         elif beta < BETA_LOW:
-            insights.append(t("ins.beta_low", beta=f"{beta:.2f}", benchmark=benchmark))
+            insights.append(t("ins.beta_low", beta=ui_num(beta, 2), benchmark=benchmark))
     return insights

@@ -29,6 +29,7 @@ from portfolio_intelligence.config import (
     VOLATILITY_LOW,
     VOLATILITY_MID,
 )
+from portfolio_intelligence.formatting import ui_pct
 from portfolio_intelligence.i18n import t
 
 
@@ -54,7 +55,7 @@ def interpret_volatility(annual_vol: float, universe_vols: pd.Series | None = No
     if universe_vols is not None:
         pct = universe_percentile(annual_vol, universe_vols)
         if pct == pct:
-            text += t("vol.percentile", pct=f"{1 - pct:.0%}")
+            text += t("vol.percentile", pct=ui_pct(1 - pct, 0))
     return text
 
 

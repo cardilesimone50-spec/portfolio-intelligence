@@ -56,7 +56,6 @@ from portfolio_intelligence.visualization.pdf_common import (
     fan_chart,
     kpi_grid,
     line_chart,
-    monthly_chart,
     render_pdf,
     report_reference,
     score_bars,
@@ -64,14 +63,15 @@ from portfolio_intelligence.visualization.pdf_common import (
     section,
     side_by_side,
     styles,
-    underwater_chart,
     weight_risk_chart,
 )
 from portfolio_intelligence.visualization.pdf_report import (
     _component,
     _risk_table,
+    historical_block,
     holdings_table,
     notices_block,
+    profile_check_box,
     projection_method,
     projection_table,
     stress_rows,
@@ -100,7 +100,12 @@ def _cover(r: ReportInput, now: str, rid: str) -> list:
         (T("adr.f_valuation"), fmt_date(m.end)),
         (
             T("adr.f_window"),
-            T("adr.window_value", start=fmt_date(m.start), end=fmt_date(m.end), n=m.observations),
+            T(
+                "adr.window_value",
+                start=fmt_date(m.start),
+                end=fmt_date(m.end),
+                n=fmt_num(m.observations, r.lang, 0),
+            ),
         ),
         (T("adr.f_benchmark"), r.benchmark),
         (T("adr.f_currency"), T("pdf.currency_eur") if r.in_eur else T("pdf.currency_orig")),
@@ -150,7 +155,9 @@ def _profile(r: ReportInput) -> list:
     rows: list[list] = [
         [T("pdf.h_metric"), T("pdf.h_portfolio"), r.benchmark, T("adr.h_assessment")]
     ]
-    for metric, pf, bench, assessment in profile_rows(r.metrics, r.total, r.benchmark, r.lang):
+    for metric, pf, bench, assessment in profile_rows(
+        r.metrics, r.eur(r.total), r.benchmark, r.lang, r.in_eur
+    ):
         rows.append([metric, pf, bench, Paragraph(clean(assessment), s["cell_muted"])])
     table = data_table(
         rows,
@@ -337,6 +344,16 @@ def _holdings(r: ReportInput) -> list:
     flow = [
         holdings_table(r, with_sector=True, max_rows=MAX_HOLDINGS_ROWS),
         Paragraph(T("inv.holdings_caption"), s["caption"]),
+        *(
+            [
+                Paragraph(
+                    T("pdf.coverage") + " · ".join(clean(n) for n in r.coverage_notes),
+                    s["caption"],
+                )
+            ]
+            if r.coverage_notes
+            else []
+        ),
         Spacer(1, 6),
         kpi_grid(strip, cols=6),
         Spacer(1, 6),
@@ -347,26 +364,36 @@ def _holdings(r: ReportInput) -> list:
     return _block(_numbered(4, T("adr.s4")), flow, min_space=80 * mm)
 
 
+def _sector_risk_table(r: ReportInput) -> Table | None:
+    """Peso sul capitale e contributo al rischio aggregati per settore."""
+    m, T = r.metrics, r.T
+    if m.sector_weights.empty:
+        return None
+    rows: list[list] = [
+        [T("adr.h_sector"), T("adr.h_sector_weight"), T("adr.h_sector_risk"), T("inv.h_ratio")]
+    ]
+    for sector, weight in m.sector_weights.items():
+        risk = float(m.sector_risk.get(sector, float("nan")))
+        ratio = risk / weight if finite(risk) and weight else float("nan")
+        rows.append(
+            [
+                str(sector)[:40],
+                r.pct(weight),
+                r.pct(risk),
+                f"{fmt_num(ratio, r.lang, 2)}×" if finite(ratio) else missing(r.lang),
+            ]
+        )
+    return data_table(rows, [74 * mm, 34 * mm, 34 * mm, 32 * mm])
+
+
 def _risk(r: ReportInput) -> list:
-    s, T, m = styles(), r.T, r.metrics
-    left: list = [
-        Paragraph(T("pdf.underwater_title").upper(), s["h3"]),
-        underwater_chart(
-            r.pf_value,
-            note=T("pdf.trough", dd=r.pct(m.max_dd), date=fmt_date(m.episodes[0].trough))
-            if m.episodes
-            else "",
-        ),
-    ]
-    right: list = [Paragraph(T("pdf.monthly_title").upper(), s["h3"])]
-    if r.monthly is not None and len(r.monthly.dropna()) >= 2:
-        right.append(monthly_chart(r.monthly.tail(12), r.lang))
-    flow = [
-        _risk_table(r),
-        Paragraph(T("inv.risk_caption"), s["caption"]),
-        Spacer(1, 6),
-        side_by_side(left, right),
-    ]
+    s, T = styles(), r.T
+    flow: list = [_risk_table(r), Paragraph(T("inv.risk_caption"), s["caption"]), Spacer(1, 6)]
+    sector_table = _sector_risk_table(r)
+    if sector_table is not None:
+        flow.append(
+            KeepTogether([Paragraph(T("adr.sector_risk_title").upper(), s["h3"]), sector_table])
+        )
     return _block(_numbered(5, T("adr.s5")), flow, min_space=80 * mm)
 
 
@@ -395,9 +422,9 @@ def _scenarios(r: ReportInput) -> list:
                 T("adr.mc_f_history"),
                 T(
                     "adr.window_value",
-                    start=fmt_date(m.start),
-                    end=fmt_date(m.end),
-                    n=m.observations,
+                    start=fmt_date(p.get("hist_start", m.start)),
+                    end=fmt_date(p.get("hist_end", m.end)),
+                    n=fmt_num(p.get("hist_days", m.observations), r.lang, 0),
                 ),
             ),
             (T("adr.mc_f_weights"), T("adr.mc_v_weights")),
@@ -420,6 +447,8 @@ def _scenarios(r: ReportInput) -> list:
             )
         )
         flow += [callout([method_table]), Spacer(1, 6)]
+        if p.get("hist_days", m.observations) < 2 * 252:
+            flow += [Paragraph(T("adr.mc_short"), s["small"]), Spacer(1, 4)]
         paths = p.get("paths")
         if paths is not None:
             flow.append(
@@ -450,56 +479,30 @@ def _scenarios(r: ReportInput) -> list:
         flow.append(Spacer(1, 6))
     else:
         flow.append(Paragraph(T("adr.mc_unavailable"), s["small"]))
-    sc = m.scenarios
-    if sc is not None:
-        rows2: list[list] = [
-            [T("inv.h_scenario"), T("inv.h_12m_return"), T("inv.h_value_after")],
-            [T("inv.sc_bear"), r.pct(sc.bear, signed=True), r.eur(r.total * (1 + sc.bear))],
-            [T("inv.sc_base"), r.pct(sc.base, signed=True), r.eur(r.total * (1 + sc.base))],
-            [T("inv.sc_bull"), r.pct(sc.bull, signed=True), r.eur(r.total * (1 + sc.bull))],
-        ]
-        flow += [
-            Paragraph(T("adr.hist_title").upper(), s["h3"]),
-            data_table(rows2, [86 * mm, 44 * mm, 44 * mm]),
-            Paragraph(
-                T(
-                    "inv.sc_method",
-                    windows=fmt_num(sc.windows, r.lang, 0),
-                    start=fmt_date(m.start),
-                    end=fmt_date(m.end),
-                    negative=r.pct(sc.share_negative, 0),
-                    worst=r.pct(sc.worst, signed=True),
-                    best=r.pct(sc.best, signed=True),
-                ),
-                s["caption"],
-            ),
-        ]
+    flow.append(
+        KeepTogether([Paragraph(T("adr.hist_title").upper(), s["h3"]), *historical_block(r)])
+    )
     return _block(_numbered(7, T("adr.s7")), flow, min_space=90 * mm)
 
 
 def _suitability(r: ReportInput) -> list:
-    s, T, m = styles(), r.T, r.metrics
+    s, T = styles(), r.T
     flow: list = []
-    if r.profile_band is not None and r.profile_label:
-        ok = finite(m.vol) and m.vol <= r.profile_band
-        text = T(
-            "inv.profile_check",
-            status=T("pdf.within") if ok else T("pdf.outside"),
-            vol=r.pct(m.vol),
-            band=r.pct(r.profile_band, 0),
-            profile=r.profile_label.lower(),
-        )
-        flow += [callout([Paragraph(text, s["body"])], color=GREEN if ok else RED), Spacer(1, 6)]
+    check = profile_check_box(r)
+    if check is not None:
+        flow += [check, Spacer(1, 6)]
     else:
         flow += [
             callout([Paragraph(T("rpt.rp_no_profile"), s["body"])], color=MUTED),
             Spacer(1, 6),
         ]
-    if r.monitoring:
+    # il punteggio composito non è un criterio di adeguatezza: resta nella sezione 9
+    checks = [chk for chk in (r.monitoring or []) if chk.get("key") != "health"]
+    if checks:
         rows: list[list] = [
             [T("ov.col_check"), T("ov.col_measured"), T("ov.col_limit"), T("ov.col_status")]
         ]
-        for chk in r.monitoring:
+        for chk in checks:
             color = {"ok": GREEN, "breach": RED}.get(chk["status"], MUTED).hexval()[2:]
             label = {"ok": T("ov.status_ok"), "breach": T("ov.status_breach")}.get(
                 chk["status"], T("ov.status_na")
@@ -526,17 +529,17 @@ def _observations(r: ReportInput) -> list:
         + f" <font size=7 color='#5b6472'>{T('inv.score_caption')}</font>",
         s["body"],
     )
-    obs: list = [Paragraph(T("adr.obs_title").upper(), s["h3"])]
-    for item in r.observations[:6] or [T("pdf.none_flagged")]:
-        obs.append(Paragraph(f"–&nbsp;&nbsp;{clean(item)}", s["body"]))
     flow: list = [
         callout([score], color=score_color(r.health)),
         Spacer(1, 4),
-        side_by_side([score_bars(comp)], obs),
+        side_by_side(
+            [score_bars(comp)],
+            [Paragraph(T("inv.score_components_text", score=r.health), s["small"])],
+        ),
     ]
     if r.what_if:
         flow += [Spacer(1, 6), Paragraph(T("adr.whatif_title").upper(), s["h3"])]
-        for item in r.what_if[:3]:
+        for item in r.what_if[:4]:
             flow.append(Paragraph(f"–&nbsp;&nbsp;{clean(item)}", s["body"]))
         flow.append(Paragraph(T("adr.whatif_caption"), s["caption"]))
     return _block(_numbered(9, T("adr.s9")), flow, min_space=70 * mm)
@@ -571,7 +574,7 @@ def _methodology(r: ReportInput) -> list:
 def build_advisor_report(r: ReportInput) -> bytes:
     """Il report Advisor come bytes PDF."""
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
-    rid = report_reference(r, now)
+    rid = report_reference(r, now, "advisor")
     story: list = [*_cover(r, now, rid), PageBreak()]
     story += _profile(r)
     story += _performance(r)

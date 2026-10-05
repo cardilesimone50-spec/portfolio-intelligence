@@ -14,6 +14,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import Paragraph, Table, TableStyle
 
@@ -81,6 +82,7 @@ class ReportInput:
     recipient: str | None = None
     risk_free: float | None = None
     invested: float | None = None
+    cost_known: bool = True  # False: qualche posizione senza prezzo di carico
     pnl: float | None = None
     pnl_pct: float | None = None
     coverage_notes: list[str] = field(default_factory=list)
@@ -244,9 +246,14 @@ def draw_footer(
     canvas.line(MARGIN, 14.5 * mm, width - MARGIN, 14.5 * mm)
     canvas.setFont("Helvetica", 6.3)
     canvas.setFillColor(MUTED)
-    canvas.drawString(MARGIN, 11 * mm, line1)
-    canvas.drawString(MARGIN, 7.5 * mm, line2)
-    canvas.drawRightString(width - MARGIN, 11 * mm, page_label.format(n=page, total=total))
+    label = page_label.format(n=page, total=total)
+    room = width - 2 * MARGIN - canvas.stringWidth(label, "Helvetica", 6.3) - 4 * mm
+    canvas.drawString(MARGIN, 11 * mm, simpleSplit(line1, "Helvetica", 6.3, room)[0])
+    canvas.drawRightString(width - MARGIN, 11 * mm, label)
+    # avvertenze su al massimo due righe dentro i margini, in qualunque lingua
+    canvas.setFont("Helvetica", 6.0)
+    for i, text in enumerate(simpleSplit(line2, "Helvetica", 6.0, width - 2 * MARGIN)[:2]):
+        canvas.drawString(MARGIN, (7.6 - 2.6 * i) * mm, text)
     canvas.restoreState()
 
 
@@ -890,11 +897,15 @@ def fan_chart(
 # ------------------------------------------------------------------ documento
 
 
-def report_reference(r: ReportInput, now: str) -> str:
-    """Identificativo del documento per riferimento e tracciabilità nelle revisioni."""
+def report_reference(r: ReportInput, now: str, kind: str = "investor") -> str:
+    """Identificativo del documento per riferimento e tracciabilità nelle revisioni.
+
+    Il tipo di documento entra nell'impronta: revisione e report per il cliente
+    generati nello stesso minuto hanno riferimenti diversi.
+    """
     import hashlib
 
-    seed = f"{r.portfolio_name}|{r.advisor or ''}|{now}"
+    seed = f"{kind}|{r.portfolio_name}|{r.advisor or ''}|{now}"
     return hashlib.sha1(seed.encode()).hexdigest()[:8].upper()
 
 

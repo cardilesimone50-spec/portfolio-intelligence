@@ -143,8 +143,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "dna.balanced": ("Balanced profile", "Profilo bilanciato"),
     # ---------------------------------------------------------------- executive summary
     "exec.ret": (
-        "Over the period ({period}) the portfolio returned {ret}.",
-        "Nel periodo ({period}) il portafoglio ha reso {ret}.",
+        "Over the period ({period}), with current weights, the portfolio returned {ret}.",
+        "Nel periodo ({period}), a pesi attuali, il portafoglio ha reso {ret}.",
     ),
     "exec.corr_weak": (
         "Diversification is weak: the holdings move very similarly (average correlation {corr}).",
@@ -170,10 +170,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "il risultato in euro dipende anche dal cambio EUR/USD.",
     ),
     "exec.dd_high": (
-        "Historical downside risk is above average: over the period the "
-        "portfolio fell as much as {dd} from its peak.",
-        "Il rischio storico al ribasso è sopra la media: nel periodo il "
-        "portafoglio è arrivato a perdere il {dd} dal massimo.",
+        "Maximum drawdown over the period {dd}, beyond the 25% reference level.",
+        "Massimo drawdown nel periodo {dd}, oltre il livello di riferimento del 25%.",
     ),
     "exec.dd_low": (
         "Drops from the peak stayed contained (max {dd}).",
@@ -199,30 +197,25 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "**{ticker}** guida il **{share} del rischio totale**.",
     ),
     "prob.correlation": (
-        "Average correlation **{corr}**: the holdings move together, "
-        "the portfolio rides a single engine.",
-        "Correlazione media **{corr}**: i titoli si muovono assieme, "
-        "il portafoglio viaggia su un motore solo.",
+        "Average pairwise correlation **{corr}**: limited diversification across holdings.",
+        "Correlazione media tra coppie **{corr}**: diversificazione limitata tra i titoli.",
     ),
     "prob.dividend": (
-        "Dividend yield **{dy}%**, below the market average: "
-        "the portfolio generates little income.",
-        "Dividend yield **{dy}%**, sotto la media di mercato: il portafoglio genera poco reddito.",
+        "Weighted dividend yield **{dy}%**, below the 1% reference level.",
+        "Rendimento da dividendi ponderato **{dy}%**, sotto il livello di riferimento dell'1%.",
     ),
     "prob.volatility": (
-        "Elevated volatility versus a balanced portfolio.",
-        "Volatilità elevata rispetto a un portafoglio bilanciato.",
+        "Volatility score in the top band of the scale used (above 70 out of 100).",
+        "Punteggio di volatilità nella fascia alta della scala usata (oltre 70 su 100).",
     ),
     # ---------------------------------------------------------------- opportunities
     "opp.defensive_sectors": (
-        "No exposure to defensive sectors (**{sectors}**): the portfolio's "
-        "behaviour depends more on the economic cycle.",
-        "Nessuna esposizione ai settori difensivi (**{sectors}**): l'andamento "
-        "del portafoglio dipende di più dal ciclo economico.",
+        "No exposure to the defensive sectors monitored (**{sectors}**).",
+        "Nessuna esposizione ai settori difensivi monitorati (**{sectors}**).",
     ),
     "opp.cheap": (
-        "Among the holdings, **{ticker}** has the lowest multiples (P/E {pe}, P/S {ps}).",
-        "Tra i titoli in portafoglio, **{ticker}** ha i multipli più bassi (P/E {pe}, P/S {ps}).",
+        "**{ticker}** has trailing P/E {pe} and P/S {ps}, below the 25 and 6 reference levels.",
+        "**{ticker}** ha P/E storico {pe} e P/S {ps}, sotto i livelli di riferimento di 25 e 6.",
     ),
     "opp.none": (
         "No obvious gaps against the monitored rules (defensive sectors, valuations).",
@@ -948,10 +941,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "chk.col_trend": ("Trend ({period})", "Andamento ({period})"),
     "chk.top_problems": ("Top problems", "Problemi principali"),
     "chk.profile_problem": (
-        "For a **{profile}** profile (expected volatility up to {band}), "
-        "the portfolio swings **{excess} more** than the threshold.",
-        "Per un profilo **{profile}** (volatilità attesa fino a {band}), il "
-        "portafoglio oscilla **{excess} in più** della soglia.",
+        "Annualized volatility exceeds the {band} band of the declared **{profile}** profile by **{excess}**.",
+        "La volatilità annualizzata supera di **{excess}** la banda del {band} del profilo dichiarato **{profile}**.",
     ),
     "chk.no_problems": (
         "No problems flagged by the monitored rules.",
@@ -976,15 +967,16 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "chk.scenarios": ("Scenarios on your data", "Scenari sui tuoi dati"),
     "chk.halve": (
-        "Halve {ticker} (redistributing to the others)",
-        "Dimezza {ticker} (redistribuendo sugli altri)",
+        "Scenario: {ticker} at half its current weight, redistributed pro rata",
+        "Scenario: {ticker} a metà del peso attuale, ridistribuito in proporzione",
     ),
-    "chk.equalize": ("Equal-weight all holdings", "Equipesa tutte le posizioni"),
+    "chk.equalize": (
+        "Scenario: equal weights across current holdings",
+        "Scenario: pesi uguali sui titoli attuali",
+    ),
     "chk.sim_text": (
-        "**{name}**: annual swing from ± {vol_from} to ± {vol_to}, "
-        "Health Score from {h_from} to **{h_to}**.",
-        "**{name}**: oscillazione annua da ± {vol_from} a ± {vol_to}, "
-        "Health Score da {h_from} a **{h_to}**.",
+        "**{name}**: annualized volatility in EUR from ± {vol_from} to ± {vol_to}; Health Score from {h_from} to **{h_to}**.",
+        "**{name}**: volatilità annualizzata in euro da ± {vol_from} a ± {vol_to}; Health Score da {h_from} a **{h_to}**.",
     ),
     "chk.no_improve": (
         "The standard rebalancing simulations on the current holdings (halving the "
@@ -1126,12 +1118,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "distribuzione al pubblico.",
     ),
     "pdf.footer_line2": (
-        "Past performance is not a reliable indicator of future results. This "
-        "document is not investment advice, investment research, an offer or "
-        "a solicitation.",
-        "I rendimenti passati non sono un indicatore affidabile dei risultati "
-        "futuri. Questo documento non è consulenza in materia di investimenti, "
-        "ricerca, offerta né sollecitazione.",
+        "Return figures apply current weights to past prices (simulated past performance). Past performance is not a reliable indicator of future results. Not investment advice, research, an offer or a solicitation.",
+        "I rendimenti applicano i pesi attuali ai prezzi passati (performance passata simulata). I rendimenti passati non sono un indicatore affidabile dei risultati futuri. Non è consulenza, ricerca, offerta né sollecitazione.",
     ),
     # ---------------------------------------------------------------- positions / P&L
     "pos.qty": ("Quantity", "Quantità"),
@@ -1922,8 +1910,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Primo settore: {sector} {weight}",
     ),
     "rpt.r_factor_evidence": (
-        "Sectors represented: {n}; sector from SEC SIC codes where available",
-        "Settori rappresentati: {n}; settore dai codici SIC della SEC dove disponibile",
+        "Sector known for {coverage} of capital (SEC SIC code or backup source)",
+        "Settore noto per il {coverage} del capitale (codice SIC della SEC o fonte di riserva)",
     ),
     "rpt.r_fx_measure": ("USD-listed share {share}", "Quota quotata in USD {share}"),
     "rpt.r_fx_evidence": (
@@ -1978,10 +1966,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "{beta}; massimo drawdown {dd} nella finestra.",
     ),
     "rpt.v_performance": (
-        "From {start} to {end} the portfolio returned {ret} against {bench} for {benchmark} "
-        "({excess}); CAGR {cagr} versus {bench_cagr}; Sharpe {sharpe} versus {bench_sharpe}.",
-        "Dal {start} al {end} il portafoglio ha reso {ret} contro {bench} del {benchmark} "
-        "({excess}); CAGR {cagr} contro {bench_cagr}; Sharpe {sharpe} contro {bench_sharpe}.",
+        "Applying today's weights from {start} to {end}, the portfolio would have returned {ret} against {bench} for {benchmark} ({excess}); CAGR {cagr} versus {bench_cagr}; Sharpe {sharpe} versus {bench_sharpe}.",
+        "Applicando i pesi di oggi dal {start} al {end}, il portafoglio avrebbe reso {ret} contro {bench} del {benchmark} ({excess}); CAGR {cagr} contro {bench_cagr}; Sharpe {sharpe} contro {bench_sharpe}.",
     ),
     "rpt.v_concentration": (
         "{ticker} represents {weight} of capital and {risk} of total risk; the three largest "
@@ -2020,8 +2006,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Il drawdown più profondo non è ancora recuperato: il valore è a {current} dal massimo.",
     ),
     "rpt.v_vuln_valuation": (
-        "Weighted P/E of {pe}: prices embed demanding earnings expectations.",
-        "P/E ponderato di {pe}: i prezzi incorporano attese sugli utili esigenti.",
+        "Weighted trailing P/E {pe}, above the 40 reference level.",
+        "P/E storico ponderato {pe}, sopra il livello di riferimento di 40.",
     ),
     "rpt.v_none": (
         "No rule triggered on the available data.",
@@ -2105,8 +2091,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "{ticker}: quota di rischio {risk} contro un peso del {weight} sul capitale.",
     ),
     "rpt.rp_currency": (
-        "Currency exposure: {share} of capital in USD-listed securities, unhedged.",
-        "Esposizione valutaria: il {share} del capitale in titoli quotati in USD, senza copertura.",
+        "Currency exposure: {share} of capital in USD-listed securities; any currency hedging is not captured in the data.",
+        "Esposizione valutaria: il {share} del capitale in titoli quotati in USD; eventuali coperture valutarie non sono rilevate nei dati.",
     ),
     "rpt.rp_sector": (
         "Sector exposure: {sector} at {weight} of capital.",
@@ -2128,7 +2114,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "SmarteeFinance · Portfolio Intelligence · Rif. {rid} · prezzi: {source} · accuratezza e "
         "completezza dei dati non garantite",
     ),
-    "rep.source_unknown": ("provider chain (Yahoo, Stooq)", "catena di fornitori (Yahoo, Stooq)"),
+    "rep.source_unknown": (
+        "provider chain (EODHD where licensed, Yahoo, yfinance, Stooq)",
+        "catena di fornitori (EODHD se attivo, Yahoo, yfinance, Stooq)",
+    ),
     "rep.mc_p10": ("Bear scenario (10th percentile)", "Scenario ribassista (10° percentile)"),
     "rep.mc_p50": ("Base scenario (median)", "Scenario centrale (mediana)"),
     "rep.mc_p90": ("Bull scenario (90th percentile)", "Scenario rialzista (90° percentile)"),
@@ -2159,16 +2148,12 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "forniti così come sono; accuratezza, completezza e tempestività non garantite.",
     ),
     "rep.n_fundamentals": (
-        "Fundamentals and sectors: SEC EDGAR filings (last twelve months; sector from the SIC "
-        "code), backup sources where unavailable. EUR/USD: European Central Bank reference "
-        "rates. Risk-free rate: US Treasury 13-week bill.",
-        "Fondamentali e settori: depositi SEC EDGAR (ultimi dodici mesi; settore dal codice "
-        "SIC), fonti di riserva dove non disponibili. EUR/USD: cambi di riferimento della Banca "
-        "Centrale Europea. Tasso privo di rischio: T-bill a 13 settimane del Tesoro USA.",
+        "Fundamentals and sectors: SEC EDGAR filings (last twelve months; sector from the SIC code), backup sources where unavailable; holdings without a sector are shown as not classified. EUR/USD: European Central Bank reference rates, backup source where unavailable. Geographic exposure: not available in the dataset; listing currency is shown instead.",
+        "Fondamentali e settori: depositi SEC EDGAR (ultimi dodici mesi; settore dal codice SIC), fonti di riserva dove non disponibili; i titoli senza settore figurano come non classificati. EUR/USD: cambi di riferimento della Banca Centrale Europea, fonte di riserva dove non disponibili. Esposizione geografica: non disponibile nei dati; è indicata la valuta di quotazione.",
     ),
     "pdf.notice_rf2": (
-        " ({rate}, US Treasury 13-week bill)",
-        " ({rate}, T-bill a 13 settimane del Tesoro USA)",
+        " ({rate}, as set in the analysis parameters; default source US Treasury 13-week bill)",
+        " ({rate}, come impostato nei parametri di analisi; fonte predefinita T-bill a 13 settimane del Tesoro USA)",
     ),
     "rep.n_returns": (
         "Returns are geometric (CAGR), never arithmetic-mean annualization. Sharpe and "
@@ -2203,12 +2188,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "imposte: non sono previsioni e non esprimono un risultato atteso.",
     ),
     "rep.n_score": (
-        "The Portfolio Health Score is a proprietary analytical composite (average of six "
-        "components scored 0-100); it is not a rating, a regulated indicator or a suitability "
-        "assessment.",
-        "Il Portfolio Health Score è un indicatore composito proprietario (media di sei "
-        "componenti valutate 0-100); non è un rating, un indicatore regolamentato né una "
-        "valutazione di adeguatezza.",
+        "The Portfolio Health Score is a proprietary analytical composite (simple average of up to six components scored 0-100; components without data are excluded); it is not a rating, a regulated indicator or a suitability assessment.",
+        "Il Portfolio Health Score è un indicatore composito proprietario (media semplice di fino a sei componenti valutate 0-100; quelle senza dati sono escluse); non è un rating, un indicatore regolamentato né una valutazione di adeguatezza.",
     ),
     "rep.n_personal_use": (
         "Generated for the personal information of the portfolio holder; not intended for "
@@ -2248,7 +2229,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "inv.k_cost_unknown": ("Cost basis not available", "Prezzo di carico non disponibile"),
     "inv.k_pnl": ("Unrealized P&L", "P&L non realizzato"),
-    "inv.k_total_return": ("Total return ({period})", "Rendimento totale ({period})"),
+    "inv.k_total_return": (
+        "Return, current weights ({period})",
+        "Rendimento a pesi attuali ({period})",
+    ),
     "inv.k_window": ("{start} to {end}", "dal {start} al {end}"),
     "inv.k_bench": ("{benchmark}: {value}", "{benchmark}: {value}"),
     "inv.k_corr": ("Correlation {corr}", "Correlazione {corr}"),
@@ -2279,10 +2263,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "significa più equilibrato. Non è un rating né una valutazione di adeguatezza.",
     ),
     "inv.profile_check": (
-        "<b>Risk profile check: {status} the declared profile.</b> Measured annualized "
-        "volatility {vol} against the {band} band associated with a {profile} profile.",
-        "<b>Verifica del profilo di rischio: {status} il profilo dichiarato.</b> Volatilità "
-        "annualizzata misurata {vol} contro la banda del {band} associata a un profilo {profile}.",
+        "<b>Risk profile check: {status}.</b> Measured annualized volatility {vol} against the {band} band associated with a {profile} profile.",
+        "<b>Verifica del profilo di rischio: {status}.</b> Volatilità annualizzata misurata {vol} contro la banda del {band} associata a un profilo {profile}.",
     ),
     "inv.s_summary": ("Executive summary", "Sintesi"),
     "inv.s_growth": (
@@ -2312,13 +2294,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "inv.s_score": ("Composite score components", "Componenti del punteggio composito"),
     "inv.score_components_text": (
-        "Each component is scored 0-100 from the measured data; the Portfolio Health Score "
-        "({score}/100) is their simple average. Green 67 and above, amber 34 to 66, red 33 and "
-        "below. The weighting and thresholds are proprietary and are disclosed in the "
-        "methodology notes.",
-        "Ogni componente vale 0-100 a partire dai dati misurati; il Portfolio Health Score "
-        "({score}/100) è la loro media semplice. Verde da 67, ambra da 34 a 66, rosso fino a "
-        "33. Pesi e soglie sono proprietari e descritti nelle note di metodologia.",
+        "Each component is scored 0-100 from the measured data; the Portfolio Health Score ({score}/100) is the simple average of the components available. Colour bands: green 67 and above, amber 34 to 66, red 33 and below. Proprietary methodology.",
+        "Ogni componente vale 0-100 a partire dai dati misurati; il Portfolio Health Score ({score}/100) è la media semplice delle componenti disponibili. Fasce di colore: verde da 67, ambra da 34 a 66, rosso fino a 33. Metodologia proprietaria.",
     ),
     "inv.p3_title": ("Portfolio composition and risk", "Composizione e rischio del portafoglio"),
     "inv.s_holdings": (
@@ -2376,19 +2353,26 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Scenario analysis: historical 12-month outcomes",
         "Analisi di scenario: esiti storici a 12 mesi",
     ),
-    "inv.h_12m_return": ("12-month return", "Rendimento a 12 mesi"),
+    "inv.h_12m_return": (
+        "Observed 12-month return",
+        "Rendimento osservato a 12 mesi",
+    ),
     "inv.h_value_after": ("Value after 12 months", "Valore dopo 12 mesi"),
-    "inv.sc_bear": ("Bear (5th percentile)", "Ribassista (5° percentile)"),
-    "inv.sc_base": ("Base (median)", "Centrale (mediana)"),
-    "inv.sc_bull": ("Bull (95th percentile)", "Rialzista (95° percentile)"),
+    "inv.sc_bear": (
+        "Historical 5th percentile (bear)",
+        "5° percentile storico (ribassista)",
+    ),
+    "inv.sc_base": (
+        "Historical median (base)",
+        "Mediana storica (centrale)",
+    ),
+    "inv.sc_bull": (
+        "Historical 95th percentile (bull)",
+        "95° percentile storico (rialzista)",
+    ),
     "inv.sc_method": (
-        "Distribution of all {windows} overlapping 12-month windows between {start} and {end}, "
-        "with today's weights held constant; gross of costs, fees and taxes. {negative} of "
-        "windows closed with a loss; range {worst} to {best}. Historical statistics, not a forecast.",
-        "Distribuzione di tutte le {windows} finestre sovrapposte di 12 mesi tra il {start} e il "
-        "{end}, con i pesi di oggi costanti; al lordo di costi, commissioni e imposte. Il "
-        "{negative} delle finestre si è chiuso in perdita; intervallo da {worst} a {best}. "
-        "Statistiche storiche, non una previsione.",
+        "Distribution of all {windows} overlapping 12-month windows between {start} and {end} (days on which every current holding was priced), with today's weights held constant; gross of costs, fees and taxes. {negative} of windows closed with a loss; range {worst} to {best}. Historical statistics, not a forecast.",
+        "Distribuzione di tutte le {windows} finestre sovrapposte di 12 mesi tra il {start} e il {end} (giorni in cui tutti i titoli attuali erano quotati), con i pesi di oggi costanti; al lordo di costi, commissioni e imposte. Il {negative} delle finestre si è chiuso in perdita; intervallo da {worst} a {best}. Statistiche storiche, non una previsione.",
     ),
     "inv.sc_short": (
         "Fewer than 13 months of history: 12-month scenarios are not computed.",
@@ -2436,10 +2420,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "adr.f_reference": ("Document reference", "Riferimento documento"),
     "adr.s1": ("Executive investment view", "Sintesi d'investimento"),
     "adr.s1_caption": (
-        "Every statement is generated by deterministic rules from the portfolio data cited in "
-        "it; no language model is involved.",
-        "Ogni frase è generata da regole deterministiche a partire dai dati che cita; nessun "
-        "modello linguistico è coinvolto.",
+        "Every statement is generated by deterministic rules from the portfolio data cited in it; no language model is involved. Return figures apply current weights to past prices; historical alpha and excess return are not evidence of persistent skill.",
+        "Ogni frase è generata da regole deterministiche a partire dai dati che cita; nessun modello linguistico è coinvolto. I rendimenti applicano i pesi attuali ai prezzi passati; alfa ed extra-rendimento storici non sono prova di un'abilità persistente.",
     ),
     "adr.s2": ("Portfolio profile", "Profilo del portafoglio"),
     "adr.h_assessment": ("Assessment", "Valutazione"),
@@ -2544,8 +2526,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "del consulente.",
     ),
     "adr.s9": (
-        "Composite score and rule-based observations",
-        "Punteggio composito e rilievi da regole",
+        "Composite score and what-if analysis",
+        "Punteggio composito e analisi what-if",
     ),
     "adr.obs_title": ("Observations", "Rilievi"),
     "adr.whatif_title": (
@@ -2553,10 +2535,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Analisi what-if sui titoli attuali",
     ),
     "adr.whatif_caption": (
-        "Mechanical recalculations of the same metrics under alternative weights; analysis "
-        "only, not a recommendation to trade.",
-        "Ricalcoli meccanici delle stesse metriche con pesi alternativi; solo analisi, non una "
-        "raccomandazione a operare.",
+        "Mechanical recalculations of the same metrics under alternative weights, shown whether or not they improve the metrics; analysis only, not a recommendation to trade.",
+        "Ricalcoli meccanici delle stesse metriche con pesi alternativi, mostrati sia che migliorino sia che peggiorino le metriche; solo analisi, non una raccomandazione a operare.",
     ),
     "adr.s10": ("Review considerations", "Punti per la revisione"),
     "adr.s10_caption": (
@@ -2623,5 +2603,61 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "adeguatezza e metodologia Monte Carlo. Report per il cliente: quattro pagine per il "
         "cliente. L'intestazione compare solo sui PDF scaricati ora, resta in questa sessione "
         "del browser e non viene mai salvata nel database.",
+    ),
+    "rpt.v_impl_driver_soft": (
+        "The largest contributor to risk is {ticker}, with {risk} of total risk.",
+        "Il primo contributore al rischio è {ticker}, con il {risk} del rischio totale.",
+    ),
+    "rpt.v_regime_up": (
+        "Over the last quarter volatility rose to {recent} against {full} over the full window; recent beta {beta}.",
+        "Nell'ultimo trimestre la volatilità è salita al {recent} contro il {full} dell'intera finestra; beta recente {beta}.",
+    ),
+    "rpt.v_regime_down": (
+        "Over the last quarter volatility eased to {recent} against {full} over the full window; recent beta {beta}.",
+        "Nell'ultimo trimestre la volatilità è scesa al {recent} contro il {full} dell'intera finestra; beta recente {beta}.",
+    ),
+    "rpt.v_regime_stable": (
+        "Over the last quarter volatility was {recent}, close to {full} over the full window; recent beta {beta}.",
+        "Nell'ultimo trimestre la volatilità è stata del {recent}, vicina al {full} dell'intera finestra; beta recente {beta}.",
+    ),
+    "rpt.ratio_negative": (
+        "Both below the risk-free rate: comparison not meaningful",
+        "Entrambi sotto il tasso privo di rischio: confronto non significativo",
+    ),
+    "rpt.r_factor_missing": (
+        "Sector data not available",
+        "Dati di settore non disponibili",
+    ),
+    "rep.within": (
+        "within the declared profile",
+        "entro il profilo dichiarato",
+    ),
+    "rep.outside": (
+        "OUTSIDE the declared profile",
+        "FUORI dal profilo dichiarato",
+    ),
+    "rep.ref": (
+        "Ref. {rid}",
+        "Rif. {rid}",
+    ),
+    "inv.k_invested_partial": (
+        "Includes current value where the purchase price is missing",
+        "Include il valore attuale dove manca il prezzo di carico",
+    ),
+    "adr.mc_short": (
+        "The joint history is shorter than two years: the projection inherits the returns of a single, possibly exceptional, period.",
+        "Lo storico congiunto è più corto di due anni: la proiezione eredita i rendimenti di un solo periodo, forse eccezionale.",
+    ),
+    "adr.sector_risk_title": (
+        "Capital weight and risk contribution by sector",
+        "Peso sul capitale e contributo al rischio per settore",
+    ),
+    "adr.h_sector_weight": (
+        "Capital weight",
+        "Peso sul capitale",
+    ),
+    "adr.h_sector_risk": (
+        "Risk contribution",
+        "Contributo al rischio",
     ),
 }

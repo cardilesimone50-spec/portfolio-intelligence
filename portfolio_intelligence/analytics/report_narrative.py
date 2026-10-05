@@ -14,6 +14,7 @@ from portfolio_intelligence.config import (
     BETA_HIGH,
     BETA_LOW,
     CORRELATION_ELEVATED,
+    MONITOR_MAX_RISK_SHARE,
     RISK_LEVEL_BETA,
     RISK_LEVEL_DRAWDOWN,
     RISK_LEVEL_HHI,
@@ -23,10 +24,13 @@ from portfolio_intelligence.config import (
     RISK_LEVEL_VOL,
     TRACKING_ERROR_HIGH,
 )
-from portfolio_intelligence.formatting import fmt_date, fmt_eur, fmt_num, fmt_pct, fmt_pp, missing
+from portfolio_intelligence.formatting import fmt_date, fmt_num, fmt_pct, fmt_pp, missing
 from portfolio_intelligence.i18n import t_in
 
 LEVELS = ("low", "moderate", "elevated", "high")
+# sotto ~10 mesi di borsa i valori annualizzati vanno letti come indicativi
+# (stessa soglia dell'avvertenza nelle note di metodologia)
+SHORT_WINDOW_DAYS = 200
 NOT_ASSESSED = "na"
 
 
@@ -55,7 +59,7 @@ def _compare(value: float, bench: float, higher_is_better: bool, lang: str, key:
 
 
 def profile_rows(
-    m: ReportMetrics, value: float, benchmark: str, lang: str
+    m: ReportMetrics, value_text: str, benchmark: str, lang: str, in_eur: bool = True
 ) -> list[tuple[str, str, str, str]]:
     """Tabella Metric | Portfolio | Benchmark | Assessment del report Advisor."""
     T = lambda key, **kw: t_in(lang, key, **kw)  # noqa: E731
@@ -64,6 +68,8 @@ def profile_rows(
     def ratio_cmp(value: float, bench: float, key: str) -> str:
         if not (finite(value) and finite(bench)):
             return na
+        if value <= 0 and bench <= 0:
+            return T("rpt.ratio_negative")  # rendimento sotto il tasso privo di rischio
         if abs(value - bench) < 0.05:
             return T(f"rpt.{key}_inline")
         return T(f"rpt.{key}_{'better' if value > bench else 'worse'}")
@@ -95,7 +101,7 @@ def profile_rows(
     )
     top_risk = m.risk.get(m.top_ticker, float("nan"))
     return [
-        (T("rpt.m_value"), fmt_eur(value, lang), na, T("rpt.a_value")),
+        (T("rpt.m_value"), value_text, na, T("rpt.a_value")),
         (
             T("rpt.m_total_return"),
             fmt_pct(m.cum_return, lang, signed=True),
@@ -186,7 +192,7 @@ def profile_rows(
             T("rpt.m_usd"),
             fmt_pct(m.usd_weight, lang, 0),
             na,
-            T("rpt.a_usd"),
+            T("rpt.a_usd") if in_eur else T("rpt.r_fx_native"),
         ),
     ]
 
@@ -231,13 +237,21 @@ def risk_matrix(m: ReportMetrics, in_eur: bool, benchmark: str, lang: str) -> li
         },
         {
             "key": "factor",
-            "measure": T(
-                "rpt.r_factor_measure",
-                sector=m.top_sector,
-                weight=fmt_pct(m.top_sector_weight, lang, 0),
+            "measure": (
+                T(
+                    "rpt.r_factor_measure",
+                    sector=m.top_sector,
+                    weight=fmt_pct(m.top_sector_weight, lang, 0),
+                )
+                if _sectors_known(m)
+                else T("rpt.r_factor_missing")
             ),
-            "level": risk_level(m.top_sector_weight, RISK_LEVEL_SECTOR),
-            "evidence": T("rpt.r_factor_evidence", n=len(m.sector_weights)),
+            "level": (
+                risk_level(m.top_sector_weight, RISK_LEVEL_SECTOR)
+                if _sectors_known(m)
+                else NOT_ASSESSED
+            ),
+            "evidence": T("rpt.r_factor_evidence", coverage=fmt_pct(m.sector_coverage, lang, 0)),
         },
         {
             "key": "currency",
@@ -290,6 +304,11 @@ def risk_matrix(m: ReportMetrics, in_eur: bool, benchmark: str, lang: str) -> li
         row["category"] = T(f"rpt.cat_{row['key']}")
         row["level_label"] = T(f"rpt.level_{row['level']}")
     return rows
+
+
+def _sectors_known(m: ReportMetrics) -> bool:
+    """Il settore conta solo se è noto per almeno metà del capitale."""
+    return bool(m.top_sector) and m.sector_coverage >= 0.5
 
 
 def _drawdown_evidence(m: ReportMetrics, lang: str) -> str:
@@ -355,6 +374,23 @@ def investment_view(
             dd=fmt_pct(m.max_dd, lang),
         )
     ]
+    if finite(m.recent_vol) and finite(m.vol) and m.vol > 0:
+        change = m.recent_vol / m.vol - 1
+        key = (
+            "rpt.v_regime_up"
+            if change > 0.15
+            else "rpt.v_regime_down"
+            if change < -0.15
+            else "rpt.v_regime_stable"
+        )
+        regime.append(
+            T(
+                key,
+                recent=fmt_pct(m.recent_vol, lang),
+                full=fmt_pct(m.vol, lang),
+                beta=fmt_num(m.recent_beta, lang),
+            )
+        )
     performance = [
         T(
             "rpt.v_performance",
@@ -413,7 +449,7 @@ def investment_view(
         )
     if finite(m.down_capture) and m.down_capture > 1:
         vulnerabilities.append(T("rpt.v_vuln_down_capture", down=fmt_pct(m.down_capture, lang, 0)))
-    if finite(m.top_sector_weight) and m.top_sector_weight >= RISK_LEVEL_SECTOR[1]:
+    if _sectors_known(m) and m.top_sector_weight >= RISK_LEVEL_SECTOR[1]:
         vulnerabilities.append(
             T(
                 "rpt.v_vuln_sector",
@@ -434,7 +470,12 @@ def investment_view(
         vulnerabilities.append(T("rpt.v_none"))
 
     strengths: list[str] = []
-    if finite(m.sharpe) and finite(m.bench_sharpe) and m.sharpe > m.bench_sharpe + 0.05:
+    if (
+        finite(m.sharpe)
+        and finite(m.bench_sharpe)
+        and m.sharpe > 0
+        and m.sharpe > m.bench_sharpe + 0.05
+    ):
         strengths.append(
             T(
                 "rpt.v_str_sharpe",
@@ -458,9 +499,14 @@ def investment_view(
         strengths.append(T("rpt.v_none"))
 
     implications: list[str] = []
-    if finite(top_risk):
+    if m.top_risk_ticker and finite(m.top_risk_share):
+        key = (
+            "rpt.v_impl_driver"
+            if m.top_risk_share >= MONITOR_MAX_RISK_SHARE
+            else "rpt.v_impl_driver_soft"
+        )
         implications.append(
-            T("rpt.v_impl_driver", ticker=m.top_ticker, risk=fmt_pct(top_risk, lang, 0))
+            T(key, ticker=m.top_risk_ticker, risk=fmt_pct(m.top_risk_share, lang, 0))
         )
     if finite(m.beta):
         implications.append(
@@ -475,7 +521,6 @@ def investment_view(
         implications.append(
             T(key, profile=(profile_label or "").lower(), band=fmt_pct(profile_band, lang, 0))
         )
-    implications.append(T("rpt.v_impl_alpha"))
 
     return [
         (T("rpt.vh_positioning"), positioning),
@@ -515,8 +560,22 @@ def performance_blocks(
             fmt_pct(m.bench_cagr, lang, signed=True),
             fmt_pp(m.excess_cagr, lang),
         ),
-        (T("rpt.m_best_month"), fmt_pct(m.best_month, lang, signed=True), na, na),
-        (T("rpt.m_worst_month"), fmt_pct(m.worst_month, lang, signed=True), na, na),
+        (
+            T("rpt.m_best_month"),
+            fmt_pct(m.best_month, lang, signed=True),
+            fmt_pct(m.bench_best_month, lang, signed=True),
+            fmt_pp(m.best_month - m.bench_best_month, lang)
+            if finite(m.best_month) and finite(m.bench_best_month)
+            else na,
+        ),
+        (
+            T("rpt.m_worst_month"),
+            fmt_pct(m.worst_month, lang, signed=True),
+            fmt_pct(m.bench_worst_month, lang, signed=True),
+            fmt_pp(m.worst_month - m.bench_worst_month, lang)
+            if finite(m.worst_month) and finite(m.bench_worst_month)
+            else na,
+        ),
     ]
     relative = [
         (
@@ -628,12 +687,36 @@ def review_points(
         )
     if in_eur and m.usd_weight >= RISK_LEVEL_USD[1]:
         points.append(T("rpt.rp_currency", share=fmt_pct(m.usd_weight, lang, 0)))
-    if finite(m.top_sector_weight) and m.top_sector_weight >= RISK_LEVEL_SECTOR[1]:
+    if _sectors_known(m) and m.top_sector_weight >= RISK_LEVEL_SECTOR[1]:
         points.append(
             T("rpt.rp_sector", sector=m.top_sector, weight=fmt_pct(m.top_sector_weight, lang, 0))
         )
-    if m.observations < 252:
+    if m.observations < SHORT_WINDOW_DAYS:
         points.append(T("rpt.rp_short_window"))
     if not points:
         points.append(T("rpt.rp_none"))
     return points
+
+
+def investor_summary(
+    m: ReportMetrics,
+    benchmark: str,
+    profile_label: str | None,
+    profile_band: float | None,
+    lang: str,
+) -> tuple[list[str], list[str]]:
+    """Sintesi e punti di attenzione del report Investor: le stesse regole della vista Advisor.
+
+    Restituisce (frasi di sintesi, punti di attenzione). Nessun testo del motore
+    di regole dell'app: solo frasi che citano ReportMetrics, nella lingua del PDF.
+    """
+    view = dict(investment_view(m, benchmark, profile_label, profile_band, lang))
+    T = lambda key, **kw: t_in(lang, key, **kw)  # noqa: E731
+    summary = [
+        *view[T("rpt.vh_performance")],
+        *view[T("rpt.vh_regime")][:1],
+        *view[T("rpt.vh_concentration")],
+        *view[T("rpt.vh_implications")][:2],
+    ]
+    attention = [text for text in view[T("rpt.vh_vulnerabilities")] if text != T("rpt.v_none")]
+    return summary, attention

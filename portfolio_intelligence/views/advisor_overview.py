@@ -536,7 +536,15 @@ def render(ctx: ViewContext, recipient_field) -> None:
             ctx.report_recipient = recipient_field()
         # dati preparati qui (sessione, lingua, Monte Carlo in cache); il PDF si
         # impagina solo al clic, in un thread separato
-        report = checkup.report_input(ctx, exec_text, problems, simulations, monitoring=checks)
+        report = checkup.report_input(
+            ctx,
+            exec_text,
+            problems,
+            simulations,
+            monitoring=checks,
+            # what-if completo: anche gli scenari che non migliorano le metriche
+            what_if=simulations + discarded,
+        )
         stamp = f"{pd.Timestamp.now():%Y%m%d}"
         with adv_col:
             st.download_button(

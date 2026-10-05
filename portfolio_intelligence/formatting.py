@@ -72,3 +72,16 @@ def fmt_date(value, lang: str = "en") -> str:
     if pd.isna(stamp):
         return missing(lang)
     return stamp.strftime("%d/%m/%Y")
+
+
+def ui_pct(value, decimals: int = 1, signed: bool = False) -> str:
+    """fmt_pct nella lingua corrente dell'interfaccia (testi generati da regole)."""
+    from portfolio_intelligence.i18n import get_language
+
+    return fmt_pct(value, get_language(), decimals, signed)
+
+
+def ui_num(value, decimals: int = 2) -> str:
+    from portfolio_intelligence.i18n import get_language
+
+    return fmt_num(value, get_language(), decimals)

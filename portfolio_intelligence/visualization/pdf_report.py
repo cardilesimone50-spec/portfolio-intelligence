@@ -22,6 +22,8 @@ from reportlab.platypus import HRFlowable, KeepInFrame, PageBreak, Paragraph, Sp
 
 from portfolio_intelligence.analytics.report_metrics import finite, rebased
 from portfolio_intelligence.analytics.report_narrative import (
+    SHORT_WINDOW_DAYS,
+    investor_summary,
     performance_blocks,
     recovery_text,
     risk_matrix,
@@ -80,7 +82,9 @@ def dashboard_cells(r: ReportInput) -> tuple[list[tuple[str, str, str]], dict[in
         (
             T("inv.k_invested"),
             r.eur(r.invested) if has_cost else na,
-            T("inv.k_invested_note") if has_cost else T("inv.k_cost_unknown"),
+            (T("inv.k_invested_note") if r.cost_known else T("inv.k_invested_partial"))
+            if has_cost
+            else T("inv.k_cost_unknown"),
         ),
         (
             T("inv.k_pnl"),
@@ -168,7 +172,7 @@ def _page1(r: ReportInput, now: str, rid: str) -> list:
     meta += [
         T("pdf.window", start=fmt_date(m.start), end=fmt_date(m.end)),
         T("pdf.generated", now=now),
-        f"Ref. {rid}",
+        T("rep.ref", rid=rid),
         T("pdf.currency_eur") if r.in_eur else T("pdf.currency_orig"),
     ]
     story: list = [
@@ -191,23 +195,15 @@ def _page1(r: ReportInput, now: str, rid: str) -> list:
     )
     story += [callout([score], color=score_color(r.health)), Spacer(1, 5)]
 
-    if r.profile_band is not None and r.profile_label:
-        ok = finite(m.vol) and m.vol <= r.profile_band
-        check = Paragraph(
-            T(
-                "inv.profile_check",
-                status=T("pdf.within") if ok else T("pdf.outside"),
-                vol=r.pct(m.vol),
-                band=r.pct(r.profile_band, 0),
-                profile=r.profile_label.lower(),
-            )
-            + f" <font size=7 color='#5b6472'>{T('pdf.check_caveat')}</font>",
-            s["body"],
-        )
-        story += [callout([check], color=GREEN if ok else RED), Spacer(1, 5)]
+    check = profile_check_box(r)
+    if check is not None:
+        story += [check, Spacer(1, 5)]
 
+    # sintesi dalle stesse regole della revisione Advisor, nella lingua del documento
+    summary, _ = investor_summary(m, r.benchmark, r.profile_label, r.profile_band, r.lang)
     story += [section(T("inv.s_summary")), Spacer(1, 4)]
-    story.append(Paragraph(clean(r.executive) if r.executive else T("pdf.no_summary"), s["body"]))
+    for sentence in summary or [T("pdf.no_summary")]:
+        story.append(Paragraph(f"–&nbsp;&nbsp;{clean(sentence)}", s["body"]))
     story.append(Spacer(1, 7))
 
     story += [section(T("inv.s_growth", benchmark=r.benchmark)), Spacer(1, 4)]
@@ -337,7 +333,7 @@ def holdings_table(r: ReportInput, with_sector: bool = False, max_rows: int = MA
         ("FONTSIZE", (1, 1), (first_num - 1, -1), 7.2),
     ]
     if with_sector:
-        widths = [14 * mm, 33 * mm, 25 * mm, 20 * mm, 14 * mm, 14 * mm, 14 * mm, 20 * mm, 20 * mm]
+        widths = [13 * mm, 27 * mm, 20 * mm, 19 * mm, 15 * mm, 18 * mm, 18 * mm, 22 * mm, 22 * mm]
     else:
         widths = [15 * mm, 41 * mm, 23 * mm, 17 * mm, 17 * mm, 17 * mm, 22 * mm, 22 * mm]
     return data_table(
@@ -356,6 +352,7 @@ def _page3(r: ReportInput, now: str) -> list:
     story += [section(T("inv.s_holdings")), Spacer(1, 3)]
     story.append(holdings_table(r))
     story.append(Paragraph(T("inv.holdings_caption"), s["caption"]))
+    story.append(flagged_note(r))
     story.append(Spacer(1, 6))
 
     strip = [
@@ -452,31 +449,7 @@ def _page4(r: ReportInput, now: str) -> list:
     story.append(Spacer(1, 7))
 
     story += [section(T("inv.s_scenarios")), Spacer(1, 3)]
-    sc = m.scenarios
-    if sc is not None:
-        rows = [
-            [T("inv.h_scenario"), T("inv.h_12m_return"), T("inv.h_value_after")],
-            [T("inv.sc_bear"), r.pct(sc.bear, signed=True), r.eur(r.total * (1 + sc.bear))],
-            [T("inv.sc_base"), r.pct(sc.base, signed=True), r.eur(r.total * (1 + sc.base))],
-            [T("inv.sc_bull"), r.pct(sc.bull, signed=True), r.eur(r.total * (1 + sc.bull))],
-        ]
-        story.append(data_table(rows, [86 * mm, 44 * mm, 44 * mm]))
-        story.append(
-            Paragraph(
-                T(
-                    "inv.sc_method",
-                    windows=fmt_num(sc.windows, lang, 0),
-                    start=fmt_date(m.start),
-                    end=fmt_date(m.end),
-                    negative=r.pct(sc.share_negative, 0),
-                    worst=r.pct(sc.worst, signed=True),
-                    best=r.pct(sc.best, signed=True),
-                ),
-                s["caption"],
-            )
-        )
-    else:
-        story.append(Paragraph(T("inv.sc_short"), s["small"]))
+    story += historical_block(r)
     story.append(Spacer(1, 7))
 
     if r.projection:
@@ -485,9 +458,10 @@ def _page4(r: ReportInput, now: str) -> list:
         story.append(Paragraph(projection_method(r), s["caption"]))
         story.append(Spacer(1, 7))
 
+    _, attention = investor_summary(m, r.benchmark, r.profile_label, r.profile_band, lang)
     story += [section(T("pdf.attention_title")), Spacer(1, 3)]
-    if r.observations:
-        for item in r.observations[:4]:
+    if attention:
+        for item in attention[:4]:
             story.append(Paragraph(f"–&nbsp;&nbsp;{clean(item)}", s["body"]))
             story.append(Spacer(1, 2))
     else:
@@ -498,6 +472,61 @@ def _page4(r: ReportInput, now: str) -> list:
     story += [section(T("pdf.notices_title")), Spacer(1, 3)]
     story.append(notices_block(r))
     return story
+
+
+def profile_check_box(r: ReportInput):
+    """Verifica di coerenza con il profilo dichiarato (solo volatilità), o None senza profilo."""
+    if r.profile_band is None or not r.profile_label:
+        return None
+    s, T, m = styles(), r.T, r.metrics
+    ok = finite(m.vol) and m.vol <= r.profile_band
+    check = Paragraph(
+        T(
+            "inv.profile_check",
+            status=T("rep.within") if ok else T("rep.outside"),
+            vol=r.pct(m.vol),
+            band=r.pct(r.profile_band, 0),
+            profile=r.profile_label.lower(),
+        )
+        + f" <font size=7 color='#5b6472'>{T('pdf.check_caveat')}</font>",
+        s["body"],
+    )
+    return callout([check], color=GREEN if ok else RED)
+
+
+def historical_block(r: ReportInput) -> list:
+    """Esiti storici a 12 mesi in percentuale: nessun importo futuro, nessuna previsione."""
+    s, T, m = styles(), r.T, r.metrics
+    sc = m.scenarios
+    if sc is None:
+        return [Paragraph(T("inv.sc_short"), s["small"])]
+    rows = [
+        [T("inv.h_scenario"), T("inv.h_12m_return")],
+        [T("inv.sc_bear"), r.pct(sc.bear, signed=True)],
+        [T("inv.sc_base"), r.pct(sc.base, signed=True)],
+        [T("inv.sc_bull"), r.pct(sc.bull, signed=True)],
+    ]
+    caption = T(
+        "inv.sc_method",
+        windows=fmt_num(sc.windows, r.lang, 0),
+        start=fmt_date(sc.start if sc.start is not None else m.start),
+        end=fmt_date(sc.end if sc.end is not None else m.end),
+        negative=r.pct(sc.share_negative, 0),
+        worst=r.pct(sc.worst, signed=True),
+        best=r.pct(sc.best, signed=True),
+    )
+    return [data_table(rows, [110 * mm, 64 * mm]), Paragraph(caption, s["caption"])]
+
+
+def flagged_note(r: ReportInput):
+    """Posizioni con contributo al rischio molto oltre il peso, anche se fuori tabella."""
+    s, T, m = styles(), r.T, r.metrics
+    text = (
+        T("adr.flagged", tickers=", ".join(m.risk_over_weight))
+        if m.risk_over_weight
+        else T("adr.flagged_none")
+    )
+    return Paragraph(clean(text), s["small"])
 
 
 def projection_table(r: ReportInput):
@@ -523,14 +552,15 @@ def projection_table(r: ReportInput):
 
 
 def projection_method(r: ReportInput) -> str:
+    """Metodologia della proiezione, con il periodo storico effettivamente ricampionato."""
     p = r.projection or {}
     m = r.metrics
     return r.T(
         "rep.mc_method",
         method=r.T(f"rep.mc_method_{p.get('method', 'bootstrap')}"),
         n=fmt_num(p.get("n", 0), r.lang, 0),
-        start=fmt_date(m.start),
-        end=fmt_date(m.end),
+        start=fmt_date(p.get("hist_start", m.start)),
+        end=fmt_date(p.get("hist_end", m.end)),
         loss=r.pct(p.get("prob_loss"), 0),
         horizon=p.get("horizon", 5),
     )
@@ -556,7 +586,7 @@ def notices_block(r: ReportInput):
         T("pdf.notice_profile"),
         T("pdf.notice_confidential") if r.advisor_issued else T("rep.n_personal_use"),
     ]
-    if r.metrics.observations < 200:
+    if r.metrics.observations < SHORT_WINDOW_DAYS:
         bits.insert(0, T("pdf.notice_caution"))
     half = (len(bits) + 1) // 2
     table = Table(
@@ -585,7 +615,7 @@ def notices_block(r: ReportInput):
 def build_investor_report(r: ReportInput) -> bytes:
     """Il report Investor di quattro pagine come bytes PDF."""
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
-    rid = report_reference(r, now)
+    rid = report_reference(r, now, "investor")
     pages = [_page1(r, now, rid), _page2(r, now), _page3(r, now), _page4(r, now)]
     story: list = []
     for i, page in enumerate(pages):

@@ -58,6 +58,8 @@ class HistoricalScenarios:
     best: float
     share_negative: float  # quota di finestre chiuse in perdita
     windows: int
+    start: pd.Timestamp | None = None  # storico congiunto usato (tutti i titoli quotati)
+    end: pd.Timestamp | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,7 @@ class ReportMetrics:
     worst_day: float
     best_month: float
     worst_month: float
+    recent_vol: float  # ultimi 63 giorni di borsa (un trimestre), annualizzata
     # ---------------------------------------------------------------- benchmark
     bench_cum_return: float
     bench_cagr: float
@@ -87,7 +90,10 @@ class ReportMetrics:
     bench_max_dd: float
     bench_var95: float
     bench_es95: float
+    bench_best_month: float
+    bench_worst_month: float
     beta: float
+    recent_beta: float  # ultimi 63 giorni di borsa
     alpha: float
     correlation: float
     tracking_error: float
@@ -107,11 +113,15 @@ class ReportMetrics:
     top_weight: float
     top3_weight: float
     sector_weights: pd.Series
-    top_sector: str
+    sector_risk: pd.Series  # contributo al rischio aggregato per settore
+    top_sector: str  # primo settore tra quelli classificati ("" se nessuno)
     top_sector_weight: float
+    sector_coverage: float  # quota del capitale con un settore noto
     usd_weight: float
     weighted_pe: float
     pe_coverage: float  # quota del capitale con un P/E disponibile
+    top_risk_ticker: str = ""  # primo contributore al rischio (non la prima posizione)
+    top_risk_share: float = float("nan")
     # ---------------------------------------------------------------- scenari storici
     scenarios: HistoricalScenarios | None = None
     risk_over_weight: list[str] = field(default_factory=list)
@@ -184,6 +194,8 @@ def historical_scenarios(daily: pd.Series) -> HistoricalScenarios | None:
         return None
     rolling = (value.shift(-ROLLING_WINDOW) / value - 1).dropna()
     return HistoricalScenarios(
+        start=pd.Timestamp(value.index[0]),
+        end=pd.Timestamp(value.index[-1]),
         bear=float(rolling.quantile(0.05)),
         base=float(rolling.median()),
         bull=float(rolling.quantile(0.95)),
@@ -245,6 +257,20 @@ def weighted_multiple(weights: pd.Series, multiple: pd.Series) -> tuple[float, f
 # ------------------------------------------------------------------ calcolo
 
 
+RECENT_DAYS = 63  # un trimestre di borsa: il regime di rischio recente
+
+
+def _value_from(daily: pd.Series) -> pd.Series:
+    """Valore cumulato con il punto di partenza (1.0) il giorno prima del primo rendimento.
+
+    Senza la base, un primo giorno in perdita non conterebbe nel drawdown.
+    """
+    if daily.empty:
+        return daily
+    base = pd.Series([1.0], index=[daily.index[0] - pd.Timedelta(days=1)])
+    return pd.concat([base, (1 + daily).cumprod()])
+
+
 def compute_report_metrics(
     pf_daily: pd.Series,
     bench_daily: pd.Series,
@@ -254,14 +280,27 @@ def compute_report_metrics(
     usd_weight: float,
     risk_free: float = 0.0,
     unclassified: str = "Not classified",
+    annual_vol: float | None = None,
+    joint_daily: pd.Series | None = None,
 ) -> ReportMetrics:
-    """Tutte le metriche dei report a partire dalle serie della pipeline."""
+    """Tutte le metriche dei report a partire dalle serie della pipeline.
+
+    `annual_vol`: la volatilità del portafoglio usata dal resto dell'app
+    (sqrt(w'Σw)); se data, è quella del report, così verifica del profilo,
+    controlli di monitoraggio e rilievi usano lo stesso numero.
+    `joint_daily`: rendimenti del portafoglio sui soli giorni in cui tutti i
+    titoli hanno un prezzo; base degli scenari storici a 12 mesi.
+    Il benchmark è ristretto alla finestra del portafoglio ("stessa finestra").
+    """
     pf = pf_daily.dropna()
     bench = bench_daily.dropna()
-    pf_value = (1 + pf).cumprod()
-    bench_value = (1 + bench).cumprod()
+    if len(pf):
+        bench = bench.loc[pf.index[0] : pf.index[-1]]
+    pf_value = _value_from(pf)
+    bench_value = _value_from(bench)
 
     beta, alpha = beta_alpha(pf, bench)
+    recent_beta, _ = beta_alpha(pf.tail(RECENT_DAYS), bench.tail(RECENT_DAYS))
     aligned = pd.concat({"pf": pf, "bench": bench}, axis=1).dropna()
     if len(aligned) >= 20:
         correlation = float(aligned["pf"].corr(aligned["bench"]))
@@ -278,20 +317,28 @@ def compute_report_metrics(
     )
     up_capture, down_capture, basis = capture_ratios(pf, bench)
 
-    monthly = (1 + pf).resample("ME").prod() - 1 if len(pf) else pd.Series(dtype=float)
+    def monthly(daily: pd.Series) -> pd.Series:
+        return (1 + daily).resample("ME").prod() - 1 if len(daily) else pd.Series(dtype=float)
+
+    pf_monthly, bench_monthly = monthly(pf), monthly(bench)
 
     w = weights[weights > 0].astype(float)
     w = w / w.sum() if w.sum() else w
     hhi, effective_n = concentration(w)
     ordered = w.sort_values(ascending=False)
     risk = contributions.reindex(w.index).astype(float)
+    risk_valid = risk.dropna()
 
     if "sector" in fund.columns:
-        sectors = fund["sector"].reindex(w.index)
-        sectors = sectors.where(sectors.notna() & (sectors.astype(str) != ""), unclassified)
+        raw = fund["sector"].reindex(w.index)
+        known = raw.notna() & (raw.astype(str).str.strip() != "")
     else:
-        sectors = pd.Series(unclassified, index=w.index)
+        raw = pd.Series(index=w.index, dtype=object)
+        known = pd.Series(False, index=w.index)
+    sectors = raw.where(known, unclassified)
     sector_weights = w.groupby(sectors).sum().sort_values(ascending=False)
+    sector_risk = risk.groupby(sectors).sum().reindex(sector_weights.index)
+    classified = w[known].groupby(raw[known]).sum().sort_values(ascending=False)
 
     pe = fund["pe"] if "pe" in fund.columns else pd.Series(dtype=float)
     weighted_pe, pe_coverage = weighted_multiple(w, pe)
@@ -304,21 +351,30 @@ def compute_report_metrics(
         and len(w) >= 2
     ]
 
+    vol = (
+        float(annual_vol)
+        if annual_vol is not None and np.isfinite(annual_vol)
+        else float(pf.std() * TRADING_DAYS**0.5)
+        if len(pf) > 1
+        else NAN
+    )
+    recent = pf.tail(RECENT_DAYS)
     return ReportMetrics(
         start=pd.Timestamp(pf.index[0]) if len(pf) else pd.NaT,
         end=pd.Timestamp(pf.index[-1]) if len(pf) else pd.NaT,
         observations=len(pf),
         cum_return=float(pf_value.iloc[-1] - 1) if len(pf) else NAN,
         cagr=cagr,
-        vol=float(pf.std() * TRADING_DAYS**0.5) if len(pf) > 1 else NAN,
+        vol=vol,
         sharpe=sharpe_from_daily(pf, risk_free_rate=risk_free),
         sortino=sortino_from_daily(pf, risk_free_rate=risk_free),
         max_dd=max_drawdown(pf_value) if len(pf) else NAN,
         var95=value_at_risk(pf),
         es95=expected_shortfall(pf),
         worst_day=float(pf.min()) if len(pf) else NAN,
-        best_month=float(monthly.max()) if len(monthly) else NAN,
-        worst_month=float(monthly.min()) if len(monthly) else NAN,
+        best_month=float(pf_monthly.max()) if len(pf_monthly) else NAN,
+        worst_month=float(pf_monthly.min()) if len(pf_monthly) else NAN,
+        recent_vol=float(recent.std() * TRADING_DAYS**0.5) if len(recent) >= 20 else NAN,
         bench_cum_return=float(bench_value.iloc[-1] - 1) if len(bench) else NAN,
         bench_cagr=bench_cagr,
         bench_vol=float(bench.std() * TRADING_DAYS**0.5) if len(bench) > 1 else NAN,
@@ -327,7 +383,10 @@ def compute_report_metrics(
         bench_max_dd=max_drawdown(bench_value) if len(bench) else NAN,
         bench_var95=value_at_risk(bench),
         bench_es95=expected_shortfall(bench),
+        bench_best_month=float(bench_monthly.max()) if len(bench_monthly) else NAN,
+        bench_worst_month=float(bench_monthly.min()) if len(bench_monthly) else NAN,
         beta=beta,
+        recent_beta=recent_beta,
         alpha=alpha,
         correlation=correlation,
         tracking_error=tracking_error,
@@ -345,12 +404,16 @@ def compute_report_metrics(
         top_weight=float(ordered.iloc[0]) if len(ordered) else NAN,
         top3_weight=float(ordered.head(3).sum()) if len(ordered) else NAN,
         sector_weights=sector_weights,
-        top_sector=str(sector_weights.index[0]) if len(sector_weights) else "",
-        top_sector_weight=float(sector_weights.iloc[0]) if len(sector_weights) else NAN,
+        sector_risk=sector_risk,
+        top_sector=str(classified.index[0]) if len(classified) else "",
+        top_sector_weight=float(classified.iloc[0]) if len(classified) else NAN,
+        sector_coverage=float(w[known].sum()) if len(w) else 0.0,
         usd_weight=float(usd_weight),
         weighted_pe=weighted_pe,
         pe_coverage=pe_coverage,
-        scenarios=historical_scenarios(pf),
+        top_risk_ticker=str(risk_valid.idxmax()) if len(risk_valid) else "",
+        top_risk_share=float(risk_valid.max()) if len(risk_valid) else NAN,
+        scenarios=historical_scenarios(joint_daily if joint_daily is not None else pf),
         risk_over_weight=over,
     )
 

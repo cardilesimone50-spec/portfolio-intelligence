@@ -25,8 +25,8 @@ from portfolio_intelligence.analytics.performance import (
     max_drawdown,
 )
 from portfolio_intelligence.analytics.report_metrics import compute_report_metrics, stress_tests
-from portfolio_intelligence.data import yahoo_client
 from portfolio_intelligence.data.store import load_analyses, log_analysis, log_audit
+from portfolio_intelligence.formatting import ui_pct
 from portfolio_intelligence.i18n import t, t_in
 from portfolio_intelligence.portfolio.returns import (
     compute_daily_returns,
@@ -176,7 +176,7 @@ def render(ctx: ViewContext) -> None:
                 {
                     "label": t("chk.kpi_swing"),
                     "value": f"± {eur(total * c['annual_vol'])}",
-                    "sub": t("chk.kpi_swing_sub", vol=f"{c['annual_vol']:.1%}")
+                    "sub": t("chk.kpi_swing_sub", vol=ui_pct(c["annual_vol"], 1))
                     + interpret_volatility(
                         c["annual_vol"],
                         (
@@ -194,7 +194,7 @@ def render(ctx: ViewContext) -> None:
                 {
                     "label": t("chk.kpi_dd"),
                     "value": eur(total * c["drawdown"]),
-                    "sub": t("chk.kpi_dd_sub", dd=f"{c['drawdown']:.1%}"),
+                    "sub": t("chk.kpi_dd_sub", dd=ui_pct(c["drawdown"], 1)),
                 },
             ]
         ),
@@ -284,8 +284,8 @@ def top_problems(ctx: ViewContext) -> list[str]:
             t(
                 "chk.profile_problem",
                 profile=t(f"prof.{risk_profile}").lower(),
-                band=f"{band:.0%}",
-                excess=f"{c['annual_vol'] / band - 1:.0%}",
+                band=ui_pct(band, 0),
+                excess=ui_pct(c["annual_vol"] / band - 1, 0),
             ),
         )
     return (session_alerts + problems)[:5]
@@ -339,6 +339,7 @@ def report_input(
     problems: list[str],
     simulations: list[str],
     monitoring: list[dict] | None = None,
+    what_if: list[str] | None = None,
 ) -> ReportInput:
     """I dati dei report PDF: un solo calcolo per la versione Investor e quella Advisor."""
     assert ctx.computed is not None
@@ -346,6 +347,9 @@ def report_input(
     amounts, portfolio = ctx.amounts, ctx.portfolio
     lang = st.session_state.get("language", "en")
     weights = pd.Series({p["ticker"]: float(p["weight"]) for p in portfolio}, dtype=float)
+    # rendimenti sui soli giorni in cui tutti i titoli hanno un prezzo: base degli
+    # scenari storici, come per il Monte Carlo
+    joint = c["returns"][list(weights.index)].dropna()
     metrics = compute_report_metrics(
         c["pf_daily"],
         c["bench_daily"],
@@ -355,7 +359,12 @@ def report_input(
         c["usd_weight"],
         risk_free=ctx.risk_free,
         unclassified=t_in(lang, "pdf.not_classified"),
+        # la stessa volatilità di monitoraggio, rilievi e interfaccia
+        annual_vol=c["annual_vol"],
+        joint_daily=joint @ weights if len(joint) else None,
     )
+    # benchmark sulla stessa finestra del portafoglio
+    bench_daily = c["bench_daily"].loc[metrics.start : metrics.end]
     # copertura dati: titoli con storico più corto della finestra selezionata
     window_start = c["prices"].index[0]
     coverage = []
@@ -367,14 +376,13 @@ def report_input(
             )
     sectors = c["fund"]["sector"] if "sector" in c["fund"].columns else pd.Series(dtype=object)
     pnl_totals = ctx.pnl_totals or {}
-    source = yahoo_client.last_price_source
     return ReportInput(
         portfolio_name=ctx.portfolio_name,
         positions=amounts,
         period=ctx.period,
         metrics=metrics,
         pf_value=c["pf_value"],
-        bench_value=(1 + c["bench_daily"]).cumprod(),
+        bench_value=(1 + bench_daily).cumprod(),
         health=c["health"],
         breakdown=c["breakdown"],
         executive=exec_text,
@@ -384,11 +392,11 @@ def report_input(
         names=ctx.names,
         sector_of={k: str(v) for k, v in sectors.dropna().items() if str(v)},
         monthly=monthly_returns(c["pf_daily"], 12),
-        bench_monthly=monthly_returns(c["bench_daily"], 12),
+        bench_monthly=monthly_returns(bench_daily, 12),
         per_ticker_returns=per_ticker_cumulative_return(c["prices"]),
         per_ticker_pnl=ctx.pos["pnl"] if ctx.pos is not None else None,
-        observations=problems + find_opportunities(portfolio, c["fund"])[:2],
-        what_if=simulations,
+        observations=problems,
+        what_if=what_if if what_if is not None else simulations,
         stress=stress_tests(c["returns"], weights, metrics, include_fx=ctx.in_eur),
         # proiezione Monte Carlo solo nei PDF dell'area Advisor: Investor non fa previsioni
         projection=report_projection(ctx) if ctx.stateful else None,
@@ -399,10 +407,13 @@ def report_input(
         recipient=ctx.report_recipient or None,
         risk_free=ctx.risk_free,
         invested=pnl_totals.get("cost"),
+        cost_known=bool(pnl_totals.get("cost_known", True)),
         pnl=pnl_totals.get("pnl"),
         pnl_pct=pnl_totals.get("pnl_pct"),
         coverage_notes=coverage,
-        price_source="" if source in ("", "—") else source,
+        # la fonte dell'ultimo download è globale al processo (cache, altri utenti):
+        # nel PDF si dichiara la catena di fornitori, non un nome forse sbagliato
+        price_source="",
         advisor_issued=ctx.stateful,
     )
 

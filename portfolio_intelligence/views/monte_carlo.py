@@ -65,7 +65,12 @@ def report_projection(ctx: ViewContext) -> dict | None:
         result = cached_simulation(returns, weights, float(ctx.total), 5, 1000, "bootstrap")
     except ValueError:
         return None
+    # storico effettivo: solo i giorni in cui tutti i titoli con peso hanno un prezzo
+    joint = returns[[ticker for ticker, weight in weights if weight > 0]].dropna()
     return {
+        "hist_start": joint.index[0],
+        "hist_end": joint.index[-1],
+        "hist_days": len(joint),
         "rows": scenario_table(result),
         "paths": result.paths,
         "cagr": {f"p{p}": result.cagr(p) for p in (10, 50, 90)},
