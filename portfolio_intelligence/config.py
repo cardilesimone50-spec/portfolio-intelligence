@@ -134,3 +134,13 @@ DAILY_MOVE_ALERT = -0.02
 # clienti — stesso numero ripetuto in 4 punti prima di questa centralizzazione.
 HEALTH_SCORE_GOOD = 67
 HEALTH_SCORE_FAIR = 34
+
+# ------------------------------------------------- controlli di monitoraggio (Advisor)
+# Soglie interne della Panoramica cliente: segnalano cosa rivedere, non sono una
+# valutazione di adeguatezza MiFID. Riusano le soglie già usate da insights e
+# alert, così Panoramica, problemi e PDF non si contraddicono.
+MONITOR_MAX_POSITION = CONCENTRATION_PROBLEM_WEIGHT  # peso del primo titolo
+MONITOR_MAX_RISK_SHARE = 0.40  # quota del rischio totale spiegata da un solo titolo
+MONITOR_MAX_CORRELATION = CORRELATION_ELEVATED
+MONITOR_MAX_USD = USD_EXPOSURE_HIGH
+MONITOR_MIN_DRAWDOWN = DRAWDOWN_ALERT

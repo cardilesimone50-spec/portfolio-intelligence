@@ -66,7 +66,7 @@ def _render_login_state() -> None:
         features = "".join(
             f'<div class="aw-feature"><div class="aw-feature-title">{t(f"advisorw.feature{i}_title")}'
             f'</div><div class="aw-feature-desc">{t(f"advisorw.feature{i}_desc")}</div></div>'
-            for i in (1, 2, 3)
+            for i in (1, 2, 3, 4)
         )
         st.markdown(f'<div class="aw-features">{features}</div>', unsafe_allow_html=True)
     with col_login, st.container(border=True):

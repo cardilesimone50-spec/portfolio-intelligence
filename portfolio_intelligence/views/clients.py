@@ -64,8 +64,13 @@ def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool, lang: s
     breakdown_c = health_breakdown(dna_c, radar_c, usd_exposure(pf_c))
     contributions_c = risk_contributions(returns_c, pf_c)
     problems_c = find_problems(pf_c, fund_c, contributions_c, corr_c, radar_c)
+    top = max(pf_c, key=lambda p: p["weight"])
     return {
         "health": portfolio_health_score(breakdown_c),
+        "top_ticker": top["ticker"],
+        "top_weight": top["weight"],
+        "drawdown": dd_c,
+        "asof": str(prices_c.index[-1])[:10],
         "value": total_c,  # valore attuale reale: quantità × ultimo prezzo
         "invested": agg_c["cost"],
         "cum": float(value_c.iloc[-1] - 1),

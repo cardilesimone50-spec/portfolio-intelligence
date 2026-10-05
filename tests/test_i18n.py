@@ -35,3 +35,67 @@ def test_missing_key_returns_key():
 def test_t_in_formats_placeholders():
     assert t_in("it", "pdf.page", n=2) == "Pagina 2 di 3"
     assert t_in("en", "pdf.page", n=2) == "Page 2 of 3"
+
+
+# ------------------------------------------------ copertura del catalogo
+
+
+def _keys_used_in_code() -> set[str]:
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    files = [*root.glob("portfolio_intelligence/**/*.py"), *root.glob("app*.py")]
+    pattern = re.compile(r"\bt\(\s*[\"']([a-z_]+\.[a-z0-9_]+)[\"']")
+    return {key for f in files for key in pattern.findall(f.read_text(encoding="utf-8"))}
+
+
+def test_every_key_used_in_the_code_exists_in_both_languages():
+    """Una chiave mancante mostrerebbe all'utente il nome tecnico della chiave."""
+    from portfolio_intelligence.i18n import _CATALOG
+
+    missing = sorted(key for key in _keys_used_in_code() if key not in _CATALOG)
+    assert missing == []
+    empty = sorted(key for key, (en, it) in _CATALOG.items() if not en.strip() or not it.strip())
+    assert empty == []
+
+
+def test_visible_texts_have_no_long_dashes():
+    from portfolio_intelligence.i18n import _CATALOG
+
+    assert [key for key, texts in _CATALOG.items() if any("—" in x for x in texts)] == []
+
+
+def test_dynamic_period_and_strategy_labels_are_translated():
+    from portfolio_intelligence.views.backtest import (
+        CLIENT_STRATEGIES,
+        HORIZON_DAYS,
+        MARKET_STRATEGIES,
+    )
+    from portfolio_intelligence.views.common import PERIOD_DAYS
+
+    keys = [f"mkt.p_{days}" for days in PERIOD_DAYS.values()]
+    keys += [f"bt.s_{s}" for s in MARKET_STRATEGIES + CLIENT_STRATEGIES]
+    keys += [f"bt.h_{h}" for h in HORIZON_DAYS]
+    for key in keys:
+        assert t_in("en", key) != key and t_in("it", key) != key, key
+
+
+# ------------------------------------------------ numeri nella convenzione della lingua
+
+
+def test_amounts_follow_the_interface_language():
+    from portfolio_intelligence.ui.components import eur, num, pct, signed_eur
+
+    assert eur(16076.4) == "€16,076"  # in inglese "16.076 €" si leggerebbe sedici euro
+    assert eur(-487) == "-€487"
+    assert signed_eur(9507) == "+€9,507"
+    assert pct(0.3192) == "31.9%"
+    assert pct(0.05, signed=True) == "+5.0%"
+    assert num(1234.5, 1) == "1,234.5"
+    set_language("it")
+    assert eur(16076.4) == "16.076 €"
+    assert eur(-487) == "-487 €"
+    assert pct(0.3192) == "31,9%"
+    assert num(1234.5, 1) == "1.234,5"
+    assert pct(float("nan")) == "n/d"

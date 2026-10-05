@@ -3,6 +3,7 @@
 import pandas as pd
 import streamlit as st
 
+from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio import Portfolio
 from portfolio_intelligence.portfolio.optimization import (
     efficient_frontier,
@@ -26,20 +27,16 @@ def render(ctx: ViewContext) -> None:
     amounts, portfolio, risk_free = ctx.amounts, ctx.portfolio, ctx.risk_free
 
     if len(amounts) < 2:
-        st.info("At least 2 stocks are needed for optimization.")
+        st.info(t("mvo.need_two"))
         return
 
-    sec("Markowitz efficient frontier")
-    st.caption(
-        "For each level of risk, the best return achievable by combining "
-        "your holdings (expected returns = historical arithmetic means, "
-        "Markowitz convention)."
-    )
+    sec(t("mvo.title"))
+    st.caption(t("mvo.caption"))
     returns = c["returns"]
     candidates = {
-        "Current": pd.Series({p["ticker"]: p["weight"] for p in portfolio}),
-        "Minimum risk": minimum_variance_weights(returns),
-        "Maximum Sharpe": max_sharpe_weights(returns, risk_free_rate=risk_free),
+        t("mvo.current"): pd.Series({p["ticker"]: p["weight"] for p in portfolio}),
+        t("mvo.min_var"): minimum_variance_weights(returns),
+        t("mvo.max_sharpe"): max_sharpe_weights(returns, risk_free_rate=risk_free),
     }
 
     def pf_stats(weights: pd.Series) -> tuple[float, float]:
@@ -62,18 +59,24 @@ def render(ctx: ViewContext) -> None:
             width="stretch",
         )
     with col_compare:
-        st.markdown("**Comparison**")
+        st.markdown(f"**{t('mvo.comparison')}**")
         compare = points.set_index("nome")
         compare["sharpe"] = (compare["annual_return"] - risk_free) / compare["annual_volatility"]
         st.dataframe(
             compare,
             column_config={
-                "annual_return": st.column_config.NumberColumn("Return", format="percent"),
-                "annual_volatility": st.column_config.NumberColumn("Volatility", format="percent"),
+                "_index": st.column_config.TextColumn(t("mvo.portfolio")),
+                "annual_return": st.column_config.NumberColumn(
+                    t("mvo.exp_return"), format="percent"
+                ),
+                "annual_volatility": st.column_config.NumberColumn(
+                    t("mvo.volatility"), format="percent"
+                ),
                 "sharpe": st.column_config.NumberColumn("Sharpe", format="%.2f"),
             },
         )
-        st.markdown("**Suggested weights**")
+        st.markdown(f"**{t('mvo.weights')}**")
+        st.caption(t("mvo.weights_caption"))
         st.dataframe(
             pd.DataFrame(candidates),
             column_config={

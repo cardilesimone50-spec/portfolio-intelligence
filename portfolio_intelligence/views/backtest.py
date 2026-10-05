@@ -12,76 +12,65 @@ from portfolio_intelligence.analytics.backtest import (
     run_backtest,
 )
 from portfolio_intelligence.analytics.factors import multifactor_weights
-from portfolio_intelligence.ui.components import sec
+from portfolio_intelligence.i18n import t
+from portfolio_intelligence.ui.components import pct, sec
 from portfolio_intelligence.views.common import TRADING_DAYS, cached_prices, market_db_required
 from portfolio_intelligence.views.context import ViewContext
-from portfolio_intelligence.visualization.charts import PALETTE
+from portfolio_intelligence.visualization.charts import multi_line
 
-# etichette dello slider orizzonte → giorni e periodo Yahoo
-HORIZON_DAYS = {"1 year": 365, "2 years": 730, "5 years": 1826}
-HORIZON_PERIOD = {"1 year": "1y", "2 years": "2y", "5 years": "5y"}
+# orizzonte → giorni e periodo Yahoo
+HORIZON_DAYS = {"1y": 365, "2y": 730, "5y": 1826}
+
+# strategie: id stabile → chiave di traduzione (le etichette cambiano con la lingua)
+MARKET_STRATEGIES = ("equal", "momentum", "multifactor")
+CLIENT_STRATEGIES = ("buy_hold", "max_sharpe", "min_var")
 
 
 def render(ctx: ViewContext) -> None:
     amounts = ctx.amounts
 
-    sec("What if you had followed a strategy?")
-    st.caption(
-        "Quarterly rebalancing, weights computed only on prior data "
-        "(no look-ahead). Limits: no transaction costs, USD prices, "
-        "universe = CURRENT Nasdaq-100 constituents (survivorship bias)."
-    )
+    sec(t("bt.title"))
+    st.caption(t("bt.caption"))
     all_prices = market_db_required("backtest")
     if all_prices is None:
-        st.info("The Nasdaq-100 database is required: run `python download_nasdaq100.py`.")
+        st.info(t("xc.no_db"))
         return
 
-    options = [
-        "Equal-weight Nasdaq-100",
-        "Momentum (top 10 at 6 months)",
-        "PI Multifactor (top 10)",
-    ]
+    options = list(MARKET_STRATEGIES)
     if len(amounts) >= 2:
-        options += [
-            "Your portfolio (buy & hold)",
-            "Maximum Sharpe on your holdings",
-            "Minimum variance on your holdings",
-        ]
-    chosen = st.multiselect("Strategies to compare", options, default=options[:3])
+        options += CLIENT_STRATEGIES
+    chosen = st.multiselect(
+        t("bt.strategies"),
+        options,
+        default=options[:3],
+        format_func=lambda s: t(f"bt.s_{s}"),
+    )
     col_bt1, col_bt2 = st.columns(2)
     with col_bt1:
-        bt_years = st.select_slider("Horizon", ["1 year", "2 years", "5 years"], "5 years")
-    with col_bt2:
-        cost_bps = st.slider(
-            "Transaction costs (bps per rebalance)",
-            0,
-            50,
-            20,
-            step=5,
-            help="20 bps = 0.20% of traded value: realistic for retail on liquid "
-            "stocks. Buy & hold pays only the initial purchase.",
+        bt_years = st.select_slider(
+            t("bt.horizon"), list(HORIZON_DAYS), "5y", format_func=lambda h: t(f"bt.h_{h}")
         )
+    with col_bt2:
+        cost_bps = st.slider(t("bt.costs"), 0, 50, 20, step=5, help=t("bt.costs_help"))
     cutoff = all_prices.index[-1] - pd.Timedelta(days=HORIZON_DAYS[bt_years])
     window = all_prices.loc[all_prices.index >= cutoff]
 
     if not chosen:
         return
 
-    with st.spinner("Running the backtests..."):
+    with st.spinner(t("bt.running")):
         curves = {}
         try:
-            if "Equal-weight Nasdaq-100" in chosen:
-                curves["Equal-weight Nasdaq-100"] = run_backtest(
-                    window, equal_weight, cost_bps=cost_bps
-                )
-            if "Momentum (top 10 at 6 months)" in chosen:
-                curves["Momentum (top 10 at 6 months)"] = run_backtest(
+            if "equal" in chosen:
+                curves["equal"] = run_backtest(window, equal_weight, cost_bps=cost_bps)
+            if "momentum" in chosen:
+                curves["momentum"] = run_backtest(
                     window,
                     lambda w: momentum_top(w, top_n=10),
                     cost_bps=cost_bps,
                 )
-            if "PI Multifactor (top 10)" in chosen:
-                curves["PI Multifactor (top 10)"] = run_backtest(
+            if "multifactor" in chosen:
+                curves["multifactor"] = run_backtest(
                     window,
                     lambda w: multifactor_weights(w, top_n=10),
                     lookback=273,  # serve ~1 anno per il momentum 12-1
@@ -92,36 +81,33 @@ def render(ctx: ViewContext) -> None:
                 my_prices = (
                     window[my_tickers]
                     if len(my_tickers) == len(amounts)
-                    else cached_prices(tuple(sorted(amounts)), HORIZON_PERIOD[bt_years])
+                    else cached_prices(tuple(sorted(amounts)), bt_years)
                 )
                 weights_now = pd.Series(amounts) / sum(amounts.values())
-                if "Your portfolio (buy & hold)" in chosen:
-                    curves["Your portfolio (buy & hold)"] = buy_and_hold(my_prices, weights_now)
-                if "Maximum Sharpe on your holdings" in chosen:
-                    curves["Maximum Sharpe on your holdings"] = run_backtest(
-                        my_prices, max_sharpe, cost_bps=cost_bps
-                    )
-                if "Minimum variance on your holdings" in chosen:
-                    curves["Minimum variance on your holdings"] = run_backtest(
-                        my_prices, min_variance, cost_bps=cost_bps
-                    )
+                if "buy_hold" in chosen:
+                    curves["buy_hold"] = buy_and_hold(my_prices, weights_now)
+                if "max_sharpe" in chosen:
+                    curves["max_sharpe"] = run_backtest(my_prices, max_sharpe, cost_bps=cost_bps)
+                if "min_var" in chosen:
+                    curves["min_var"] = run_backtest(my_prices, min_variance, cost_bps=cost_bps)
         except ValueError as exc:
             st.error(f"{exc}")
 
     if curves:
+        curves = {t(f"bt.s_{key}"): curve for key, curve in curves.items()}
         equity = pd.DataFrame(curves).dropna(how="all")
         cols = st.columns(len(curves))
         for col, (name, curve) in zip(cols, curves.items(), strict=False):
-            col.metric(name, f"{curve.iloc[-1] / 100 - 1:+.0%}")
-        st.line_chart(equity, color=PALETTE[: len(curves)], height=380)  # type: ignore[arg-type]
+            col.metric(name, pct(curve.iloc[-1] / 100 - 1, 0, signed=True))
+        st.altair_chart(multi_line(equity, height=380), width="stretch")
 
         strategy_stats = pd.DataFrame(
             [
                 {
-                    "Strategy": name,
-                    "Return": curve.iloc[-1] / 100 - 1,
-                    "Annual volatility": curve.pct_change().std() * TRADING_DAYS**0.5,
-                    "Max drawdown": float((curve / curve.cummax() - 1).min()),
+                    "strategy": name,
+                    "return": curve.iloc[-1] / 100 - 1,
+                    "volatility": curve.pct_change().std() * TRADING_DAYS**0.5,
+                    "drawdown": float((curve / curve.cummax() - 1).min()),
                 }
                 for name, curve in curves.items()
             ]
@@ -129,14 +115,12 @@ def render(ctx: ViewContext) -> None:
         st.dataframe(
             strategy_stats,
             column_config={
-                "Return": st.column_config.NumberColumn(format="percent"),
-                "Annual volatility": st.column_config.NumberColumn(format="percent"),
-                "Max drawdown": st.column_config.NumberColumn(format="percent"),
+                "strategy": st.column_config.TextColumn(t("bt.col_strategy")),
+                "return": st.column_config.NumberColumn(t("bt.col_return"), format="percent"),
+                "volatility": st.column_config.NumberColumn(t("mkt.vol"), format="percent"),
+                "drawdown": st.column_config.NumberColumn(t("m.maxdd"), format="percent"),
             },
             hide_index=True,
             width="stretch",
         )
-        st.caption(
-            f"Base-100 curves, {cost_bps} bps cost per rebalance. "
-            "Return isn't everything: look at volatility and drawdown."
-        )
+        st.caption(t("bt.footer", bps=cost_bps))

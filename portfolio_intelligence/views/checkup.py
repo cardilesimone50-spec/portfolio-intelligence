@@ -68,8 +68,7 @@ def render(ctx: ViewContext) -> None:
     assert ctx.computed is not None
     c = ctx.computed
     amounts, total, portfolio = ctx.amounts, ctx.total, ctx.portfolio
-    period, risk_free, risk_profile = ctx.period, ctx.risk_free, ctx.risk_profile
-    advisor, portfolio_name, in_eur = ctx.advisor, ctx.portfolio_name, ctx.in_eur
+    period = ctx.period
 
     pnl_totals = ctx.pnl_totals or {}
     col_hero, col_equity = st.columns([1, 1.4], gap="large")
@@ -103,17 +102,7 @@ def render(ctx: ViewContext) -> None:
         st.markdown(breakdown_html(c["breakdown"]), unsafe_allow_html=True)
     with col_exec:
         sec(t("chk.exec_section"))
-        exec_text = executive_summary(
-            period,
-            c["cum_return"],
-            c["breakdown"],
-            c["contributions"],
-            c["avg_corr"],
-            c["usd_weight"],
-            c["drawdown"],
-            c["beta"],
-            BENCHMARK,
-        )
+        exec_text = executive_text(ctx)
         st.markdown(exec_text)
         st.caption(t("chk.exec_caption"))
 
@@ -183,29 +172,9 @@ def render(ctx: ViewContext) -> None:
         st.caption(t("pos.cost_unknown"))
 
     sec(t("chk.top_problems"))
-    problems = find_problems(portfolio, c["fund"], c["contributions"], c["avg_corr"], c["radar"])
-    session_markers = (t_in("en", "alert.session_marker"), t_in("it", "alert.session_marker"))
-    session_alerts = [
-        a
-        for a in evaluate_alerts(
-            c["returns"], portfolio, c["contributions"], c["avg_corr"], c["drawdown"]
-        )
-        if any(marker in a for marker in session_markers)
-    ]
-    if risk_profile in PROFILE_VOL and c["annual_vol"] > PROFILE_VOL[risk_profile]:
-        band = PROFILE_VOL[risk_profile]
-        problems.insert(
-            0,
-            t(
-                "chk.profile_problem",
-                profile=t(f"prof.{risk_profile}").lower(),
-                band=f"{band:.0%}",
-                excess=f"{c['annual_vol'] / band - 1:.0%}",
-            ),
-        )
-    top_problems = (session_alerts + problems)[:5]
-    if top_problems:
-        for problem in top_problems:
+    problems_list = top_problems(ctx)
+    if problems_list:
+        for problem in problems_list:
             st.markdown(problem)
     else:
         st.success(t("chk.no_problems"))
@@ -246,6 +215,98 @@ def render(ctx: ViewContext) -> None:
 
     sec(t("chk.scenarios"))
 
+    simulations, discarded, has_candidates = scenario_results(ctx)
+
+    for simulation in simulations:
+        st.markdown(simulation)
+    if not simulations and has_candidates:
+        st.markdown(t("chk.no_improve"))
+        for text in discarded:
+            st.caption(t("chk.discarded") + text)
+    for opportunity in find_opportunities(portfolio, c["fund"])[:2]:
+        st.markdown(opportunity)
+    if not has_candidates:
+        st.caption(t("chk.no_scenario"))
+
+    st.divider()
+    if ctx.stateful:
+        col_pdf, col_log, col_hist = st.columns([1.2, 1, 1.8], gap="large")
+    else:
+        # Investor è stateless: solo il download PDF, niente "salva analisi"
+        # né storico (log_analysis/load_analyses toccano il DB per advisor).
+        (col_pdf,) = st.columns([1])
+    with col_pdf:
+        st.download_button(
+            t("chk.pdf_btn"),
+            data=report_pdf(ctx, exec_text, problems_list, simulations),
+            file_name=f"portfolio_report_{pd.Timestamp.now():%Y%m%d}.pdf",
+            mime="application/pdf",
+            width="stretch",
+            type="primary",
+        )
+    if ctx.stateful:
+        with col_log:
+            save_snapshot_button(ctx)
+        with col_hist:
+            history_panel(ctx)
+
+
+# ------------------------------------------------------------------ pezzi riusabili
+# Usati sia dal Check-up (Investor) sia dalla Panoramica cliente dell'Advisor:
+# stesse regole, stesso PDF, un solo posto da mantenere.
+
+
+def executive_text(ctx: ViewContext) -> str:
+    """Sintesi deterministica delle metriche (nessun testo generato da modelli)."""
+    assert ctx.computed is not None
+    c = ctx.computed
+    return executive_summary(
+        ctx.period,
+        c["cum_return"],
+        c["breakdown"],
+        c["contributions"],
+        c["avg_corr"],
+        c["usd_weight"],
+        c["drawdown"],
+        c["beta"],
+        BENCHMARK,
+    )
+
+
+def top_problems(ctx: ViewContext) -> list[str]:
+    """I cinque rilievi principali: alert della seduta, profilo, poi problemi strutturali."""
+    assert ctx.computed is not None
+    c = ctx.computed
+    portfolio, risk_profile = ctx.portfolio, ctx.risk_profile
+    problems = find_problems(portfolio, c["fund"], c["contributions"], c["avg_corr"], c["radar"])
+    session_markers = (t_in("en", "alert.session_marker"), t_in("it", "alert.session_marker"))
+    session_alerts = [
+        a
+        for a in evaluate_alerts(
+            c["returns"], portfolio, c["contributions"], c["avg_corr"], c["drawdown"]
+        )
+        if any(marker in a for marker in session_markers)
+    ]
+    if risk_profile in PROFILE_VOL and c["annual_vol"] > PROFILE_VOL[risk_profile]:
+        band = PROFILE_VOL[risk_profile]
+        problems.insert(
+            0,
+            t(
+                "chk.profile_problem",
+                profile=t(f"prof.{risk_profile}").lower(),
+                band=f"{band:.0%}",
+                excess=f"{c['annual_vol'] / band - 1:.0%}",
+            ),
+        )
+    return (session_alerts + problems)[:5]
+
+
+def scenario_results(ctx: ViewContext) -> tuple[list[str], list[str], bool]:
+    """Scenari di ribilanciamento: (migliorativi, scartati, c'era almeno un candidato)."""
+    assert ctx.computed is not None
+    c = ctx.computed
+    total, portfolio = ctx.total, ctx.portfolio
+
     def simulate_change(new_pf: list) -> tuple[float, int]:
         new_vol = portfolio_volatility(c["returns"], new_pf) * TRADING_DAYS**0.5
         new_daily = portfolio_daily_returns(c["returns"], new_pf)
@@ -279,260 +340,264 @@ def render(ctx: ViewContext) -> None:
             h_to=new_health,
         )
         (simulations if improves else discarded).append(text)
+    return simulations, discarded, bool(candidates_sim)
 
-    for simulation in simulations:
-        st.markdown(simulation)
-    if not simulations and candidates_sim:
-        st.markdown(t("chk.no_improve"))
-        for text in discarded:
-            st.caption(t("chk.discarded") + text)
-    for opportunity in find_opportunities(portfolio, c["fund"])[:2]:
-        st.markdown(opportunity)
-    if not candidates_sim:
-        st.caption(t("chk.no_scenario"))
 
-    st.divider()
-    if ctx.stateful:
-        col_pdf, col_log, col_hist = st.columns([1.2, 1, 1.8], gap="large")
-    else:
-        # Investor è stateless: solo il download PDF, niente "salva analisi"
-        # né storico (log_analysis/load_analyses toccano il DB per advisor).
-        (col_pdf,) = st.columns([1])
-    with col_pdf:
-        insights = generate_insights(
-            period,
+def report_pdf(
+    ctx: ViewContext, exec_text: str, problems: list[str], simulations: list[str]
+) -> bytes:
+    """Il PDF di 3 pagine del portafoglio in `ctx`."""
+    assert ctx.computed is not None
+    c = ctx.computed
+    amounts, total, portfolio = ctx.amounts, ctx.total, ctx.portfolio
+    period, risk_free, risk_profile = ctx.period, ctx.risk_free, ctx.risk_profile
+    advisor, portfolio_name = ctx.advisor, ctx.portfolio_name
+    pnl_totals = ctx.pnl_totals or {}
+    top_problems = problems
+    insights = generate_insights(
+        period,
+        c["cum_return"],
+        c["contributions"],
+        c["avg_corr"],
+        c["drawdown"],
+        c["beta"],
+        BENCHMARK,
+    )
+    metric_rows = benchmark_rows(ctx)
+    bench_value_report = (1 + c["bench_daily"]).cumprod()
+    cum_by_ticker = per_ticker_cumulative_return(c["prices"])
+    # adeguatezza: volatilità osservata contro la soglia del profilo dichiarato
+    report_suitability = None
+    if risk_profile in PROFILE_VOL:
+        profile_band = PROFILE_VOL[risk_profile]
+        report_suitability = {
+            "ok": c["annual_vol"] <= profile_band,
+            "text": t(
+                "suit.text",
+                vol=f"{c['annual_vol']:.1%}",
+                band=f"{profile_band:.0%}",
+                profile=t(f"prof.{risk_profile}").lower(),
+            ),
+        }
+    # allocazione settoriale pesata per capitale (dai profili Yahoo Finance)
+    report_sectors = None
+    if "sector" in c["fund"].columns:
+        sector_by_ticker = (
+            c["fund"]["sector"].reindex(list(amounts)).fillna(t("pdf.not_classified"))
+        )
+        report_sectors = (pd.Series(amounts, dtype=float) / total).groupby(sector_by_ticker).sum()
+    # copertura dati: titoli con storico più corto della finestra selezionata
+    window_start = c["prices"].index[0]
+    report_coverage = []
+    for ticker_cov in sorted(amounts):
+        first_price = c["prices"][ticker_cov].first_valid_index()
+        if first_price is not None and (first_price - window_start).days > 7:
+            report_coverage.append(
+                t(
+                    "cov.note",
+                    ticker=ticker_cov,
+                    date=f"{pd.Timestamp(first_price):%d/%m/%Y}",
+                )
+            )
+    top_ticker_report = max(amounts, key=lambda t: amounts[t])
+    try:
+        shock_report = simulate_shock(c["returns"], portfolio, top_ticker_report, -0.20)
+        report_scenario = {
+            "label": t(
+                "scen.label",
+                ticker=top_ticker_report,
+                weight=f"{amounts[top_ticker_report] / total:.0%}",
+            ),
+            "direct": shock_report["direct"],
+            "total": shock_report["total"],
+        }
+    except ValueError:
+        report_scenario = None
+    return build_report(
+        portfolio_name=portfolio_name,
+        positions=amounts,
+        period=period,
+        cum_return=c["cum_return"],
+        health_score=c["health"],
+        metric_rows=metric_rows,
+        insights=insights + top_problems,
+        suggestions=simulations
+        + generate_suggestions(c["dna"], c["radar"], c["contributions"])
+        + find_opportunities(portfolio, c["fund"]),
+        names=ctx.names,
+        advisor=advisor if advisor != DEV_ADVISOR else None,
+        recipient=ctx.report_recipient or None,
+        # proiezione Monte Carlo solo nel PDF Advisor: Investor non fa previsioni
+        projection=report_projection(ctx) if ctx.stateful else None,
+        risk_profile=risk_profile,
+        benchmark=BENCHMARK,
+        currency_note=t("pdf.currency_eur") if ctx.in_eur else t("pdf.currency_orig"),
+        executive=exec_text,
+        suitability=report_suitability,
+        annual_return=c["annual_ret"],
+        pf_value=c["pf_value"],
+        bench_value=bench_value_report,
+        monthly=monthly_returns(c["pf_daily"], 12),
+        contributions=c["contributions"],
+        breakdown=c["breakdown"],
+        per_ticker_returns=cum_by_ticker,
+        sector_weights=report_sectors,
+        scenario=report_scenario,
+        coverage_notes=report_coverage,
+        risk_free=risk_free,
+        invested=pnl_totals.get("cost"),
+        pnl=pnl_totals.get("pnl"),
+        pnl_pct=pnl_totals.get("pnl_pct"),
+        per_ticker_pnl=ctx.pos["pnl"] if ctx.pos is not None else None,
+        lang=st.session_state.get("language", "en"),
+    )
+
+
+def save_snapshot_button(ctx: ViewContext) -> None:
+    """Registra l'analisi nello storico del consulente (solo Advisor)."""
+    assert ctx.computed is not None
+    c = ctx.computed
+    if st.button(t("chk.save_btn"), width="stretch"):
+        log_analysis(
+            ctx.advisor,
+            ctx.portfolio_name,
+            ctx.period,
+            ctx.total,
             c["cum_return"],
-            c["contributions"],
-            c["avg_corr"],
-            c["drawdown"],
-            c["beta"],
-            BENCHMARK,
+            c["risk_score"],
+            health=c["health"],
         )
-        report_sharpe = annualized_sharpe(c["returns"], portfolio, risk_free_rate=risk_free)
-        report_sortino = sortino_ratio(c["returns"], portfolio, risk_free_rate=risk_free)
-        universe_vols_report = (
-            compute_daily_returns(_db_for_search).std() * TRADING_DAYS**0.5
-            if _db_for_search is not None
-            else None
-        )
-        # controparte benchmark per ogni metrica confrontabile ("ho battuto il mercato?")
-        bench_value_report = (1 + c["bench_daily"]).cumprod()
-        bench_cum = float(bench_value_report.iloc[-1] - 1)
-        bench_cagr = annualized_geometric_return(c["bench_daily"])
-        bench_vol = float(c["bench_daily"].std()) * TRADING_DAYS**0.5
-        bench_sharpe = sharpe_from_daily(c["bench_daily"], risk_free_rate=risk_free)
-        bench_sortino = sortino_from_daily(c["bench_daily"], risk_free_rate=risk_free)
-        bench_dd = max_drawdown(bench_value_report)
-        bench_var = value_at_risk(c["bench_daily"])
-        pf_es = expected_shortfall(c["pf_daily"])
-        bench_es = expected_shortfall(c["bench_daily"])
-        metric_rows = [
-            (
-                t("m.return", period=period),
-                f"{c['cum_return']:+.1%}",
-                f"{bench_cum:+.1%}",
-                t("r.return"),
-            ),
-            (
-                t("m.cagr"),
-                f"{c['annual_ret']:+.1%}",
-                f"{bench_cagr:+.1%}",
-                t("r.cagr"),
-            ),
-            *([(t("m.irr"), f"{ctx.irr:+.1%}", "—", t("r.irr"))] if ctx.irr is not None else []),
-            (
-                t("m.vol"),
-                f"{c['annual_vol']:.1%}",
-                f"{bench_vol:.1%}",
-                interpret_volatility(c["annual_vol"], universe_vols_report),
-            ),
-            (
-                t("m.sharpe"),
-                f"{report_sharpe:.2f}",
-                f"{bench_sharpe:.2f}",
-                interpret_sharpe(report_sharpe),
-            ),
-            (
-                t("m.sortino"),
-                f"{report_sortino:.2f}",
-                f"{bench_sortino:.2f}",
-                interpret_sortino(report_sortino, report_sharpe),
-            ),
-            (
-                t("m.maxdd"),
-                f"{c['drawdown']:.1%}",
-                f"{bench_dd:.1%}",
-                interpret_drawdown(c["drawdown"]),
-            ),
-            (
-                t("m.var"),
-                f"{c['var_95']:.1%}",
-                f"{bench_var:.1%}",
-                t("r.var", amount=eur(total * c["var_95"])),
-            ),
-            (
-                t("m.es"),
-                f"{pf_es:.1%}",
-                f"{bench_es:.1%}",
-                t("r.es", amount=eur(total * pf_es)),
-            ),
-            (
-                t("m.beta", benchmark=BENCHMARK),
-                f"{c['beta']:.2f}",
-                "—",
-                interpret_beta(c["beta"], BENCHMARK),
-            ),
-            (
-                t("m.alpha", benchmark=BENCHMARK),
-                f"{c['alpha']:+.1%}/yr",
-                "—",
-                t("r.alpha"),
-            ),
-            (
-                t("m.corr"),
-                f"{c['avg_corr']:.2f}",
-                "—",
-                interpret_correlation(c["avg_corr"]),
-            ),
-        ]
-        # adeguatezza: volatilità osservata contro la soglia del profilo dichiarato
-        report_suitability = None
-        if risk_profile in PROFILE_VOL:
-            profile_band = PROFILE_VOL[risk_profile]
-            report_suitability = {
-                "ok": c["annual_vol"] <= profile_band,
-                "text": t(
-                    "suit.text",
-                    vol=f"{c['annual_vol']:.1%}",
-                    band=f"{profile_band:.0%}",
-                    profile=t(f"prof.{risk_profile}").lower(),
-                ),
-            }
-        # allocazione settoriale pesata per capitale (dai profili Yahoo Finance)
-        report_sectors = None
-        if "sector" in c["fund"].columns:
-            sector_by_ticker = (
-                c["fund"]["sector"].reindex(list(amounts)).fillna(t("pdf.not_classified"))
+        log_audit(ctx.advisor, "run_analysis", ctx.portfolio_name)
+        st.toast(t("chk.saved_toast"))
+
+
+def history_panel(ctx: ViewContext) -> None:
+    """Storico delle analisi salvate del consulente, con l'andamento dell'Health Score."""
+    history = load_analyses(ctx.advisor)
+    portfolio_name = ctx.portfolio_name
+    if not history.empty:
+        with st.expander(t("chk.history", n=len(history))):
+            trend = history.dropna(subset=["health"])
+            trend = trend[trend["portfolio"] == portfolio_name]
+            if len(trend) >= 2:
+                series = pd.Series(
+                    trend["health"].to_numpy(dtype=float),
+                    index=pd.to_datetime(trend["timestamp"]),
+                ).sort_index()
+                st.altair_chart(simple_line(series, y_format=".0f"), width="stretch")
+                delta_h = int(series.iloc[-1] - series.iloc[0])
+                st.caption(t("chk.history_caption", name=portfolio_name, delta=f"{delta_h:+d}"))
+            st.dataframe(
+                history,
+                column_config={
+                    "timestamp": st.column_config.TextColumn(t("chk.hist_date")),
+                    "portfolio": st.column_config.TextColumn(t("chk.hist_portfolio")),
+                    "period": st.column_config.TextColumn(t("chk.hist_period")),
+                    "invested": st.column_config.NumberColumn(
+                        t("chk.hist_invested"), format="%.0f €"
+                    ),
+                    "cum_return": st.column_config.NumberColumn(
+                        t("chk.hist_return"), format="percent"
+                    ),
+                    "risk_score": st.column_config.NumberColumn(t("chk.hist_risk")),
+                    "health": st.column_config.NumberColumn(t("chk.hist_health")),
+                },
+                hide_index=True,
             )
-            report_sectors = (
-                (pd.Series(amounts, dtype=float) / total).groupby(sector_by_ticker).sum()
-            )
-        # copertura dati: titoli con storico più corto della finestra selezionata
-        window_start = c["prices"].index[0]
-        report_coverage = []
-        for ticker_cov in sorted(amounts):
-            first_price = c["prices"][ticker_cov].first_valid_index()
-            if first_price is not None and (first_price - window_start).days > 7:
-                report_coverage.append(
-                    t(
-                        "cov.note",
-                        ticker=ticker_cov,
-                        date=f"{pd.Timestamp(first_price):%d/%m/%Y}",
-                    )
-                )
-        top_ticker_report = max(amounts, key=lambda t: amounts[t])
-        try:
-            shock_report = simulate_shock(c["returns"], portfolio, top_ticker_report, -0.20)
-            report_scenario = {
-                "label": t(
-                    "scen.label",
-                    ticker=top_ticker_report,
-                    weight=f"{amounts[top_ticker_report] / total:.0%}",
-                ),
-                "direct": shock_report["direct"],
-                "total": shock_report["total"],
-            }
-        except ValueError:
-            report_scenario = None
-        st.download_button(
-            t("chk.pdf_btn"),
-            data=build_report(
-                portfolio_name=portfolio_name,
-                positions=amounts,
-                period=period,
-                cum_return=c["cum_return"],
-                health_score=c["health"],
-                metric_rows=metric_rows,
-                insights=insights + top_problems,
-                suggestions=simulations
-                + generate_suggestions(c["dna"], c["radar"], c["contributions"])
-                + find_opportunities(portfolio, c["fund"]),
-                names=ctx.names,
-                advisor=advisor if advisor != DEV_ADVISOR else None,
-                recipient=ctx.report_recipient or None,
-                # proiezione Monte Carlo solo nel PDF Advisor: Investor non fa previsioni
-                projection=report_projection(ctx) if ctx.stateful else None,
-                risk_profile=risk_profile,
-                benchmark=BENCHMARK,
-                currency_note=t("pdf.currency_eur") if in_eur else t("pdf.currency_orig"),
-                executive=exec_text,
-                suitability=report_suitability,
-                annual_return=c["annual_ret"],
-                pf_value=c["pf_value"],
-                bench_value=bench_value_report,
-                monthly=monthly_returns(c["pf_daily"], 12),
-                contributions=c["contributions"],
-                breakdown=c["breakdown"],
-                per_ticker_returns=cum_by_ticker,
-                sector_weights=report_sectors,
-                scenario=report_scenario,
-                coverage_notes=report_coverage,
-                risk_free=risk_free,
-                invested=pnl_totals.get("cost"),
-                pnl=pnl_totals.get("pnl"),
-                pnl_pct=pnl_totals.get("pnl_pct"),
-                per_ticker_pnl=ctx.pos["pnl"] if ctx.pos is not None else None,
-                lang=st.session_state.get("language", "en"),
-            ),
-            file_name=f"portfolio_report_{pd.Timestamp.now():%Y%m%d}.pdf",
-            mime="application/pdf",
-            width="stretch",
-            type="primary",
-        )
-    if ctx.stateful:
-        with col_log:
-            if st.button(t("chk.save_btn"), width="stretch"):
-                log_analysis(
-                    advisor,
-                    portfolio_name,
-                    period,
-                    total,
-                    c["cum_return"],
-                    c["risk_score"],
-                    health=c["health"],
-                )
-                log_audit(advisor, "run_analysis", portfolio_name)
-                st.toast(t("chk.saved_toast"))
-        with col_hist:
-            history = load_analyses(advisor)
-            if not history.empty:
-                with st.expander(t("chk.history", n=len(history))):
-                    trend = history.dropna(subset=["health"])
-                    trend = trend[trend["portfolio"] == portfolio_name]
-                    if len(trend) >= 2:
-                        series = pd.Series(
-                            trend["health"].to_numpy(dtype=float),
-                            index=pd.to_datetime(trend["timestamp"]),
-                        ).sort_index()
-                        st.altair_chart(simple_line(series, y_format=".0f"), width="stretch")
-                        delta_h = int(series.iloc[-1] - series.iloc[0])
-                        st.caption(
-                            t("chk.history_caption", name=portfolio_name, delta=f"{delta_h:+d}")
-                        )
-                    st.dataframe(
-                        history,
-                        column_config={
-                            "timestamp": st.column_config.TextColumn(t("chk.hist_date")),
-                            "portfolio": st.column_config.TextColumn(t("chk.hist_portfolio")),
-                            "period": st.column_config.TextColumn(t("chk.hist_period")),
-                            "invested": st.column_config.NumberColumn(
-                                t("chk.hist_invested"), format="%.0f €"
-                            ),
-                            "cum_return": st.column_config.NumberColumn(
-                                t("chk.hist_return"), format="percent"
-                            ),
-                            "risk_score": st.column_config.NumberColumn("Risk /100"),
-                            "health": st.column_config.NumberColumn("Health /100"),
-                        },
-                        hide_index=True,
-                    )
+
+
+def benchmark_rows(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
+    """Metriche del portafoglio accanto al benchmark: (etichetta, portafoglio, benchmark, nota)."""
+    assert ctx.computed is not None
+    c = ctx.computed
+    total, portfolio = ctx.total, ctx.portfolio
+    period, risk_free = ctx.period, ctx.risk_free
+    _db_for_search = load_market_db()
+    report_sharpe = annualized_sharpe(c["returns"], portfolio, risk_free_rate=risk_free)
+    report_sortino = sortino_ratio(c["returns"], portfolio, risk_free_rate=risk_free)
+    universe_vols_report = (
+        compute_daily_returns(_db_for_search).std() * TRADING_DAYS**0.5
+        if _db_for_search is not None
+        else None
+    )
+    # controparte benchmark per ogni metrica confrontabile ("ho battuto il mercato?")
+    bench_value_report = (1 + c["bench_daily"]).cumprod()
+    bench_cum = float(bench_value_report.iloc[-1] - 1)
+    bench_cagr = annualized_geometric_return(c["bench_daily"])
+    bench_vol = float(c["bench_daily"].std()) * TRADING_DAYS**0.5
+    bench_sharpe = sharpe_from_daily(c["bench_daily"], risk_free_rate=risk_free)
+    bench_sortino = sortino_from_daily(c["bench_daily"], risk_free_rate=risk_free)
+    bench_dd = max_drawdown(bench_value_report)
+    bench_var = value_at_risk(c["bench_daily"])
+    pf_es = expected_shortfall(c["pf_daily"])
+    bench_es = expected_shortfall(c["bench_daily"])
+    metric_rows = [
+        (
+            t("m.return", period=period),
+            f"{c['cum_return']:+.1%}",
+            f"{bench_cum:+.1%}",
+            t("r.return"),
+        ),
+        (
+            t("m.cagr"),
+            f"{c['annual_ret']:+.1%}",
+            f"{bench_cagr:+.1%}",
+            t("r.cagr"),
+        ),
+        *([(t("m.irr"), f"{ctx.irr:+.1%}", "—", t("r.irr"))] if ctx.irr is not None else []),
+        (
+            t("m.vol"),
+            f"{c['annual_vol']:.1%}",
+            f"{bench_vol:.1%}",
+            interpret_volatility(c["annual_vol"], universe_vols_report),
+        ),
+        (
+            t("m.sharpe"),
+            f"{report_sharpe:.2f}",
+            f"{bench_sharpe:.2f}",
+            interpret_sharpe(report_sharpe),
+        ),
+        (
+            t("m.sortino"),
+            f"{report_sortino:.2f}",
+            f"{bench_sortino:.2f}",
+            interpret_sortino(report_sortino, report_sharpe),
+        ),
+        (
+            t("m.maxdd"),
+            f"{c['drawdown']:.1%}",
+            f"{bench_dd:.1%}",
+            interpret_drawdown(c["drawdown"]),
+        ),
+        (
+            t("m.var"),
+            f"{c['var_95']:.1%}",
+            f"{bench_var:.1%}",
+            t("r.var", amount=eur(total * c["var_95"])),
+        ),
+        (
+            t("m.es"),
+            f"{pf_es:.1%}",
+            f"{bench_es:.1%}",
+            t("r.es", amount=eur(total * pf_es)),
+        ),
+        (
+            t("m.beta", benchmark=BENCHMARK),
+            f"{c['beta']:.2f}",
+            "—",
+            interpret_beta(c["beta"], BENCHMARK),
+        ),
+        (
+            t("m.alpha", benchmark=BENCHMARK),
+            f"{c['alpha']:+.1%}/yr",
+            "—",
+            t("r.alpha"),
+        ),
+        (
+            t("m.corr"),
+            f"{c['avg_corr']:.2f}",
+            "—",
+            interpret_correlation(c["avg_corr"]),
+        ),
+    ]
+    return metric_rows

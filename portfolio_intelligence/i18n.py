@@ -415,27 +415,40 @@ _CATALOG: dict[str, tuple[str, str]] = {
     # ------------------------------------------------------- advisor welcome
     "advisorw.title": ("Advisor console", "Console Consulenti"),
     "advisorw.sub": (
-        "Reserved platform for client portfolio analysis, robustness checks and client reporting.",
-        "Piattaforma riservata per l'analisi dei portafogli dei clienti, "
-        "verifiche di robustezza e reportistica per il cliente.",
+        "Portfolio monitoring, risk analysis and client reporting for independent advisors, "
+        "boutiques and back-office teams.",
+        "Monitoraggio dei portafogli, analisi del rischio e reportistica per consulenti "
+        "indipendenti, boutique e back office.",
     ),
     "advisorw.badge_sso": ("Sign-in via OIDC", "Accesso tramite OIDC"),
     "advisorw.badge_tenant": ("Data separated per advisor", "Dati separati per consulente"),
     "advisorw.badge_audit": ("Activity log", "Registro delle attività"),
-    "advisorw.feature1_title": ("Portfolios & clients", "Portafogli & clienti"),
+    "advisorw.feature1_title": ("Client book and monitoring", "Book clienti e monitoraggio"),
     "advisorw.feature1_desc": (
-        "Save client portfolios and keep the history of their analyses.",
-        "Salvataggio dei portafogli clienti e storico delle loro analisi.",
+        "One row per client, ordered by who needs review, with internal thresholds on "
+        "profile volatility, concentration, currency and drawdown. CSV export.",
+        "Una riga per cliente, ordinata da chi va rivisto, con soglie interne su volatilità "
+        "del profilo, concentrazione, valuta e drawdown. Esportazione CSV.",
     ),
-    "advisorw.feature2_title": ("Quantitative analysis", "Analisi quantitativa"),
+    "advisorw.feature2_title": ("Risk and performance", "Rischio e performance"),
     "advisorw.feature2_desc": (
-        "Correlation matrix, scenario shocks and mean-variance optimization.",
-        "Matrice di correlazione, scenari di shock e ottimizzazione media-varianza.",
+        "Volatility, VaR, drawdown, Sharpe and beta against the benchmark; Markowitz "
+        "optimization, strategy backtests and Monte Carlo projections.",
+        "Volatilità, VaR, drawdown, Sharpe e beta contro il benchmark; ottimizzazione di "
+        "Markowitz, backtest delle strategie e proiezioni Monte Carlo.",
     ),
     "advisorw.feature3_title": ("Client reporting", "Reportistica per il cliente"),
     "advisorw.feature3_desc": (
-        "PDF report for the end client, with methodology and risk warnings.",
-        "Report PDF per il cliente finale, con metodologia e avvertenze.",
+        "Three-page PDF with methodology, profile consistency check and risk warnings.",
+        "PDF di tre pagine con metodologia, verifica di coerenza con il profilo e avvertenze.",
+    ),
+    "advisorw.feature4_title": ("Data and controls", "Dati e controlli"),
+    "advisorw.feature4_desc": (
+        "Data separated per advisor, activity log and erasure on request. Fundamentals "
+        "from SEC filings, EUR/USD from the ECB, risk-free rate from the US Treasury.",
+        "Dati separati per consulente, registro delle attività e cancellazione su "
+        "richiesta. Fondamentali dai bilanci SEC, cambio EUR/USD dalla BCE, tasso privo di "
+        "rischio dal Tesoro USA.",
     ),
     "advisorw.login_title": ("Sign in", "Accedi"),
     "advisorw.login_cta": (
@@ -1561,4 +1574,417 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "hero.last_session": ("Last session", "Ultima seduta"),
     "hero.score_built": ("HOW THE SCORE IS BUILT", "COME NASCE IL PUNTEGGIO"),
     "hero.dna_title": ("PORTFOLIO DNA", "DNA DEL PORTAFOGLIO"),
+    # ---------------------------------------------------------------- analisi (metriche)
+    "an.return": ("Return", "Rendimento"),
+    "an.risk": ("Risk", "Rischio"),
+    "an.market_value": ("Market value", "Valore di mercato"),
+    "an.cagr": ("Annualized return (CAGR)", "Rendimento annualizzato (CAGR)"),
+    "an.cagr_help": (
+        "Compound annual growth rate over the observed period.",
+        "Tasso di crescita annuo composto sul periodo osservato.",
+    ),
+    "an.sharpe": ("Sharpe ratio", "Indice di Sharpe"),
+    "an.sharpe_help": ("Risk-free rate used: {rf}.", "Tasso privo di rischio usato: {rf}."),
+    "an.sortino": ("Sortino ratio", "Indice di Sortino"),
+    "an.vol": ("Volatility (annualized)", "Volatilità (annualizzata)"),
+    "an.maxdd": ("Maximum drawdown", "Massimo drawdown"),
+    "an.var": ("VaR 95% (1 day)", "VaR 95% (1 giorno)"),
+    "an.var_caption": (
+        "Historical: on 95% of the observed days the loss did not exceed this amount.",
+        "Storico: nel 95% dei giorni osservati la perdita non ha superato questo importo.",
+    ),
+    "an.beta": ("Beta vs {benchmark}", "Beta vs {benchmark}"),
+    "an.alpha_delta": ("Alpha {alpha} p.a.", "Alfa {alpha} annuo"),
+    "an.estimates": (
+        "Estimates from historical data: not a forecast.",
+        "Stime su dati storici: non sono previsioni.",
+    ),
+    "an.vs_bench": (
+        "Portfolio vs {benchmark}, rebased to 100",
+        "Portafoglio vs {benchmark}, base 100",
+    ),
+    "an.excess": (
+        "Excess return over the period versus the benchmark: **{excess}**",
+        "Extra-rendimento sul periodo rispetto al benchmark: **{excess}**",
+    ),
+    "an.excess_fx": (
+        " (including the EUR/USD effect).",
+        " (incluso l'effetto del cambio EUR/USD).",
+    ),
+    "an.underwater": ("Drawdown from the previous peak", "Drawdown dal massimo precedente"),
+    "an.underwater_caption": (
+        "Distance from the running peak: every value below zero is time spent under water.",
+        "Distanza dal massimo raggiunto: ogni valore sotto zero è tempo passato sotto il picco.",
+    ),
+    "an.distribution": (
+        "Distribution of daily returns",
+        "Distribuzione dei rendimenti giornalieri",
+    ),
+    "an.distribution_caption": (
+        "Each bar counts the days with that return. The red line marks the historical "
+        "95% VaR: only 5% of days were worse.",
+        "Ogni barra conta i giorni con quel rendimento. La linea rossa segna il VaR storico "
+        "al 95%: solo il 5% dei giorni è andato peggio.",
+    ),
+    "an.rolling_vol": (
+        "Annualized volatility, 60-day rolling",
+        "Volatilità annualizzata, finestra mobile 60 giorni",
+    ),
+    "an.rolling_vol_caption": (
+        "How the portfolio's risk level changed over time.",
+        "Come è cambiato nel tempo il livello di rischio del portafoglio.",
+    ),
+    "an.rolling_beta": (
+        "Beta vs {benchmark}, 60-day rolling",
+        "Beta vs {benchmark}, finestra mobile 60 giorni",
+    ),
+    "an.rolling_beta_caption": (
+        "Above 1 the portfolio amplifies benchmark moves, below 1 it dampens them.",
+        "Sopra 1 il portafoglio amplifica i movimenti del benchmark, sotto 1 li attenua.",
+    ),
+    "an.attribution": (
+        "Return attribution by position (EUR)",
+        "Attribuzione del risultato per posizione (EUR)",
+    ),
+    "an.attribution_caption": (
+        "Current amount × security return over the period (constant weights): "
+        "the sum approximates the total result.",
+        "Importo attuale × rendimento del titolo sul periodo (pesi costanti): "
+        "la somma approssima il risultato totale.",
+    ),
+    "an.allocation": ("Allocation", "Allocazione"),
+    "an.base100": ("Securities rebased to 100", "Titoli in base 100"),
+    # ---------------------------------------------------------------- grafici
+    "vis.auto": ("Rule-based commentary", "Commento basato su regole"),
+    "vis.auto_caption": (
+        "Generated by deterministic rules on the computed metrics, not by a language model.",
+        "Generato da regole deterministiche sulle metriche calcolate, non da un modello linguistico.",
+    ),
+    "vis.radar": ("Risk profile by dimension", "Profilo di rischio per dimensione"),
+    "vis.galaxy": ("Correlation map", "Mappa delle correlazioni"),
+    "vis.galaxy_caption": (
+        "Size = weight · color = return · distance = correlation",
+        "Dimensione = peso · colore = rendimento · distanza = correlazione",
+    ),
+    "vis.need_two": ("At least two securities are needed.", "Servono almeno due titoli."),
+    "vis.monthly": ("Monthly returns", "Rendimenti mensili"),
+    "vis.best_worst": (
+        "Best month: **{best}** ({best_ret}) · worst: **{worst}** ({worst_ret})",
+        "Mese migliore: **{best}** ({best_ret}) · peggiore: **{worst}** ({worst_ret})",
+    ),
+    "vis.too_short": (
+        "Period too short for the monthly view.",
+        "Periodo troppo breve per la vista mensile.",
+    ),
+    "vis.weight_risk": (
+        "Capital weight vs risk contribution",
+        "Peso sul capitale vs contributo al rischio",
+    ),
+    "vis.how_to_read": ("Reading", "Lettura"),
+    "vis.weight_risk_text": (
+        "When the amber bar exceeds the blue one, the security weighs on risk more than "
+        "on capital. **{ticker}** accounts for **{share}** of total risk ({gap} versus its weight).",
+        "Quando la barra ambra supera quella blu, il titolo pesa sul rischio più che sul "
+        "capitale. **{ticker}** spiega il **{share}** del rischio totale ({gap} rispetto al peso).",
+    ),
+    "vis.mcr_caption": (
+        "Marginal contribution to portfolio variance: it accounts for volatilities and "
+        "correlations, not only for the amount invested.",
+        "Contributo marginale alla varianza del portafoglio: considera volatilità e "
+        "correlazioni, non solo l'importo investito.",
+    ),
+    "vis.shock": ("Single-security shock", "Shock su un singolo titolo"),
+    "vis.shock_ticker": ("Security", "Titolo"),
+    "vis.shock_size": ("Price change", "Variazione di prezzo"),
+    "vis.shock_today": ("Current value", "Valore attuale"),
+    "vis.shock_total": ("After the shock (with contagion)", "Dopo lo shock (con contagio)"),
+    "vis.shock_direct": ("Direct effect only", "Solo effetto diretto"),
+    "vis.shock_caption": (
+        "Contagion estimates how the other holdings would react, using their historical "
+        "betas to the shocked security.",
+        "Il contagio stima la reazione degli altri titoli tramite i loro beta storici "
+        "verso il titolo colpito.",
+    ),
+    # ---------------------------------------------------------------- ottimizzazione
+    "mvo.need_two": (
+        "At least two securities are needed for the optimization.",
+        "Servono almeno due titoli per l'ottimizzazione.",
+    ),
+    "mvo.title": ("Markowitz efficient frontier", "Frontiera efficiente di Markowitz"),
+    "mvo.caption": (
+        "For each risk level, the highest return achievable by combining the current "
+        "holdings (expected returns = historical arithmetic means, Markowitz convention).",
+        "Per ogni livello di rischio, il rendimento più alto ottenibile combinando i titoli "
+        "in portafoglio (rendimenti attesi = medie aritmetiche storiche, convenzione di Markowitz).",
+    ),
+    "mvo.current": ("Current", "Attuale"),
+    "mvo.min_var": ("Minimum variance", "Minima varianza"),
+    "mvo.max_sharpe": ("Maximum Sharpe", "Massimo Sharpe"),
+    "mvo.comparison": ("Comparison", "Confronto"),
+    "mvo.portfolio": ("Portfolio", "Portafoglio"),
+    "mvo.exp_return": ("Expected return (ann.)", "Rendimento atteso (ann.)"),
+    "mvo.volatility": ("Volatility (ann.)", "Volatilità (ann.)"),
+    "mvo.weights": ("Model weights", "Pesi dei modelli"),
+    "mvo.weights_caption": (
+        "Output of the historical optimization, for analysis only: not a recommendation "
+        "to buy or sell.",
+        "Risultato dell'ottimizzazione storica, solo a fini di analisi: non è una "
+        "raccomandazione di acquisto o vendita.",
+    ),
+    # ---------------------------------------------------------------- fondamentali
+    "fund.title": (
+        "Revenue, margins, debt, growth and multiples",
+        "Ricavi, margini, debito, crescita e multipli",
+    ),
+    "fund.tickers": ("Tickers separated by spaces", "Ticker separati da spazi"),
+    "fund.name": ("Name", "Nome"),
+    "fund.sector": ("Sector", "Settore"),
+    "fund.div_yield": ("Div. yield", "Rend. dividendo"),
+    "fund.revenue": ("Revenue (TTM)", "Ricavi (12 mesi)"),
+    "fund.net_income": ("Net income (TTM)", "Utile netto (12 mesi)"),
+    "fund.gross_margin": ("Gross margin", "Margine lordo"),
+    "fund.op_margin": ("Operating margin", "Margine operativo"),
+    "fund.net_margin": ("Net margin", "Margine netto"),
+    "fund.debt": ("Debt", "Debito"),
+    "fund.de": ("Debt/Equity", "Debito/Patrimonio"),
+    "fund.rev_growth": ("Revenue growth", "Crescita ricavi"),
+    "fund.eps_growth": ("Earnings growth", "Crescita utili"),
+    "fund.fwd_pe": ("Forward P/E", "P/E prospettico"),
+    "fund.source": ("Source", "Fonte"),
+    "fund.caption": (
+        "SEC EDGAR rows: last 12 months from the filed 10-K/10-Q; debt excludes leases; "
+        "sector derived from the SIC code; no forward P/E (it requires analyst estimates). "
+        "Other rows come from the backup sources.",
+        "Righe SEC EDGAR: ultimi 12 mesi dai 10-K/10-Q depositati; il debito esclude i "
+        "leasing; settore ricavato dal codice SIC; nessun P/E prospettico (richiede stime "
+        "degli analisti). Le altre righe vengono dalle fonti di riserva.",
+    ),
+    "fund.card": ("Security profile", "Scheda titolo"),
+    "fund.stock": ("Security", "Titolo"),
+    "fund.dna_title": ("SECURITY PROFILE", "PROFILO DEL TITOLO"),
+    "fund.overall": ("Composite score", "Punteggio composito"),
+    "fund.overall_help": (
+        "Weighted average: growth 35%, quality 35%, valuation 20%, low risk 10%. "
+        "A heuristic, not investment advice.",
+        "Media ponderata: crescita 35%, qualità 35%, valutazione 20%, basso rischio 10%. "
+        "Un'euristica, non una consulenza.",
+    ),
+    "fund.card_vol": ("Annualized volatility: {vol}", "Volatilità annualizzata: {vol}"),
+    # ---------------------------------------------------------------- mercato
+    "mkt.title": ("Nasdaq-100 constituents compared", "I costituenti del Nasdaq-100 a confronto"),
+    "mkt.no_db": (
+        "Market database not available: run `python download_nasdaq100.py`.",
+        "Database di mercato non disponibile: esegui `python download_nasdaq100.py`.",
+    ),
+    "mkt.period": ("Period", "Periodo"),
+    "mkt.p_30": ("1 month", "1 mese"),
+    "mkt.p_182": ("6 months", "6 mesi"),
+    "mkt.p_365": ("1 year", "1 anno"),
+    "mkt.p_730": ("2 years", "2 anni"),
+    "mkt.p_1826": ("5 years", "5 anni"),
+    "mkt.scatter": (
+        "**Risk vs return ({period})**: one dot per security",
+        "**Rischio vs rendimento ({period})**: un punto per titolo",
+    ),
+    "mkt.vol": ("Volatility (ann.)", "Volatilità (ann.)"),
+    "mkt.ret": ("Return ({period})", "Rendimento ({period})"),
+    "mkt.ranking": ("Full ranking", "Classifica completa"),
+    "mkt.caption": (
+        "Cumulative return over the period, USD prices.",
+        "Rendimento cumulato sul periodo, prezzi in USD.",
+    ),
+    "mkt.pi_title": ("Multifactor ranking (PI Score)", "Classifica multifattoriale (PI Score)"),
+    "mkt.pi_caption": (
+        "Composite score 0-100: **50% 12-1 month momentum** (Jegadeesh & Titman 1993), "
+        "**30% low volatility** (Baker et al. 2011), **20% trend** (distance from the "
+        "200-day average). Regularities documented in the literature, not guarantees, "
+        "and not investment advice.",
+        "Punteggio composito 0-100: **50% momentum 12-1 mesi** (Jegadeesh & Titman 1993), "
+        "**30% bassa volatilità** (Baker et al. 2011), **20% trend** (distanza dalla media "
+        "a 200 giorni). Regolarità documentate in letteratura, non garanzie né consulenza.",
+    ),
+    "mkt.low_vol": ("Low volatility", "Bassa volatilità"),
+    # ---------------------------------------------------------------- correlazioni
+    "xc.title": ("Co-movement between securities", "Co-movimento tra titoli"),
+    "xc.caption": (
+        "Correlation of daily returns: **+1** = identical, **0** = independent, **-1** = opposite.",
+        "Correlazione dei rendimenti giornalieri: **+1** = identici, **0** = indipendenti, **-1** = opposti.",
+    ),
+    "xc.no_db": (
+        "The Nasdaq-100 database is required: run `python download_nasdaq100.py`.",
+        "Serve il database Nasdaq-100: esegui `python download_nasdaq100.py`.",
+    ),
+    "xc.reference": ("Reference security", "Titolo di riferimento"),
+    "xc.reference_ph": ("Choose a Nasdaq-100 security", "Scegli un titolo del Nasdaq-100"),
+    "xc.together": ("**Most correlated with {ticker}**", "**Più correlati con {ticker}**"),
+    "xc.opposite": ("**Least correlated with {ticker}**", "**Meno correlati con {ticker}**"),
+    "xc.portfolio": ("Portfolio diversification", "Diversificazione del portafoglio"),
+    "xc.avg": ("Average pairwise correlation", "Correlazione media tra coppie"),
+    "xc.tightest": (
+        "Most correlated pair: **{a} / {b}** ({value})",
+        "Coppia più correlata: **{a} / {b}** ({value})",
+    ),
+    # ---------------------------------------------------------------- backtest
+    "bt.title": ("Strategy backtest", "Backtest delle strategie"),
+    "bt.caption": (
+        "Quarterly rebalancing, weights computed only on prior data (no look-ahead). "
+        "Limits: USD prices, universe = CURRENT Nasdaq-100 constituents (survivorship bias).",
+        "Ribilanciamento trimestrale, pesi calcolati solo su dati precedenti (nessun "
+        "look-ahead). Limiti: prezzi in USD, universo = costituenti ATTUALI del Nasdaq-100 "
+        "(survivorship bias).",
+    ),
+    "bt.strategies": ("Strategies to compare", "Strategie da confrontare"),
+    "bt.s_equal": ("Equal-weight Nasdaq-100", "Nasdaq-100 equipesato"),
+    "bt.s_momentum": ("Momentum (top 10, 6 months)", "Momentum (primi 10, 6 mesi)"),
+    "bt.s_multifactor": ("Multifactor PI (top 10)", "Multifattoriale PI (primi 10)"),
+    "bt.s_buy_hold": ("Current portfolio (buy and hold)", "Portafoglio attuale (buy and hold)"),
+    "bt.s_max_sharpe": ("Maximum Sharpe on current holdings", "Massimo Sharpe sui titoli attuali"),
+    "bt.s_min_var": ("Minimum variance on current holdings", "Minima varianza sui titoli attuali"),
+    "bt.horizon": ("Horizon", "Orizzonte"),
+    "bt.h_1y": ("1 year", "1 anno"),
+    "bt.h_2y": ("2 years", "2 anni"),
+    "bt.h_5y": ("5 years", "5 anni"),
+    "bt.costs": (
+        "Transaction costs (bps per rebalance)",
+        "Costi di transazione (bps per ribilanciamento)",
+    ),
+    "bt.costs_help": (
+        "20 bps = 0.20% of the traded value. Buy and hold pays only the initial purchase.",
+        "20 bps = 0,20% del controvalore scambiato. Il buy and hold paga solo l'acquisto iniziale.",
+    ),
+    "bt.running": ("Running the backtests", "Calcolo dei backtest in corso"),
+    "bt.col_strategy": ("Strategy", "Strategia"),
+    "bt.col_return": ("Cumulative return", "Rendimento cumulato"),
+    "bt.footer": (
+        "Curves rebased to 100, {bps} bps cost per rebalance. Compare volatility and "
+        "drawdown, not only return.",
+        "Curve in base 100, costo di {bps} bps per ribilanciamento. Confronta volatilità "
+        "e drawdown, non solo il rendimento.",
+    ),
+    # ---------------------------------------------------------------- amministrazione
+    "adm.denied": (
+        "Access denied: this section is for administrators only.",
+        "Accesso negato: sezione riservata agli amministratori.",
+    ),
+    "adm.title": ("Platform (administrators only)", "Piattaforma (solo amministratori)"),
+    "adm.caption": (
+        "Cross-tenant counters and the audit log. Never shows the contents of another "
+        "advisor's portfolios: only who did what, and when.",
+        "Contatori tra consulenti e registro delle attività. Non mostra mai il contenuto "
+        "dei portafogli di altri consulenti: solo chi ha fatto cosa, e quando.",
+    ),
+    "adm.no_auth": (
+        "OIDC sign-in is not configured: tenant isolation is not guaranteed and these "
+        "counters may refer to a shared development tenant.",
+        "L'accesso OIDC non è configurato: l'isolamento tra consulenti non è garantito e "
+        "questi contatori possono riferirsi a un ambiente di sviluppo condiviso.",
+    ),
+    "adm.advisors": ("Advisors", "Consulenti"),
+    "adm.portfolios": ("Saved portfolios", "Portafogli salvati"),
+    "adm.analyses": ("Logged analyses", "Analisi registrate"),
+    "adm.last_sync": ("Last price update", "Ultimo aggiornamento prezzi"),
+    "adm.activity": ("Recent activity (all tenants)", "Attività recente (tutti i consulenti)"),
+    "adm.no_events": ("No audit events yet.", "Nessun evento registrato."),
+    # ---------------------------------------------------------------- varie
+    "opt.premium_delta": ("-{premium} premium", "-{premium} premio"),
+    "chk.hist_risk": ("Risk /100", "Rischio /100"),
+    "chk.hist_health": ("Health /100", "Health /100"),
+    "chart.correlation": ("Correlation", "Correlazione"),
+    "chart.return": ("Return", "Rendimento"),
+    "chart.date": ("Date", "Data"),
+    "chart.value": ("Value", "Valore"),
+    "chart.series": ("Series", "Serie"),
+    "chart.from_peak": ("From peak", "Dal massimo"),
+    # ---------------------------------------------------------------- panoramica Advisor
+    "ov.asof": ("Prices as of {date}", "Prezzi al {date}"),
+    "ov.ccy": ("Currency {ccy}", "Valuta {ccy}"),
+    "ov.native_ccy": ("listing currency", "valuta di quotazione"),
+    "ov.window": ("Window {period}", "Finestra {period}"),
+    "ov.benchmark": ("Benchmark {benchmark}", "Benchmark {benchmark}"),
+    "ov.kf_value": ("Market value", "Valore di mercato"),
+    "ov.kf_value_sub": ("{n} positions at last price", "{n} posizioni all'ultimo prezzo"),
+    "ov.kf_pnl": ("Unrealized P&L", "P&L non realizzato"),
+    "ov.kf_pnl_sub": ("{pct} on cost of {cost}", "{pct} su un costo di {cost}"),
+    "ov.kf_pnl_unknown": ("Cost basis not available", "Prezzo di carico non disponibile"),
+    "ov.kf_irr": ("Money-weighted return", "Rendimento money-weighted"),
+    "ov.kf_irr_sub": ("IRR p.a. on dated purchases", "IRR annuo sugli acquisti datati"),
+    "ov.kf_return": ("Return {period}", "Rendimento {period}"),
+    "ov.kf_bench": ("{benchmark}: {value}", "{benchmark}: {value}"),
+    "ov.kf_vol": ("Volatility (ann.)", "Volatilità (ann.)"),
+    "ov.kf_vol_sub": ("Profile limit {band}", "Limite del profilo {band}"),
+    "ov.no_profile": ("Profile not declared", "Profilo non dichiarato"),
+    "ov.kf_dd": ("Maximum drawdown", "Massimo drawdown"),
+    "ov.kf_var": ("VaR 95%, 1 day", "VaR 95%, 1 giorno"),
+    "ov.kf_var_sub": ("{pct} of value, historical", "{pct} del valore, storico"),
+    "ov.kf_sharpe": ("Sharpe ratio", "Indice di Sharpe"),
+    "ov.kf_sharpe_sub": ("Beta {beta} vs {benchmark}", "Beta {beta} vs {benchmark}"),
+    "ov.perf_title": (
+        "Performance vs {benchmark}, base 100",
+        "Performance vs {benchmark}, base 100",
+    ),
+    "ov.perf_note": (
+        "Current weights applied over the whole window: it describes the portfolio as "
+        "held today, not the client's realized track record.",
+        "Pesi attuali applicati a tutta la finestra: descrive il portafoglio come è "
+        "detenuto oggi, non lo storico realizzato dal cliente.",
+    ),
+    "ov.monitor_title": ("Monitoring checks", "Controlli di monitoraggio"),
+    "ov.monitor_breaches": (
+        "{n} of {total} checks outside threshold",
+        "{n} controlli su {total} fuori soglia",
+    ),
+    "ov.monitor_clear": (
+        "All {total} checks within threshold",
+        "Tutti i {total} controlli entro soglia",
+    ),
+    "ov.monitor_note": (
+        "Internal monitoring thresholds, the same used in the report. They flag what to "
+        "review and are not a suitability assessment under MiFID II.",
+        "Soglie interne di monitoraggio, le stesse del report. Segnalano cosa rivedere e "
+        "non sono una valutazione di adeguatezza ai sensi della MiFID II.",
+    ),
+    "ov.col_check": ("Check", "Controllo"),
+    "ov.col_measured": ("Measured", "Misurato"),
+    "ov.col_limit": ("Threshold", "Soglia"),
+    "ov.col_status": ("Status", "Stato"),
+    "ov.status_ok": ("Within", "Entro"),
+    "ov.status_breach": ("Outside", "Fuori"),
+    "ov.status_na": ("n/a", "n/d"),
+    "ov.chk_profile_vol": ("Volatility vs profile", "Volatilità vs profilo"),
+    "ov.chk_max_position": ("Largest position", "Prima posizione"),
+    "ov.chk_risk_share": ("Largest risk contributor", "Primo contributore al rischio"),
+    "ov.chk_correlation": ("Average correlation", "Correlazione media"),
+    "ov.chk_usd": ("USD exposure", "Esposizione al dollaro"),
+    "ov.chk_drawdown": ("Maximum drawdown", "Massimo drawdown"),
+    "ov.chk_health": ("Health Score", "Health Score"),
+    "ov.holdings_title": ("Holdings", "Posizioni"),
+    "ov.holdings_note": (
+        "Market value and P&L at the last available price; risk = share of portfolio "
+        "variance explained by the position.",
+        "Valore e P&L all'ultimo prezzo disponibile; rischio = quota della varianza del "
+        "portafoglio spiegata dalla posizione.",
+    ),
+    "ov.export_csv": ("Export CSV", "Esporta CSV"),
+    "ov.col_avg_cost": ("Avg. cost", "Prezzo medio"),
+    "ov.col_last": ("Last price", "Ultimo prezzo"),
+    "ov.col_value": ("Value ({ccy})", "Valore ({ccy})"),
+    "ov.col_pnl": ("P&L ({ccy})", "P&L ({ccy})"),
+    "ov.col_pnl_pct": ("P&L %", "P&L %"),
+    "ov.col_risk": ("Risk share", "Quota di rischio"),
+    "ov.obs_title": ("Observations", "Rilievi"),
+    "ov.summary_title": ("Summary", "Sintesi"),
+    "ov.sector_title": ("Allocation by sector", "Allocazione per settore"),
+    "ov.scenario_title": ("Rebalancing scenarios", "Scenari di ribilanciamento"),
+    "ov.reporting_title": ("Client report", "Report per il cliente"),
+    # ---------------------------------------------------------------- book clienti
+    "adv.col_top": ("Largest", "Prima pos."),
+    "adv.book_asof": (
+        "Prices as of {date} · window {period} · values in EUR at the last price",
+        "Prezzi al {date} · finestra {period} · valori in EUR all'ultimo prezzo",
+    ),
+    "adv.export_book": ("Export book (CSV)", "Esporta book (CSV)"),
+    "adv.over_limit": (
+        "Above the profile limit of {band}",
+        "Oltre il limite del profilo ({band})",
+    ),
 }

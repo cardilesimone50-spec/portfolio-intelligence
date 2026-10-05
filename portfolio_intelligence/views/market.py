@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from portfolio_intelligence.analytics.factors import composite_scores
+from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.returns import (
     compute_daily_returns,
     per_ticker_cumulative_return,
@@ -15,13 +16,19 @@ from portfolio_intelligence.visualization.charts import PALETTE
 
 
 def render(ctx: ViewContext) -> None:
-    sec("The 103 Nasdaq-100 constituents compared")
+    sec(t("mkt.title"))
     all_prices = market_db_required("mercato")
     if all_prices is None:
-        st.info("Database not downloaded yet: run `python download_nasdaq100.py`.")
+        st.info(t("mkt.no_db"))
         return
 
-    ndx_period = st.selectbox("Comparison period", list(PERIOD_DAYS), index=2)
+    ndx_period = st.selectbox(
+        t("mkt.period"),
+        list(PERIOD_DAYS),
+        index=2,
+        format_func=lambda p: t(f"mkt.p_{PERIOD_DAYS[p]}"),
+    )
+    period_label = t(f"mkt.p_{PERIOD_DAYS[ndx_period]}")
     cutoff = all_prices.index[-1] - pd.Timedelta(days=PERIOD_DAYS[ndx_period])
     window = all_prices.loc[all_prices.index >= cutoff]
 
@@ -38,45 +45,34 @@ def render(ctx: ViewContext) -> None:
 
     col_scatter, col_table = st.columns([3, 2], gap="large")
     with col_scatter:
-        st.markdown(f"**Risk vs return ({ndx_period})**: each dot is a stock")
+        st.markdown(t("mkt.scatter", period=period_label))
         st.scatter_chart(
             stats,
             x="annual_volatility",
             y="period_return",
-            x_label="Annualized volatility",
-            y_label=f"Cumulative return ({ndx_period})",
+            x_label=t("mkt.vol"),
+            y_label=t("mkt.ret", period=period_label),
             color=PALETTE[0],
             height=420,
         )
     with col_table:
-        st.markdown("**Full ranking**")
+        st.markdown(f"**{t('mkt.ranking')}**")
         st.dataframe(
             stats.sort_values("period_return", ascending=False),
             column_config={
                 "ticker": st.column_config.TextColumn("Ticker"),
                 "period_return": st.column_config.NumberColumn(
-                    f"Return ({ndx_period})", format="percent"
+                    t("mkt.ret", period=period_label), format="percent"
                 ),
-                "annual_volatility": st.column_config.NumberColumn(
-                    "Annual volatility", format="percent"
-                ),
+                "annual_volatility": st.column_config.NumberColumn(t("mkt.vol"), format="percent"),
             },
             hide_index=True,
             height=420,
         )
-    st.caption(
-        "Cumulative return over the period (USD prices). "
-        "Refresh the data with `python download_nasdaq100.py`."
-    )
+    st.caption(t("mkt.caption"))
 
-    sec("PI Score — multifactor ranking")
-    st.caption(
-        "Composite score 0-100: **50% 12-1 month momentum** (Jegadeesh & "
-        "Titman 1993), **30% low volatility** (Baker et al. 2011), "
-        "**20% trend** (distance from the 200-day average). Historical "
-        "regularities documented in the literature, not guarantees, and "
-        "not investment advice."
-    )
+    sec(t("mkt.pi_title"))
+    st.caption(t("mkt.pi_caption"))
     pi_window = compute_daily_returns(all_prices).tail(TRADING_DAYS)
     pi_ranking = composite_scores(pi_window).dropna().head(15)
     st.dataframe(
@@ -87,7 +83,7 @@ def render(ctx: ViewContext) -> None:
                 "Momentum", min_value=0, max_value=100, format="%.0f"
             ),
             "low_vol": st.column_config.ProgressColumn(
-                "Low volatility", min_value=0, max_value=100, format="%.0f"
+                t("mkt.low_vol"), min_value=0, max_value=100, format="%.0f"
             ),
             "trend": st.column_config.ProgressColumn(
                 "Trend", min_value=0, max_value=100, format="%.0f"

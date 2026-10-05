@@ -9,6 +9,7 @@ from portfolio_intelligence.views import advisor_workspace as ws
 from portfolio_intelligence.views import sidebar
 
 ADVISOR = "adv@x"
+_REAL_CLIENT_ANALYSIS = ws._client_analysis  # prima che la fixture la sostituisca
 POSITIONS = {"AAPL": {"lots": [{"qty": 10.0, "price": 150.0, "date": "2025-01-02"}]}}
 
 
@@ -37,6 +38,10 @@ def _fake_analysis(health_by_ticker, calls=None):
             "pnl_pct": 0.11,
             "vol": 0.12,
             "problem": "finding",
+            "top_ticker": next(iter(dict(items)), "n/a"),
+            "top_weight": 1.0,
+            "drawdown": -0.1,
+            "asof": "2026-10-02",
         }
 
     return fake
@@ -265,12 +270,21 @@ def test_saved_changes_reach_the_book_immediately(offline, monkeypatch):
 
 
 def test_report_heading_reaches_the_pdf_but_never_the_database(offline, monkeypatch):
+    from types import SimpleNamespace
+
     from sqlalchemy import MetaData, select
 
     from portfolio_intelligence.data.store import get_engine
 
     seen: list[str] = []
-    monkeypatch.setattr(ws, "_client_analysis", lambda *a, **k: seen.append(a[-1]))
+    # scheda vera fino alla Panoramica; calcolo e disegno finti, nessuna rete
+    monkeypatch.setattr(ws, "_client_analysis", _REAL_CLIENT_ANALYSIS)
+    monkeypatch.setattr(
+        ws, "_context", lambda *a, **k: (SimpleNamespace(report_recipient=""), None, None)
+    )
+    monkeypatch.setattr(
+        ws.advisor_overview, "render", lambda _ctx, recipient_field: seen.append(recipient_field())
+    )
     save_portfolio(ADVISOR, "C-A", _lots("AAPL"))
 
     at = AppTest.from_function(_workspace_app).run()

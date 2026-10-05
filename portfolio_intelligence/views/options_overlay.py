@@ -129,10 +129,10 @@ def render(ctx: ViewContext) -> None:
     p2.metric(
         t("opt.put_strike"),
         f"{put['strike']:,.2f}",
-        delta=f"-{put['premium']:,.2f} premium",
+        delta=t("opt.premium_delta", premium=f"{put['premium']:,.2f}"),
         delta_color="off",
     )
-    p3.metric("Floor", f"{put['floor_exit']:,.2f}")
+    p3.metric(t("opt.col_floor"), f"{put['floor_exit']:,.2f}")
     st.markdown(
         t(
             "opt.protect_text",

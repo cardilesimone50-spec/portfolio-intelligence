@@ -61,13 +61,14 @@ portfolio_intelligence/
                        rates (Tesoro USA), store (DB), importers, isin, cache, validators
   ui/                  theme (design system CSS), components, legal (pagine e footer), identity
   views/               gate (onboarding Investor), sidebar (solo Investor), portfolio_editor
-                       (condiviso), advisor_workspace, advisor_welcome (login), checkup,
+                       (condiviso), advisor_workspace, advisor_overview (Panoramica
+                       cliente: indicatori, controlli di monitoraggio), advisor_welcome (login), checkup,
                        metrics, visual, optimize, backtest, options_overlay, monte_carlo,
                        market, correlations, fundamentals, clients (analisi rapida book), admin
   visualization/       charts (Altair), monte_carlo_charts (fan chart), pdf_report
 migrations/            Alembic (initial_schema, client_risk_profile)
 docs/                  ENTERPRISE.md, COMPLIANCE_AUDIT.md, legal/*.md (privacy, termini, cookie, note legali)
-tests/                 352 test (pytest), senza rete
+tests/                 371 test (pytest), senza rete
 ```
 
 ## 4. Fonti dati (scelte per costo e licenza)
@@ -116,7 +117,8 @@ Fonts, niente analytics, `gatherUsageStats = false`).
 ## 7. Convenzioni di codice e UI
 
 - **Ogni testo visibile** va in `i18n.py` con versione EN e IT; nel codice si usa
-  `t("chiave")`. Commenti e docstring in **italiano**, concisi.
+  `t("chiave")` (un test fallisce se una chiave usata manca dal catalogo). Numeri e
+  importi con `eur()`, `pct()`, `num()` di `ui/components.py`, che seguono la lingua. Commenti e docstring in **italiano**, concisi.
 - **Niente trattini lunghi (—) nei testi visibili**, niente emoji nei titoli o
   nei pulsanti, niente copy da slogan.
 - Design system in `ui/theme.py`: token `--s-1…--s-7` (4-48 px) per spaziature,

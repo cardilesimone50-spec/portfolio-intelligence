@@ -18,6 +18,7 @@ Stato di sessione: `adv_page`, `adv_client` (codice del cliente attivo),
 import json
 from collections.abc import Callable
 
+import pandas as pd
 import streamlit as st
 
 from portfolio_intelligence.config import (
@@ -40,13 +41,13 @@ from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import normalize_portfolio
 from portfolio_intelligence.router import compute_portfolio
 from portfolio_intelligence.ui.area_switch import area_switch
-from portfolio_intelligence.ui.components import compliance_footer, eur, sec, text_safe
+from portfolio_intelligence.ui.components import compliance_footer, eur, pct, sec, text_safe
 from portfolio_intelligence.ui.identity import auth_configured, is_admin, is_authenticated
 from portfolio_intelligence.ui.legal import legal_footer
 from portfolio_intelligence.views import (
     admin,
+    advisor_overview,
     backtest,
-    checkup,
     correlations,
     fundamentals,
     market,
@@ -91,6 +92,7 @@ WORKSPACE_CSS = """
 /* ---- intestazione di pagina ---- */
 .adv-head { padding: var(--s-2) 0 var(--s-4); border-bottom: 1px solid var(--line);
             margin-bottom: var(--s-5); }
+.adv-head.bare { border-bottom: none; margin-bottom: 0; padding-bottom: var(--s-2); }
 .adv-crumb { font-size: 0.8rem; color: var(--muted); margin-bottom: var(--s-2); }
 .adv-title {
     font-family: var(--font-display) !important; font-weight: 600; font-size: 1.9rem;
@@ -119,7 +121,7 @@ WORKSPACE_CSS = """
 
 /* ---- book clienti ---- */
 .book-grid {
-    display: grid; grid-template-columns: 1.4fr 1fr 1.1fr 0.9fr 0.9fr 0.7fr 3fr;
+    display: grid; grid-template-columns: 1.3fr 1fr 1.1fr 0.9fr 0.9fr 1fr 0.7fr 2.6fr;
     gap: var(--s-3); align-items: center; min-height: 48px;
 }
 .book-grid.head { min-height: 30px; }
@@ -132,6 +134,7 @@ WORKSPACE_CSS = """
 .book-grid .num { text-align: right; font-variant-numeric: tabular-nums; }
 .book-grid .health { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .book-grid .flag { color: var(--ink-2); font-size: 0.86rem; line-height: 1.4; }
+.book-grid .over { color: var(--loss); font-weight: 700; }
 .book-grid .pending { font-size: 0.75rem; font-weight: 600; color: var(--ink-2); margin-left: 16px; }
 .book-grid .dot {
     display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: var(--s-2);
@@ -323,9 +326,11 @@ def _render_rail(advisor: str, clients: dict) -> tuple[str, bool, float]:
     return period, in_eur, risk_free
 
 
-def _page_header(title: str, crumb: str | None = None, meta: str | None = None) -> None:
+def _page_header(
+    title: str, crumb: str | None = None, meta: str | None = None, rule: bool = True
+) -> None:
     st.markdown(
-        '<div class="adv-head">'
+        f'<div class="adv-head{"" if rule else " bare"}">'
         + (f'<div class="adv-crumb">{crumb}</div>' if crumb else "")
         + f'<h1 class="page-title adv-title">{title}</h1>'
         + (f'<div class="adv-meta">{meta}</div>' if meta else "")
@@ -392,6 +397,37 @@ def _book_rows(clients: dict, period: str, in_eur: bool) -> list[dict]:
     return sorted(rows, key=lambda r: (not r["review"], r.get("health", 101), r["name"]))
 
 
+def _vol_cell(row: dict) -> str:
+    """Volatilità del cliente; in evidenza se supera il limite del suo profilo."""
+    band = PROFILE_VOL.get(row["profile"])
+    text = pct(row["vol"])
+    if band is not None and row["vol"] > band:
+        return f'<span class="over" title="{t("adv.over_limit", band=pct(band, 0))}">{text}</span>'
+    return text
+
+
+def _book_csv(rows: list[dict]) -> bytes:
+    """Il book in CSV per il back office: una riga per cliente, numeri non formattati."""
+    columns = [
+        "name",
+        "profile",
+        "value",
+        "invested",
+        "pnl_pct",
+        "vol",
+        "drawdown",
+        "top_ticker",
+        "top_weight",
+        "health",
+        "review",
+        "problem",
+        "asof",
+        "error",
+    ]
+    frame = pd.DataFrame([{k: r.get(k) for k in columns} for r in rows], columns=columns)
+    return frame.to_csv(index=False).encode("utf-8")
+
+
 def _create_demo(advisor: str) -> None:
     try:
         create_client(advisor, DEMO_CLIENT, SAMPLE_PORTFOLIO, risk_profile="Moderate")
@@ -422,7 +458,7 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
     avg_health = round(sum(r["health"] for r in analysed) / len(analysed)) if analysed else None
     cells = [
         (t("adv.kpi_clients"), str(len(rows)), t("adv.kpi_clients_sub")),
-        (t("adv.kpi_aum"), eur(aum) if analysed else "—", t("adv.kpi_aum_sub")),
+        (t("adv.kpi_aum"), eur(aum) if analysed else "n/a", t("adv.kpi_aum_sub")),
         (
             t("adv.kpi_review"),
             str(sum(r["review"] for r in rows)),
@@ -430,7 +466,7 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
         ),
         (
             t("adv.kpi_health"),
-            str(avg_health) if avg_health is not None else "—",
+            str(avg_health) if avg_health is not None else "n/a",
             t("adv.kpi_health_sub"),
         ),
     ]
@@ -445,12 +481,23 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
         unsafe_allow_html=True,
     )
 
-    search_col, _gap, new_col = st.columns([2, 1.6, 1], vertical_alignment="bottom")
+    asof = max((r["asof"] for r in analysed), default=None)
+    if asof:
+        st.caption(t("adv.book_asof", date=f"{pd.Timestamp(asof):%d/%m/%Y}", period=period))
+    search_col, _gap, export_col, new_col = st.columns([2, 0.6, 1, 1], vertical_alignment="bottom")
     query = search_col.text_input(
         t("adv.search"),
         key="adv_search",
         placeholder=t("adv.search"),
         label_visibility="collapsed",
+    )
+    export_col.download_button(
+        t("adv.export_book"),
+        data=_book_csv(rows),
+        file_name=f"book_{pd.Timestamp.now():%Y%m%d}.csv",
+        mime="text/csv",
+        width="stretch",
+        key="adv_export_book",
     )
     new_col.button(t("adv.nav_new"), type="primary", width="stretch", on_click=_new_client)
     pending = sorted(name for name in _drafts() if name in clients)
@@ -467,6 +514,7 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
         ("num", t("adv.col_value")),
         ("num", t("adv.col_return")),
         ("num", t("adv.col_vol")),
+        ("num", t("adv.col_top")),
         ("num", t("adv.col_health")),
         ("", t("adv.col_flag")),
     ]
@@ -483,10 +531,11 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
             data = [
                 ("c-code", row["name"]),
                 ("", t(f"prof.{row['profile']}")),
-                ("num", "—"),
-                ("num", "—"),
-                ("num", "—"),
-                ("health", "—"),
+                ("num", "n/a"),
+                ("num", "n/a"),
+                ("num", "n/a"),
+                ("num", "n/a"),
+                ("health", "n/a"),
                 ("flag", t("adv.analysis_failed", err=row["error"])),
             ]
         else:
@@ -504,8 +553,9 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
                 ),
                 ("", t(f"prof.{row['profile']}")),
                 ("num", eur(row["value"])),
-                ("num " + ("up" if ret >= 0 else "down"), f"{ret:+.1%}"),
-                ("num", f"{row['vol']:.1%}"),
+                ("num " + ("up" if ret >= 0 else "down"), pct(ret, signed=True)),
+                ("num", _vol_cell(row)),
+                ("num", f"{row['top_ticker']} {pct(row['top_weight'], 0)}"),
                 ("health", f'<span style="color:{text_safe(color)}">{row["health"]}</span>'),
                 ("flag", row["problem"]),
             ]
@@ -661,8 +711,9 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
                 "adv.meta",
                 profile=t(f"prof.{saved_profile}"),
                 n=len(record["positions"]),  # dati salvati, come profilo e data
-                updated=str(record["updated"])[:10],
+                updated=f"{pd.Timestamp(record['updated']):%d/%m/%Y}",
             ),
+            rule=False,  # la riga delle sezioni sotto fa già da separatore
         )
     with action_col:
         st.button(
@@ -704,18 +755,14 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
     elif not st.session_state.positions:
         st.info(t("adv.no_positions"))
     else:
-        recipient = ""
-        if current == "overview":
-            recipient = _recipient_field(name)
-        _client_analysis(advisor, name, profile, current, (period, in_eur, risk_free), recipient)
+        _client_analysis(advisor, name, profile, current, (period, in_eur, risk_free))
     compliance_footer()
 
 
 def _recipient_field(name: str) -> str:
     """Intestazione del PDF per il cliente: solo in sessione, mai nel database."""
     current = st.session_state.get("adv_recipients", {}).get(name, "")
-    field_col, note_col = st.columns([1.4, 2], vertical_alignment="bottom")
-    field_col.text_input(
+    st.text_input(
         t("adv.recipient"),
         value=current,
         key=f"adv_recipient_in_{name}",
@@ -723,7 +770,6 @@ def _recipient_field(name: str) -> str:
         on_change=_set_recipient,
         args=(name,),
     )
-    note_col.caption(t("adv.recipient_note"))
     return current
 
 
@@ -733,10 +779,8 @@ def _client_analysis(
     profile: str,
     section: str,
     params: tuple[str, bool, float],
-    recipient: str = "",
 ) -> None:
     ctx, error, notice = _context(advisor, name, profile, *params)
-    ctx.report_recipient = recipient
     if error:
         st.error(error)
         return
@@ -755,7 +799,7 @@ def _client_analysis(
             ],
         )
     else:
-        checkup.render(ctx)
+        advisor_overview.render(ctx, lambda: _recipient_field(name))
 
 
 def _sub_tabs(ctx: ViewContext, tabs: list[tuple[str, Callable[[ViewContext], None]]]) -> None:
