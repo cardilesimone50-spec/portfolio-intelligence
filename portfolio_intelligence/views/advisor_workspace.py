@@ -20,7 +20,12 @@ from collections.abc import Callable
 
 import streamlit as st
 
-from portfolio_intelligence.config import DEFAULT_RISK_PROFILE, HEALTH_SCORE_FAIR, RISK_PROFILES
+from portfolio_intelligence.config import (
+    ADVISOR_HISTORY_PERIOD,
+    DEFAULT_RISK_PROFILE,
+    HEALTH_SCORE_FAIR,
+    RISK_PROFILES,
+)
 from portfolio_intelligence.data.store import (
     REDACTED,
     ClientExistsError,
@@ -296,7 +301,7 @@ def _render_rail(advisor: str, clients: dict) -> tuple[str, bool, float]:
             _nav_button("admin", t("adv.nav_admin"), _goto, ("admin",))
 
         with st.expander(t("adv.params")):
-            period, in_eur, risk_free = analysis_parameters("adv")
+            period, in_eur, risk_free = analysis_parameters("adv", ADVISOR_HISTORY_PERIOD)
         with st.expander(t("side.privacy")):
             st.caption(t("side.erase_all_hint"))
             confirm_all = st.checkbox(t("side.erase_all_confirm"), key="erase_all_confirm")

@@ -9,6 +9,13 @@ importano, non ridefiniscono.
 
 TRADING_DAYS = 252
 
+# orizzonte storico predefinito delle analisi. Advisor: 5 anni, più di un ciclo
+# di mercato, così metriche e proiezioni Monte Carlo non ereditano un solo anno
+# eccezionale. Investor: 1 anno, check-up rapido.
+HISTORY_PERIODS = ("1mo", "6mo", "1y", "2y", "5y")
+INVESTOR_HISTORY_PERIOD = "1y"
+ADVISOR_HISTORY_PERIOD = "5y"
+
 # ------------------------------------------------------------ profilo di rischio
 # Profili dichiarabili per un cliente. "Not set" è il valore sicuro per i record
 # storici o non validi: non si assegna mai un profilo che il cliente non ha

@@ -10,7 +10,7 @@ from datetime import date
 
 import streamlit as st
 
-from portfolio_intelligence.config import RISK_PROFILES
+from portfolio_intelligence.config import HISTORY_PERIODS, INVESTOR_HISTORY_PERIOD, RISK_PROFILES
 from portfolio_intelligence.data.importers import parse_positions
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
@@ -60,10 +60,15 @@ def _add_holding() -> None:
     st.session_state.add_ticker = None
 
 
-def analysis_parameters(key_prefix: str = "pf") -> tuple[str, bool, float]:
+def analysis_parameters(
+    key_prefix: str = "pf", default_period: str = INVESTOR_HISTORY_PERIOD
+) -> tuple[str, bool, float]:
     """Orizzonte, conversione in EUR e tasso privo di rischio (dentro un expander)."""
     period = st.selectbox(
-        t("side.horizon"), ["1mo", "6mo", "1y", "2y", "5y"], index=2, key=f"{key_prefix}_period"
+        t("side.horizon"),
+        list(HISTORY_PERIODS),
+        index=HISTORY_PERIODS.index(default_period),
+        key=f"{key_prefix}_period",
     )
     in_eur = st.toggle(t("side.in_eur"), value=True, help=t("side.in_eur_help"))
     rf_baseline_pct = min(10.0, max(0.0, round(cached_risk_free() * 100, 2)))

@@ -290,3 +290,19 @@ def test_report_heading_reaches_the_pdf_but_never_the_database(offline, monkeypa
             str(row) for table in meta.tables.values() for row in conn.execute(select(table))
         )
     assert "Mario Rossi" not in dump
+
+
+def test_default_history_is_five_years_for_advisor_and_one_for_investor(offline):
+    at = AppTest.from_function(_workspace_app).run()
+    assert at.selectbox(key="adv_period").value == "5y"
+
+    def _investor_app():
+        import streamlit as st
+
+        from portfolio_intelligence.views.sidebar import render_sidebar
+
+        st.session_state.setdefault("positions", {})
+        render_sidebar()
+
+    investor = AppTest.from_function(_investor_app).run()
+    assert investor.selectbox(key="pf_period").value == "1y"

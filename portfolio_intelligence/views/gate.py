@@ -8,6 +8,7 @@ from contextlib import suppress
 
 import streamlit as st
 
+from portfolio_intelligence.config import INVESTOR_HISTORY_PERIOD
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.ui.components import render_landing
 from portfolio_intelligence.ui.legal import legal_footer
@@ -24,7 +25,7 @@ from portfolio_intelligence.views.common import (
 
 # orizzonte di default della sidebar (pf_period): il caricamento scalda le
 # stesse chiavi di cache che la piattaforma userà alla prima apertura
-_DEFAULT_PERIOD = "1y"
+_DEFAULT_PERIOD = INVESTOR_HISTORY_PERIOD
 
 GATE_CSS = """
 <style>
