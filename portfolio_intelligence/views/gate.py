@@ -10,6 +10,7 @@ import streamlit as st
 
 from portfolio_intelligence.config import INVESTOR_HISTORY_PERIOD
 from portfolio_intelligence.i18n import t
+from portfolio_intelligence.ui.area_switch import area_switch
 from portfolio_intelligence.ui.components import render_landing
 from portfolio_intelligence.ui.legal import legal_footer
 from portfolio_intelligence.views import portfolio_editor as pe
@@ -177,7 +178,9 @@ def _topbar(step: int | None) -> None:
             for n in (1, 2)
         ]
         stepper = f'<div class="stepper">{steps[0]}<div class="step-sep"></div>{steps[1]}</div>'
-    bar, lang_col = st.columns([6, 1], vertical_alignment="center")
+    bar, area_col, lang_col = st.columns([4.6, 1.4, 1], vertical_alignment="center")
+    with area_col:
+        area_switch("investor", "area_sw_gate")
     with bar:
         st.markdown(
             f'<div class="gate-bar"><div class="brand">◆ SMARTEE<b>FINANCE</b></div>{stepper}</div>',

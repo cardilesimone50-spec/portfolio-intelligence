@@ -39,6 +39,7 @@ from portfolio_intelligence.data.store import (
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import normalize_portfolio
 from portfolio_intelligence.router import compute_portfolio
+from portfolio_intelligence.ui.area_switch import area_switch
 from portfolio_intelligence.ui.components import compliance_footer, eur, sec, text_safe
 from portfolio_intelligence.ui.identity import auth_configured, is_admin, is_authenticated
 from portfolio_intelligence.ui.legal import legal_footer
@@ -86,8 +87,6 @@ WORKSPACE_CSS = """
 [class*="st-key-advnav_"] button:hover { background: var(--subtle); color: var(--ink); }
 [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 2px; }
 [data-testid="stSidebar"] [data-testid="stExpander"] { margin-top: var(--s-2); }
-.adv-rail-foot { font-size: 0.8rem; margin-top: var(--s-4); }
-.adv-rail-foot a { color: var(--muted); text-decoration: underline; }
 
 /* ---- intestazione di pagina ---- */
 .adv-head { padding: var(--s-2) 0 var(--s-4); border-bottom: 1px solid var(--line);
@@ -275,6 +274,7 @@ def _render_rail(advisor: str, clients: dict) -> tuple[str, bool, float]:
             f'<span class="brand-product">{t("adv.product")}</span></div>',
             unsafe_allow_html=True,
         )
+        area_switch("advisor", "area_sw_rail")
         if auth_configured() and is_authenticated():
             st.markdown(
                 f'<div class="adv-identity">{t("adv.signed_in", advisor=advisor)}</div>',
@@ -320,11 +320,6 @@ def _render_rail(advisor: str, clients: dict) -> tuple[str, bool, float]:
             and st.button(t("side.logout"), key="adv_logout", width="stretch")
         ):
             st.logout()
-        st.markdown(
-            f'<div class="adv-rail-foot"><a href="?profile=investor" target="_self">'
-            f"{t('adv.switch_area')}</a></div>",
-            unsafe_allow_html=True,
-        )
     return period, in_eur, risk_free
 
 

@@ -177,6 +177,10 @@ def inject_theme() -> None:
             border-right-color: var(--accent-border) !important;
         }}
 
+        /* ---- selettore d'area Investor | Advisor ---- */
+        [class*="st-key-area_sw_"] {{ margin: var(--s-2) 0 var(--s-3); }}
+        [class*="st-key-area_sw_"] button p {{ font-weight: 600; font-size: 0.85rem; }}
+
         /* ---- avviso informativo neutro (al posto di st.info con icona) ---- */
         .notice {{
             background: var(--subtle); border: 1px solid var(--line);

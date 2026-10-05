@@ -567,6 +567,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "pesi costanti, senza costi. Proiezione probabilistica: non è garanzia di "
         "rendimento futuro né una previsione.",
     ),
+    # ---------------------------------------------------------------- area switch
+    "area.label": ("Area", "Area"),
+    "area.investor": ("Investor", "Investor"),
+    "area.advisor": ("Advisor", "Advisor"),
     # ---------------------------------------------------------------- legal
     "legal.privacy": ("Privacy policy", "Informativa privacy"),
     "legal.terms": ("Terms of service", "Termini di servizio"),
@@ -697,7 +701,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Platform counters and activity log. Never other advisors' portfolios.",
         "Contatori della piattaforma e registro delle attività. Mai i portafogli di altri consulenti.",
     ),
-    "adv.switch_area": ("Investor area", "Area Investor"),
     "adv.empty_positions": (
         "Add instruments one by one or import the client's securities position from the broker.",
         "Aggiungi gli strumenti uno alla volta o importa la posizione titoli del cliente dal broker.",

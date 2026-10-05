@@ -14,6 +14,7 @@ from portfolio_intelligence.config import HISTORY_PERIODS, INVESTOR_HISTORY_PERI
 from portfolio_intelligence.data.importers import parse_positions
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
+from portfolio_intelligence.ui.area_switch import area_switch
 from portfolio_intelligence.ui.components import (
     empty_state,
     eur,
@@ -98,6 +99,7 @@ def render_sidebar() -> SidebarSettings:
             '<div class="brand" style="font-size:.9rem">◆ SMARTEE<b>FINANCE</b></div>',
             unsafe_allow_html=True,
         )
+        area_switch("investor", "area_sw_side")
         language_selector("lang_sidebar")
 
         sec(t("side.add_stock"))

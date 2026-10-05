@@ -27,6 +27,7 @@ from collections.abc import Callable
 import streamlit as st
 
 from portfolio_intelligence.i18n import set_language
+from portfolio_intelligence.ui.area_switch import ROUTER_FLAG
 from portfolio_intelligence.ui.components import render_profile_chooser
 from portfolio_intelligence.ui.legal import DOCS as LEGAL_DOCS
 from portfolio_intelligence.ui.legal import (
@@ -65,6 +66,9 @@ else:
     run_app = None
 
 if run_app is not None:
+    # dietro il router si può cambiare area dall'interno (selettore Investor | Advisor);
+    # con APP_MODE fisso l'area è una sola
+    st.session_state[ROUTER_FLAG] = _MODE not in ("investor", "advisor")
     run_app()
 else:
     st.set_page_config(

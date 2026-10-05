@@ -10,6 +10,7 @@ Dopo l'accesso si entra direttamente nello spazio di lavoro (book clienti).
 import streamlit as st
 
 from portfolio_intelligence.i18n import t
+from portfolio_intelligence.ui.area_switch import area_switch
 from portfolio_intelligence.ui.identity import auth_configured, is_authenticated
 from portfolio_intelligence.ui.legal import legal_footer
 
@@ -56,6 +57,9 @@ def _continue_dev() -> None:
 
 
 def _render_login_state() -> None:
+    _spacer, area_col = st.columns([4.6, 1.4])
+    with area_col:
+        area_switch("advisor", "area_sw_login")
     _render_header()
     col_features, col_login = st.columns([1.3, 1], gap="large")
     with col_features:
