@@ -21,6 +21,7 @@ from portfolio_intelligence.data.fx import convert_to_eur
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio import Portfolio
 from portfolio_intelligence.portfolio.positions import portfolio_xirr, position_table, totals
+from portfolio_intelligence.ui.brand import page_icon
 from portfolio_intelligence.ui.components import empty_state
 from portfolio_intelligence.ui.identity import auth_required_but_missing, resolve_require_auth
 from portfolio_intelligence.ui.legal import render_legal_page_if_requested, sync_document_language
@@ -44,7 +45,8 @@ def bootstrap_page(page_title: str, require_auth_default: bool) -> None:
     precedenza reale (env > secrets `[auth].require_auth` > questo default)
     è in `resolve_require_auth`.
     """
-    resolve_require_auth(require_auth_default)
+    # per sessione, mai scritto nell'ambiente: Investor e Advisor condividono il processo
+    require_auth = resolve_require_auth(require_auth_default)
 
     # i secrets di Streamlit non diventano env var da soli: DATABASE_URL nei
     # secrets fa passare lo store da SQLite a Postgres.
@@ -58,7 +60,7 @@ def bootstrap_page(page_title: str, require_auth_default: bool) -> None:
 
     st.set_page_config(
         page_title=page_title,
-        page_icon="◆",
+        page_icon=page_icon(),
         layout="wide",
         initial_sidebar_state="expanded",
     )
@@ -68,7 +70,7 @@ def bootstrap_page(page_title: str, require_auth_default: bool) -> None:
 
     # gate duro: un deploy pubblico può imporre REQUIRE_AUTH=true per rifiutare
     # di servire richieste finché l'OIDC non isola davvero i dati per advisor
-    if auth_required_but_missing():
+    if auth_required_but_missing(require_auth):
         st.error(
             "REQUIRE_AUTH is set but OIDC auth is not configured. "
             "Refusing to start: tenant data isolation cannot be guaranteed. "
@@ -183,7 +185,7 @@ def render_header(in_eur: bool, product_tag: str) -> None:
 
     st.markdown(
         f"""<div class="topbar">
-        <span class="brand">◆ SMARTEE<b>FINANCE</b><span class="brand-product">{product_tag}</span></span>
+        <span class="brand">SMARTEE<b>FINANCE</b><span class="brand-product">{product_tag}</span></span>
         <span class="brand-tag">{t("top.eur") if in_eur else t("top.orig")}
         · {t("top.source")}: {yahoo_client.last_price_source}</span></div>""",
         unsafe_allow_html=True,

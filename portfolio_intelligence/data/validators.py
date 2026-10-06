@@ -8,6 +8,7 @@ si logga cosa e perché, e si continua con quello che resta di valido.
 """
 
 import json
+import re
 
 import pandas as pd
 
@@ -15,6 +16,20 @@ from portfolio_intelligence.logging_config import get_logger
 from portfolio_intelligence.portfolio import Portfolio
 
 log = get_logger(__name__)
+
+# ticker ammessi: lettere, cifre e i separatori dei simboli di borsa (BRK.B, ENI.MI,
+# ^IRX, EURUSD=X, BF-B). Nessun carattere che possa diventare markup HTML.
+TICKER_PATTERN = re.compile(r"^[A-Z0-9^][A-Z0-9.^=\-]{0,19}$")
+# codici cliente: lettere (anche accentate), cifre, spazio e - _ . /
+CLIENT_CODE_PATTERN = re.compile(r"^[\w][\w .\-/]{0,59}$")
+
+
+def is_valid_ticker(ticker: str) -> bool:
+    return bool(TICKER_PATTERN.match(str(ticker)))
+
+
+def is_valid_client_code(code: str) -> bool:
+    return bool(CLIENT_CODE_PATTERN.match(str(code).strip()))
 
 
 def weights_sum_to_one(portfolio: Portfolio, tolerance: float = 1e-6) -> bool:

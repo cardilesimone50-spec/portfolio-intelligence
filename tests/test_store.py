@@ -94,3 +94,23 @@ def test_platform_stats_counts_across_tenants(tmp_path):
     assert stats["portfolios"] == 2
     assert stats["analyses"] == 0
     assert stats["last_price_date"] == "2026-01-03"
+
+
+def test_erased_advisor_cannot_be_re_identified_from_the_audit_log(tmp_path):
+    """Dopo la cancellazione l'email non è ricavabile (niente hash ricalcolabile)."""
+    import hashlib
+
+    from portfolio_intelligence.data.store import (
+        delete_advisor_data,
+        get_engine,
+        log_audit,
+        recent_audit,
+    )
+
+    engine = get_engine(f"sqlite:///{tmp_path / 'a.db'}")
+    email = "mario.rossi@studiorossi.it"
+    log_audit(email, "create_client", "Cliente X", engine=engine)
+    delete_advisor_data(email, engine=engine)
+    advisors = set(recent_audit(engine=engine)["advisor"])
+    assert email not in advisors
+    assert "deleted:" + hashlib.sha256(email.encode()).hexdigest()[:16] not in advisors

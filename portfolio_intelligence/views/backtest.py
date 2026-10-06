@@ -13,7 +13,7 @@ from portfolio_intelligence.analytics.backtest import (
 )
 from portfolio_intelligence.analytics.factors import multifactor_weights
 from portfolio_intelligence.i18n import t
-from portfolio_intelligence.ui.components import pct, sec
+from portfolio_intelligence.ui.components import pct, sec, styled
 from portfolio_intelligence.views.common import TRADING_DAYS, cached_prices, market_db_required
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import multi_line
@@ -113,12 +113,19 @@ def render(ctx: ViewContext) -> None:
             ]
         )
         st.dataframe(
-            strategy_stats,
+            styled(
+                strategy_stats,
+                {
+                    "return": ("pct", 1, True),
+                    "volatility": ("pct", 1, False),
+                    "drawdown": ("pct", 1, False),
+                },
+            ),
             column_config={
                 "strategy": st.column_config.TextColumn(t("bt.col_strategy")),
-                "return": st.column_config.NumberColumn(t("bt.col_return"), format="percent"),
-                "volatility": st.column_config.NumberColumn(t("mkt.vol"), format="percent"),
-                "drawdown": st.column_config.NumberColumn(t("m.maxdd"), format="percent"),
+                "return": st.column_config.NumberColumn(t("bt.col_return")),
+                "volatility": st.column_config.NumberColumn(t("mkt.vol")),
+                "drawdown": st.column_config.NumberColumn(t("m.maxdd")),
             },
             hide_index=True,
             width="stretch",

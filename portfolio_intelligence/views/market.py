@@ -9,10 +9,10 @@ from portfolio_intelligence.portfolio.returns import (
     compute_daily_returns,
     per_ticker_cumulative_return,
 )
-from portfolio_intelligence.ui.components import sec
+from portfolio_intelligence.ui.components import sec, styled
 from portfolio_intelligence.views.common import PERIOD_DAYS, TRADING_DAYS, market_db_required
 from portfolio_intelligence.views.context import ViewContext
-from portfolio_intelligence.visualization.charts import PALETTE
+from portfolio_intelligence.visualization.charts import risk_return_scatter
 
 
 def render(ctx: ViewContext) -> None:
@@ -46,25 +46,22 @@ def render(ctx: ViewContext) -> None:
     col_scatter, col_table = st.columns([3, 2], gap="large")
     with col_scatter:
         st.markdown(t("mkt.scatter", period=period_label))
-        st.scatter_chart(
-            stats,
-            x="annual_volatility",
-            y="period_return",
-            x_label=t("mkt.vol"),
-            y_label=t("mkt.ret", period=period_label),
-            color=PALETTE[0],
-            height=420,
+        st.altair_chart(
+            risk_return_scatter(stats, t("mkt.vol"), t("mkt.ret", period=period_label)),
+            width="stretch",
         )
     with col_table:
         st.markdown(f"**{t('mkt.ranking')}**")
+        ranking = stats.sort_values("period_return", ascending=False)
         st.dataframe(
-            stats.sort_values("period_return", ascending=False),
+            styled(
+                ranking,
+                {"period_return": ("pct", 1, True), "annual_volatility": ("pct", 1, False)},
+            ),
             column_config={
                 "ticker": st.column_config.TextColumn("Ticker"),
-                "period_return": st.column_config.NumberColumn(
-                    t("mkt.ret", period=period_label), format="percent"
-                ),
-                "annual_volatility": st.column_config.NumberColumn(t("mkt.vol"), format="percent"),
+                "period_return": st.column_config.NumberColumn(t("mkt.ret", period=period_label)),
+                "annual_volatility": st.column_config.NumberColumn(t("mkt.vol")),
             },
             hide_index=True,
             height=420,

@@ -89,6 +89,11 @@ class ReportInput:
     price_source: str = ""
     # True quando il PDF è predisposto dal consulente (area Advisor), anche la copia per il cliente
     advisor_issued: bool = False
+    # serie giornaliere e dati per le analisi di dettaglio della revisione Advisor
+    pf_daily: pd.Series | None = None
+    bench_daily: pd.Series | None = None
+    returns: pd.DataFrame | None = None  # rendimenti giornalieri dei titoli
+    fund: pd.DataFrame | None = None  # fondamentali per titolo
 
     @property
     def total(self) -> float:
@@ -257,9 +262,59 @@ def draw_footer(
     canvas.restoreState()
 
 
+def draw_brand(
+    canvas: rl_canvas.Canvas, x: float, y: float, size: float = 4.4 * mm, font: float = 8.2
+) -> float:
+    """Simbolo e scritta SMARTEEFINANCE con base in (x, y); restituisce la x finale."""
+    from portfolio_intelligence.ui.brand import FACETS
+
+    canvas.saveState()
+    scale = size / 100
+    for points, color in FACETS:
+        path = canvas.beginPath()
+        first, *rest = [(x + px * scale, y + (100 - py) * scale) for px, py in points]
+        path.moveTo(*first)
+        for point in rest:
+            path.lineTo(*point)
+        path.close()
+        canvas.setFillColor(colors.HexColor(color))
+        canvas.drawPath(path, stroke=0, fill=1)
+    text_x = x + size + 2.2 * mm
+    text_y = y + size * 0.22
+    canvas.setFillColor(INK)
+    canvas.setFont("Helvetica", font)
+    canvas.drawString(text_x, text_y, "SMARTEE")
+    text_x += canvas.stringWidth("SMARTEE", "Helvetica", font)
+    canvas.setFillColor(ACCENT)
+    canvas.setFont("Helvetica-Bold", font)
+    canvas.drawString(text_x, text_y, "FINANCE")
+    text_x += canvas.stringWidth("FINANCE", "Helvetica-Bold", font)
+    canvas.restoreState()
+    return text_x
+
+
+def draw_header(canvas: rl_canvas.Canvas, right: str) -> None:
+    """Intestazione di ogni pagina: marchio a sinistra, documento e cliente a destra."""
+    width, height = A4
+    top = height - 12.5 * mm
+    draw_brand(canvas, MARGIN, top)
+    canvas.saveState()
+    canvas.setFont("Helvetica", 6.8)
+    canvas.setFillColor(MUTED)
+    canvas.drawRightString(width - MARGIN, top + 1.1 * mm, right)
+    canvas.setStrokeColor(ACCENT)
+    canvas.setLineWidth(0.8)
+    canvas.line(MARGIN, top - 2.2 * mm, width - MARGIN, top - 2.2 * mm)
+    canvas.restoreState()
+
+
 def section(title: str, width: float = CONTENT_W) -> Table:
-    """Etichetta di sezione: barretta blu e titolo in maiuscoletto."""
+    """Etichetta di sezione: barretta blu e titolo in maiuscoletto.
+
+    Il titolo resta sull'oggetto (`toc_title`): l'indice del documento lo raccoglie.
+    """
     bar = Table([["", title.upper()]], colWidths=[1.2 * mm, width - 1.2 * mm], rowHeights=[5 * mm])
+    bar.toc_title = title
     bar.setStyle(
         TableStyle(
             [
@@ -910,30 +965,45 @@ def report_reference(r: ReportInput, now: str, kind: str = "investor") -> str:
 
 
 def page_header(r: ReportInput, topic: str, now: str) -> list:
-    from reportlab.platypus import HRFlowable
-
     s = styles()
     return [
-        Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", s["wordmark"]),
-        HRFlowable(width="100%", thickness=1, color=ACCENT, spaceAfter=5),
         Paragraph(clean(topic), s["h2"]),
         Paragraph(clean(f"{r.portfolio_name} · {now}"), s["sub"]),
     ]
 
 
-def render_pdf(story: list, r: ReportInput, title: str, rid: str) -> bytes:
-    """Impagina il documento con piè di pagina legale e "Pagina n di N" su ogni pagina."""
+def render_pdf(
+    story: list,
+    r: ReportInput,
+    title: str,
+    rid: str,
+    header_right: str = "",
+    cover: bool = False,
+    toc=None,
+) -> bytes:
+    """Impagina il documento: intestazione col marchio, piè di pagina legale, "Pagina n di N".
+
+    `cover`: la prima pagina è una copertina (niente intestazione: il marchio è
+    già nel corpo). `toc`: un TableOfContents nel racconto; i titoli di sezione
+    lo popolano con i numeri di pagina (due passate di impaginazione).
+    """
     from io import BytesIO
 
     from reportlab.platypus import SimpleDocTemplate
 
+    class _Doc(SimpleDocTemplate):
+        def afterFlowable(self, flowable):  # noqa: N802 (API reportlab)
+            title_text = getattr(flowable, "toc_title", None)
+            if title_text and toc is not None:
+                self.notify("TOCEntry", (0, title_text.upper(), self.page))
+
     buffer = BytesIO()
-    doc = SimpleDocTemplate(
+    doc = _Doc(
         buffer,
         pagesize=A4,
         leftMargin=MARGIN,
         rightMargin=MARGIN,
-        topMargin=14 * mm,
+        topMargin=20 * mm,
         bottomMargin=20 * mm,
         title=title,
         author="SmarteeFinance",
@@ -941,9 +1011,54 @@ def render_pdf(story: list, r: ReportInput, title: str, rid: str) -> bytes:
     line1 = r.T("rep.footer1", rid=rid, source=r.price_source or r.T("rep.source_unknown"))
     line2 = r.T("pdf.footer_line2")
     page_label = r.T("rep.page")
+    right = header_right or f"{title} · {r.portfolio_name}"
 
-    def footer(canvas, page: int, total: int) -> None:
+    def decorate(canvas, page: int, total: int) -> None:
+        if not (cover and page == 1):
+            draw_header(canvas, right)
         draw_footer(canvas, page, total, line1, line2, page_label)
 
-    doc.build(story, canvasmaker=canvas_with_footer(footer))
+    maker = canvas_with_footer(decorate)
+    if toc is not None:
+        doc.multiBuild(story, canvasmaker=maker)
+    else:
+        doc.build(story, canvasmaker=maker)
     return buffer.getvalue()
+
+
+def heatmap_table(matrix: pd.DataFrame, lang: str, width: float = CONTENT_W) -> Table:
+    """Matrice (es. correlazioni) con celle colorate: blu se positiva, rossa se negativa."""
+    from portfolio_intelligence.formatting import fmt_num
+
+    labels = [str(c)[:8] for c in matrix.columns]
+    rows: list[list] = [[""] + labels]
+    style: list = [
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 6.6),
+        ("TEXTCOLOR", (0, 0), (-1, 0), MUTED),
+        ("TEXTCOLOR", (0, 1), (0, -1), INK),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (1, 1), (-1, -1), 0.4, colors.white),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.4),
+    ]
+    for i, (name, row) in enumerate(matrix.iterrows(), start=1):
+        cells = [str(name)[:8]]
+        for j, value in enumerate(row, start=1):
+            v = float(value)
+            cells.append(fmt_num(v, lang, 2) if v == v else "")
+            if v == v:
+                strength = min(1.0, abs(v))
+                base = (30, 64, 175) if v >= 0 else (185, 28, 28)
+                shade = colors.Color(*(1 - (1 - c / 255) * strength * 0.85 for c in base))
+                style.append(("BACKGROUND", (j, i), (j, i), shade))
+                if strength > 0.55:
+                    style.append(("TEXTCOLOR", (j, i), (j, i), colors.white))
+        rows.append(cells)
+    first = 16 * mm
+    cell = min((width - first) / max(1, len(labels)), 18 * mm)
+    table = Table(rows, colWidths=[first] + [cell] * len(labels))
+    table.setStyle(TableStyle(style))
+    return table

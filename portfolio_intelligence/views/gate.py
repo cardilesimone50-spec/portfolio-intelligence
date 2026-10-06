@@ -183,7 +183,7 @@ def _topbar(step: int | None) -> None:
         area_switch("investor", "area_sw_gate")
     with bar:
         st.markdown(
-            f'<div class="gate-bar"><div class="brand">◆ SMARTEE<b>FINANCE</b></div>{stepper}</div>',
+            f'<div class="gate-bar"><div class="brand">SMARTEE<b>FINANCE</b></div>{stepper}</div>',
             unsafe_allow_html=True,
         )
     with lang_col:
@@ -278,7 +278,7 @@ def _loading_html(labels: list[str], done: int, n_positions: int) -> str:
     pct = done / len(labels) * 100
     return (
         '<div class="loading-wrap"><div class="loading-card">'
-        '<div class="brand">◆ SMARTEE<b>FINANCE</b></div>'
+        '<div class="brand">SMARTEE<b>FINANCE</b></div>'
         f'<div class="loading-title">{t("gate.loading_title")}</div>'
         f'<div class="loading-sub">{t("gate.loading_sub", n=n_positions)}</div>'
         f'<div class="loading-bar"><div style="width:{pct:.0f}%"></div></div>'

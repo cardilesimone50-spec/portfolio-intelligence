@@ -34,7 +34,14 @@ from portfolio_intelligence.portfolio.returns import (
     portfolio_daily_returns,
 )
 from portfolio_intelligence.portfolio.risk import portfolio_volatility
-from portfolio_intelligence.ui.components import breakdown_html, eur, hero_html, kpi_row_html, sec
+from portfolio_intelligence.ui.components import (
+    breakdown_html,
+    eur,
+    hero_html,
+    kpi_row_html,
+    sec,
+    styled,
+)
 from portfolio_intelligence.ui.identity import DEV_ADVISOR
 from portfolio_intelligence.views.common import (
     BENCHMARK,
@@ -134,22 +141,33 @@ def render(ctx: ViewContext) -> None:
         )
 
     st.dataframe(
-        positions_df.style.map(_pnl_color, subset=["PnL", "PnLPct", "Ann"]),
+        styled(
+            positions_df,
+            {
+                "Qty": ("num", 2),
+                "Buy": ("num", 2),
+                "Current": ("num", 2),
+                "Value": ("eur", 0),
+                "PnL": ("eur", 0),
+                "PnLPct": ("pct", 1, True),
+                "Ann": ("pct", 1, True),
+                "Weight": ("pct", 1, False),
+                "Return": ("pct", 1, True),
+            },
+        ).map(_pnl_color, subset=["PnL", "PnLPct", "Ann"]),
         column_config={
             "Ticker": st.column_config.TextColumn(t("chk.col_ticker")),
             "Company": st.column_config.TextColumn(t("chk.col_company")),
-            "Qty": st.column_config.NumberColumn(t("pos.qty"), format="%.4g"),
-            "Buy": st.column_config.NumberColumn(t("pos.buy_price"), format="%.2f"),
-            "Date": st.column_config.DateColumn(t("pos.buy_date"), format="DD/MM/YYYY"),
-            "Current": st.column_config.NumberColumn(t("pos.current_price"), format="%.2f"),
-            "Value": st.column_config.NumberColumn(t("pos.value"), format="%.0f €"),
-            "PnL": st.column_config.NumberColumn(t("pos.pnl"), format="%.0f €"),
-            "PnLPct": st.column_config.NumberColumn(t("pos.pnl") + " %", format="percent"),
-            "Ann": st.column_config.NumberColumn(t("pos.ann"), format="percent"),
-            "Weight": st.column_config.NumberColumn(t("chk.col_weight"), format="percent"),
-            "Return": st.column_config.NumberColumn(
-                t("chk.col_return", period=period), format="percent"
-            ),
+            "Qty": st.column_config.NumberColumn(t("pos.qty")),
+            "Buy": st.column_config.NumberColumn(t("pos.buy_price")),
+            "Date": st.column_config.DateColumn(t("pos.buy_date")),
+            "Current": st.column_config.NumberColumn(t("pos.current_price")),
+            "Value": st.column_config.NumberColumn(t("pos.value")),
+            "PnL": st.column_config.NumberColumn(t("pos.pnl")),
+            "PnLPct": st.column_config.NumberColumn(t("pos.pnl") + " %"),
+            "Ann": st.column_config.NumberColumn(t("pos.ann")),
+            "Weight": st.column_config.NumberColumn(t("chk.col_weight")),
+            "Return": st.column_config.NumberColumn(t("chk.col_return", period=period)),
             "Trend": st.column_config.AreaChartColumn(
                 t("chk.col_trend", period=period), width="small"
             ),
@@ -415,6 +433,10 @@ def report_input(
         # nel PDF si dichiara la catena di fornitori, non un nome forse sbagliato
         price_source="",
         advisor_issued=ctx.stateful,
+        pf_daily=c["pf_daily"],
+        bench_daily=bench_daily,
+        returns=c["returns"][list(weights.index)],
+        fund=c["fund"],
     )
 
 
@@ -475,17 +497,13 @@ def history_panel(ctx: ViewContext) -> None:
                 delta_h = int(series.iloc[-1] - series.iloc[0])
                 st.caption(t("chk.history_caption", name=portfolio_name, delta=f"{delta_h:+d}"))
             st.dataframe(
-                history,
+                styled(history, {"invested": ("eur", 0), "cum_return": ("pct", 1, True)}),
                 column_config={
                     "timestamp": st.column_config.TextColumn(t("chk.hist_date")),
                     "portfolio": st.column_config.TextColumn(t("chk.hist_portfolio")),
                     "period": st.column_config.TextColumn(t("chk.hist_period")),
-                    "invested": st.column_config.NumberColumn(
-                        t("chk.hist_invested"), format="%.0f €"
-                    ),
-                    "cum_return": st.column_config.NumberColumn(
-                        t("chk.hist_return"), format="percent"
-                    ),
+                    "invested": st.column_config.NumberColumn(t("chk.hist_invested")),
+                    "cum_return": st.column_config.NumberColumn(t("chk.hist_return")),
                     "risk_score": st.column_config.NumberColumn(t("chk.hist_risk")),
                     "health": st.column_config.NumberColumn(t("chk.hist_health")),
                 },

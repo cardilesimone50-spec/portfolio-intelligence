@@ -1,30 +1,33 @@
-"""Report Advisor: documento di revisione del portafoglio per il consulente professionale.
+"""Report Advisor: revisione di portafoglio per il consulente professionale.
 
-Struttura da portfolio review / comitato investimenti, non un cruscotto:
+Documento da comitato investimenti, non un cruscotto. Copertina con indice,
+poi una sezione per pagina (la stessa numerazione dell'indice):
 
- 1. Executive investment view   — sintesi d'investimento, frase per frase dai dati
+ 1. Executive investment view   — dati principali e sintesi, frase per frase dai dati
  2. Portfolio profile           — Metric | Portfolio | Benchmark | Assessment
- 3. Performance analysis        — base 100, mesi, episodi di drawdown, attribuzione
- 4. Composition & concentration — posizioni complete, concentrazione, settori, valuta
- 5. Risk analysis               — matrice per categoria di rischio, drawdown
- 6. Stress testing              — impatto diretto e corretto per le correlazioni
- 7. Scenario analysis           — Monte Carlo con metodologia dichiarata, scenari storici
+ 3. Performance analysis        — base 100, anni solari, rendimento mobile a 12 mesi,
+                                  mesi, episodi di drawdown, attribuzione
+ 4. Composition & concentration — posizioni, concentrazione, settori, valuta,
+                                  fondamentali per titolo
+ 5. Risk analysis               — matrice dei rischi, rischio di coda, volatilità mobile,
+                                  drawdown, correlazioni tra titoli, rischio per settore
+ 6. Stress testing              — scenari diretti e corretti, peggiori periodi storici
+ 7. Scenario analysis           — Monte Carlo con metodologia dichiarata, esiti storici
  8. Suitability context         — profilo dichiarato e controlli di monitoraggio
- 9. Composite score & observations — punteggio proprietario, rilievi, analisi what-if
-10. Review considerations       — punti da approfondire, descrittivi
-11. Methodology & disclosures
+ 9. Composite score & what-if   — punteggio proprietario, ricalcoli a pesi alternativi
+10. Review considerations       — punti da approfondire e firma della revisione
+11. Methodology & disclosures   — note, fonti, definizioni
 
-Stessi numeri del report Investor (analytics/report_metrics.py). Documento a
-scorrimento: il numero di pagine segue il contenuto, con "Pagina n di N".
+Stessi numeri del report Investor (analytics/report_metrics.py); intestazione
+col marchio e "Pagina n di N" su ogni pagina (visualization/pdf_common.py).
 """
 
 from datetime import datetime
 
 import pandas as pd
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    CondPageBreak,
-    HRFlowable,
     KeepTogether,
     PageBreak,
     Paragraph,
@@ -32,8 +35,17 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+from reportlab.platypus.tableofcontents import TableOfContents
 
-from portfolio_intelligence.analytics.report_metrics import finite, rebased
+from portfolio_intelligence.analytics.report_metrics import (
+    calendar_returns,
+    finite,
+    rebased,
+    rolling_return,
+    rolling_volatility,
+    tail_risk,
+    worst_windows,
+)
 from portfolio_intelligence.analytics.report_narrative import (
     investment_view,
     profile_rows,
@@ -41,10 +53,12 @@ from portfolio_intelligence.analytics.report_narrative import (
     review_points,
 )
 from portfolio_intelligence.formatting import fmt_date, fmt_num, fmt_pp, missing
+from portfolio_intelligence.ui.brand import mark_drawing
 from portfolio_intelligence.visualization.pdf_common import (
     ACCENT,
     CONTENT_W,
     GREEN,
+    INK,
     LINE,
     MUTED,
     RED,
@@ -54,6 +68,7 @@ from portfolio_intelligence.visualization.pdf_common import (
     clean,
     data_table,
     fan_chart,
+    heatmap_table,
     kpi_grid,
     line_chart,
     render_pdf,
@@ -63,6 +78,7 @@ from portfolio_intelligence.visualization.pdf_common import (
     section,
     side_by_side,
     styles,
+    underwater_chart,
     weight_risk_chart,
 )
 from portfolio_intelligence.visualization.pdf_report import (
@@ -78,20 +94,59 @@ from portfolio_intelligence.visualization.pdf_report import (
 )
 
 MAX_HOLDINGS_ROWS = 25
+MAX_CORRELATION_HOLDINGS = 10
 
 
 def _numbered(n: int, title: str) -> str:
     return f"{n}. {title}"
 
 
-def _block(title: str, flowables: list, min_space: float = 45 * mm) -> list:
-    """Titolo di sezione mai orfano a fondo pagina."""
-    return [CondPageBreak(min_space), section(title), Spacer(1, 4), *flowables, Spacer(1, 9)]
+def _section_page(title: str, flowables: list) -> list:
+    """Una sezione per pagina, come un documento da comitato."""
+    return [PageBreak(), section(title), Spacer(1, 5), *flowables]
 
 
-def _cover(r: ReportInput, now: str, rid: str) -> list:
+def _h3(text: str):
+    return Paragraph(clean(text).upper(), styles()["h3"])
+
+
+def _titled(title: str, *flowables) -> KeepTogether:
+    """Sottotitolo unito al suo contenuto: mai un titolo solo a fondo pagina."""
+    return KeepTogether([_h3(title), *flowables])
+
+
+def _pct_axis(r: ReportInput):
+    return lambda v: r.pct(v, 0)
+
+
+# ------------------------------------------------------------------ copertina
+
+
+def _cover(r: ReportInput, now: str, rid: str, toc: TableOfContents) -> list:
     s, T, m = styles(), r.T, r.metrics
     na = missing(r.lang)
+    brand = Table(
+        [
+            [
+                mark_drawing(11 * mm),
+                Paragraph(
+                    "SMARTEE<font color='#1E40AF'><b>FINANCE</b></font>",
+                    ParagraphStyle(
+                        "brand", parent=s["body"], fontSize=14, leading=16, textColor=INK
+                    ),
+                ),
+            ]
+        ],
+        colWidths=[14 * mm, CONTENT_W - 14 * mm],
+    )
+    brand.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ]
+        )
+    )
     meta = [
         (T("adr.f_client"), r.portfolio_name),
         *([(T("adr.f_recipient"), r.recipient)] if r.recipient else []),
@@ -116,38 +171,105 @@ def _cover(r: ReportInput, now: str, rid: str) -> list:
         [Paragraph(clean(k), s["cell_muted"]), Paragraph(f"<b>{clean(v)}</b>", s["cell"])]
         for k, v in meta
     ]
-    table = Table(rows, colWidths=[45 * mm, CONTENT_W - 45 * mm])
+    table = Table(rows, colWidths=[48 * mm, CONTENT_W - 48 * mm])
     table.setStyle(
         TableStyle(
             [
                 ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
-                ("TOPPADDING", (0, 0), (-1, -1), 2.4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2.4),
+                ("TOPPADDING", (0, 0), (-1, -1), 2.6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2.6),
                 ("LEFTPADDING", (0, 0), (-1, -1), 0),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ]
         )
     )
-    story: list = [
-        Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", s["wordmark"]),
-        HRFlowable(width="100%", thickness=2, color=ACCENT, spaceAfter=8),
-        Paragraph(T("adr.title"), s["h1"]),
+    title = ParagraphStyle("cover_title", parent=s["h1"], fontSize=30, leading=34, spaceBefore=0)
+    client = ParagraphStyle(
+        "cover_client", parent=s["body"], fontSize=15, leading=19, textColor=ACCENT, spaceAfter=4
+    )
+    return [
+        brand,
+        Spacer(1, 26 * mm),
+        Paragraph(T("adr.title"), title),
+        Paragraph(clean(r.portfolio_name), client),
         Paragraph(T("adr.subtitle"), s["sub"]),
-        Spacer(1, 2),
+        Spacer(1, 8 * mm),
         table,
-        Spacer(1, 4),
-        Paragraph(T("adr.cover_note"), s["caption"]),
-        Spacer(1, 8),
+        Spacer(1, 9 * mm),
+        _h3(T("adr.contents")),
+        toc,
+        Spacer(1, 8 * mm),
+        callout([Paragraph(T("adr.confidential"), s["small"])], color=MUTED),
     ]
-    view = investment_view(m, r.benchmark, r.profile_label, r.profile_band, r.lang)
-    content: list = []
-    for heading, statements in view:
-        content.append(Paragraph(clean(heading).upper(), s["h3"]))
-        for text in statements:
-            content.append(Paragraph(f"–&nbsp;&nbsp;{clean(text)}", s["body"]))
-    story += [section(_numbered(1, T("adr.s1"))), Spacer(1, 2), *content]
-    story.append(Paragraph(T("adr.s1_caption"), s["caption"]))
-    return story
+
+
+# ------------------------------------------------------------------ 1-2
+
+
+def _key_figures(r: ReportInput) -> Table:
+    T, m = r.T, r.metrics
+    lang = r.lang
+    pnl_known = r.pnl is not None and finite(r.pnl)
+    cells = [
+        (T("ov.kf_value"), r.eur(r.total), T("ov.kf_value_sub", n=len(r.positions))),
+        (
+            T("ov.kf_pnl"),
+            r.eur(r.pnl, signed=True) if pnl_known else missing(lang),
+            r.pct(r.pnl_pct, signed=True) if pnl_known else T("ov.kf_pnl_unknown"),
+        ),
+        (
+            T("inv.k_total_return", period=r.period),
+            r.pct(m.cum_return, signed=True),
+            T("inv.k_bench", benchmark=r.benchmark, value=r.pct(m.bench_cum_return, signed=True)),
+        ),
+        (
+            T("rpt.m_cagr"),
+            r.pct(m.cagr, signed=True),
+            T("inv.k_bench", benchmark=r.benchmark, value=r.pct(m.bench_cagr, signed=True)),
+        ),
+        (
+            T("rpt.m_vol"),
+            r.pct(m.vol),
+            T("inv.k_bench", benchmark=r.benchmark, value=r.pct(m.bench_vol)),
+        ),
+        (
+            T("rpt.m_maxdd"),
+            r.pct(m.max_dd),
+            T("inv.k_bench", benchmark=r.benchmark, value=r.pct(m.bench_max_dd)),
+        ),
+        (
+            T("rpt.m_sharpe"),
+            fmt_num(m.sharpe, lang),
+            T("inv.k_bench", benchmark=r.benchmark, value=fmt_num(m.bench_sharpe, lang)),
+        ),
+        (
+            T("rpt.m_beta", benchmark=r.benchmark),
+            fmt_num(m.beta, lang),
+            T("inv.k_corr", corr=fmt_num(m.correlation, lang)),
+        ),
+    ]
+
+    def tone(value):
+        return INK if value is None or not finite(value) else GREEN if value >= 0 else RED
+
+    tones = {1: tone(r.pnl if pnl_known else None), 2: tone(m.cum_return), 3: tone(m.cagr)}
+    return kpi_grid(cells, cols=4, colors_by_index=tones)
+
+
+def _executive(r: ReportInput) -> list:
+    s, T, m = styles(), r.T, r.metrics
+    flow: list = [_h3(T("adr.kf_title")), _key_figures(r), Spacer(1, 6)]
+    check = profile_check_box(r)
+    if check is not None:
+        flow += [check, Spacer(1, 4)]
+    for heading, statements in investment_view(
+        m, r.benchmark, r.profile_label, r.profile_band, r.lang
+    ):
+        block = [_h3(heading)]
+        block += [Paragraph(f"–&nbsp;&nbsp;{clean(text)}", s["body"]) for text in statements]
+        flow.append(KeepTogether(block))
+    flow.append(Paragraph(T("adr.s1_caption"), s["caption"]))
+    return [section(_numbered(1, T("adr.s1"))), Spacer(1, 5), *flow]
 
 
 def _profile(r: ReportInput) -> list:
@@ -163,17 +285,50 @@ def _profile(r: ReportInput) -> list:
         rows,
         [46 * mm, 26 * mm, 22 * mm, 80 * mm],
         right_from=1,
+        font_size=8.2,
         extra=[
             ("ALIGN", (3, 0), (3, -1), "LEFT"),
             ("FONTNAME", (1, 1), (1, -1), "Helvetica-Bold"),
             ("TEXTCOLOR", (2, 1), (2, -1), MUTED),
             ("LEFTPADDING", (3, 0), (3, -1), 8),
+            ("TOPPADDING", (0, 1), (-1, -1), 3.6),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 3.6),
         ],
     )
-    return _block(
+    return _section_page(
         _numbered(2, T("adr.s2")),
         [table, Paragraph(T("adr.s2_caption", benchmark=r.benchmark), s["caption"])],
     )
+
+
+# ------------------------------------------------------------------ 3. performance
+
+
+def _calendar_table(r: ReportInput) -> Table | None:
+    T = r.T
+    if r.pf_daily is None:
+        return None
+    years = calendar_returns(r.pf_daily, r.bench_daily)
+    if years.empty:
+        return None
+    rows: list[list] = [
+        [T("adr.h_year"), T("pdf.h_portfolio"), r.benchmark, T("inv.h_difference")]
+    ]
+    extra: list = []
+    for i, (year, row) in enumerate(years.iterrows(), start=1):
+        label = f"{year} {T('adr.partial')}" if row["partial"] else str(year)
+        diff = row["portfolio"] - row["benchmark"] if finite(row["benchmark"]) else float("nan")
+        rows.append(
+            [
+                label,
+                r.pct(row["portfolio"], signed=True),
+                r.pct(row["benchmark"], signed=True),
+                fmt_pp(diff, r.lang),
+            ]
+        )
+        if finite(diff):
+            extra.append(("TEXTCOLOR", (3, i), (3, i), GREEN if diff >= 0 else RED))
+    return data_table(rows, [50 * mm, 40 * mm, 40 * mm, 44 * mm], extra=extra)
 
 
 def _monthly_strip(r: ReportInput) -> Table | None:
@@ -232,15 +387,15 @@ def _episodes_table(r: ReportInput) -> Table:
                 fmt_date(e.peak),
                 fmt_date(e.trough),
                 r.pct(e.depth),
-                str(e.days_to_trough),
+                fmt_num(e.days_to_trough, r.lang, 0),
                 fmt_date(e.recovery) if e.recovery is not None else T("adr.not_recovered"),
-                str(e.days_to_recover) if e.days_to_recover is not None else na,
+                fmt_num(e.days_to_recover, r.lang, 0) if e.days_to_recover is not None else na,
             ]
         )
     return data_table(rows, [28 * mm, 28 * mm, 24 * mm, 30 * mm, 32 * mm, 32 * mm], right_from=2)
 
 
-def _attribution_rows(r: ReportInput) -> list[list]:
+def _attribution_table(r: ReportInput) -> Table:
     """Contributo approssimato al rendimento: peso attuale × rendimento del titolo nella finestra."""
     T = r.T
     rows: list[list] = [
@@ -251,26 +406,24 @@ def _attribution_rows(r: ReportInput) -> list[list]:
             T("adr.h_contribution"),
         ]
     ]
-    if r.per_ticker_returns is None:
-        return rows
-    contrib = {
-        ticker: (amount / r.total) * float(r.per_ticker_returns.get(ticker, float("nan")))
-        for ticker, amount in r.positions.items()
-        if r.total
-    }
-    ordered = sorted((kv for kv in contrib.items() if finite(kv[1])), key=lambda kv: -abs(kv[1]))[
-        :8
-    ]
-    for ticker, value in ordered:
-        rows.append(
-            [
-                ticker,
-                r.pct(r.positions[ticker] / r.total),
-                r.pct(r.per_ticker_returns.get(ticker), signed=True),
-                fmt_pp(value, r.lang),
-            ]
-        )
-    return rows
+    if r.per_ticker_returns is not None and r.total:
+        contrib = {
+            ticker: (amount / r.total) * float(r.per_ticker_returns.get(ticker, float("nan")))
+            for ticker, amount in r.positions.items()
+        }
+        ordered = sorted(
+            (kv for kv in contrib.items() if finite(kv[1])), key=lambda kv: -abs(kv[1])
+        )[:10]
+        for ticker, value in ordered:
+            rows.append(
+                [
+                    ticker,
+                    r.pct(r.positions[ticker] / r.total),
+                    r.pct(r.per_ticker_returns.get(ticker), signed=True),
+                    fmt_pp(value, r.lang),
+                ]
+            )
+    return data_table(rows, [30 * mm, 40 * mm, 52 * mm, 52 * mm])
 
 
 def _performance(r: ReportInput) -> list:
@@ -279,30 +432,103 @@ def _performance(r: ReportInput) -> list:
     if r.bench_value is not None:
         series.append((r.benchmark, rebased(r.bench_value), MUTED, True))
     flow: list = [
-        line_chart(series, lambda v: fmt_num(v, r.lang, 0), height=58 * mm, reference=100.0),
-        Paragraph(T("inv.growth_caption"), s["caption"]),
-        Spacer(1, 6),
+        _titled(
+            T("adr.growth_title", benchmark=r.benchmark),
+            line_chart(series, lambda v: fmt_num(v, r.lang, 0), height=60 * mm, reference=100.0),
+            Paragraph(T("inv.growth_caption"), s["caption"]),
+        ),
+        Spacer(1, 4),
         Paragraph(clean(recovery_text(m, r.lang)), s["body"]),
         Spacer(1, 6),
     ]
-    strip = _monthly_strip(r)
-    if strip is not None:
+    calendar = _calendar_table(r)
+    if calendar is not None:
         flow += [
-            KeepTogether([Paragraph(T("adr.monthly_title").upper(), s["h3"]), strip]),
+            _titled(
+                T("adr.calendar_title"),
+                calendar,
+                Paragraph(T("adr.calendar_caption"), s["caption"]),
+            ),
             Spacer(1, 6),
         ]
-    flow += [
-        KeepTogether([Paragraph(T("adr.episodes_title").upper(), s["h3"]), _episodes_table(r)]),
-        Spacer(1, 6),
-        KeepTogether(
-            [
-                Paragraph(T("adr.attribution_title").upper(), s["h3"]),
-                data_table(_attribution_rows(r), [30 * mm, 40 * mm, 52 * mm, 52 * mm]),
-                Paragraph(T("adr.attribution_caption"), s["caption"]),
+    if r.pf_daily is not None:
+        rolling_pf = rolling_return(r.pf_daily)
+        if len(rolling_pf) >= 2:
+            lines = [(T("pdf.portfolio_legend"), rolling_pf, ACCENT, False)]
+            if r.bench_daily is not None:
+                lines.append(
+                    (
+                        r.benchmark,
+                        rolling_return(r.bench_daily).loc[rolling_pf.index[0] :],
+                        MUTED,
+                        True,
+                    )
+                )
+            flow += [
+                _titled(
+                    T("adr.rolling_title"),
+                    line_chart(lines, _pct_axis(r), height=48 * mm, reference=0.0),
+                    Paragraph(T("adr.rolling_caption"), s["caption"]),
+                ),
+                Spacer(1, 6),
             ]
+    strip = _monthly_strip(r)
+    if strip is not None:
+        flow += [_titled(T("adr.monthly_title"), strip), Spacer(1, 6)]
+    flow += [
+        _titled(T("adr.episodes_title"), _episodes_table(r)),
+        Spacer(1, 6),
+        _titled(
+            T("adr.attribution_title"),
+            _attribution_table(r),
+            Paragraph(T("adr.attribution_caption"), s["caption"]),
         ),
     ]
-    return _block(_numbered(3, T("adr.s3")), flow, min_space=90 * mm)
+    return _section_page(_numbered(3, T("adr.s3")), flow)
+
+
+# ------------------------------------------------------------------ 4. composizione
+
+
+def _fundamentals_table(r: ReportInput) -> Table | None:
+    """Caratteristiche fondamentali per titolo (dove i dati esistono)."""
+    T = r.T
+    fund = r.fund
+    if fund is None or fund.empty:
+        return None
+    columns = [
+        ("pe", T("rpt.m_pe_short"), "num1"),
+        ("ps", "P/S", "num1"),
+        ("net_margin", T("fund.net_margin"), "pct"),
+        ("revenue_growth", T("fund.rev_growth"), "pct_signed"),
+        ("dividend_yield", T("fund.div_yield"), "pp"),
+        ("debt_to_equity", T("fund.de"), "num1"),
+    ]
+    present = [c for c in columns if c[0] in fund.columns]
+    ordered = sorted(r.positions, key=lambda k: -r.positions[k])[:MAX_HOLDINGS_ROWS]
+    sub = fund.reindex(ordered)
+    if sub[[c[0] for c in present]].isna().all().all():
+        return None
+    na = missing(r.lang)
+
+    def cell(value, kind: str) -> str:
+        v = pd.to_numeric(value, errors="coerce")
+        if v != v:
+            return na
+        if kind == "pct":
+            return r.pct(v)
+        if kind == "pct_signed":
+            return r.pct(v, signed=True)
+        if kind == "pp":
+            return fmt_num(v, r.lang, 2) + "%"
+        return fmt_num(v, r.lang, 1)
+
+    rows: list[list] = [[T("pdf.h_ticker"), *[label for _, label, _ in present]]]
+    for ticker in ordered:
+        rows.append([ticker, *[cell(sub.at[ticker, col], kind) for col, _, kind in present]])
+    first = 22 * mm
+    width = (CONTENT_W - first) / len(present)
+    return data_table(rows, [first] + [width] * len(present), bold_first_col=True)
 
 
 def _holdings(r: ReportInput) -> list:
@@ -313,7 +539,11 @@ def _holdings(r: ReportInput) -> list:
         (T("pdf.c_hhi"), fmt_num(m.hhi, r.lang), ""),
         (T("inv.c_top3"), r.pct(m.top3_weight, 0), ""),
         (T("rpt.m_usd"), r.pct(m.usd_weight, 0), ""),
-        (T("inv.c_sector"), r.pct(m.top_sector_weight, 0), m.top_sector),
+        (
+            T("inv.c_sector"),
+            r.pct(m.top_sector_weight, 0) if m.top_sector else missing(r.lang),
+            m.top_sector,
+        ),
     ]
     currency = (
         {T("adr.ccy_usd"): m.usd_weight, T("adr.ccy_other"): max(0.0, 1 - m.usd_weight)}
@@ -321,47 +551,66 @@ def _holdings(r: ReportInput) -> list:
         else {}
     )
     left = [
-        Paragraph(T("pdf.wr_title").upper(), s["h3"]),
+        _h3(T("pdf.wr_title")),
         weight_risk_chart(
             m.weights, m.risk, r.lang, T("pdf.legend_weight"), T("pdf.legend_risk"), max_rows=8
         ),
     ]
     right = [
-        Paragraph(T("pdf.sector_title").upper(), s["h3"]),
+        _h3(T("pdf.sector_title")),
         bar_list_chart(m.sector_weights, r.lang, other_label=T("pdf.other_sectors")),
         Spacer(1, 4),
-        Paragraph(T("adr.currency_title").upper(), s["h3"]),
+        _h3(T("adr.currency_title")),
         bar_list_chart(pd.Series(currency, dtype=float), r.lang),
     ]
     flagged = (
-        T(
-            "adr.flagged",
-            tickers=", ".join(m.risk_over_weight),
-        )
+        T("adr.flagged", tickers=", ".join(m.risk_over_weight))
         if m.risk_over_weight
         else T("adr.flagged_none")
     )
-    flow = [
+    flow: list = [
         holdings_table(r, with_sector=True, max_rows=MAX_HOLDINGS_ROWS),
         Paragraph(T("inv.holdings_caption"), s["caption"]),
-        *(
-            [
-                Paragraph(
-                    T("pdf.coverage") + " · ".join(clean(n) for n in r.coverage_notes),
-                    s["caption"],
-                )
-            ]
-            if r.coverage_notes
-            else []
-        ),
+    ]
+    if r.coverage_notes:
+        flow.append(
+            Paragraph(
+                T("pdf.coverage") + " · ".join(clean(n) for n in r.coverage_notes), s["caption"]
+            )
+        )
+    flow += [
         Spacer(1, 6),
         kpi_grid(strip, cols=6),
         Spacer(1, 6),
         side_by_side(left, right),
         Spacer(1, 4),
         Paragraph(clean(flagged), s["body"]),
+        Spacer(1, 6),
     ]
-    return _block(_numbered(4, T("adr.s4")), flow, min_space=80 * mm)
+    fundamentals = _fundamentals_table(r)
+    if fundamentals is not None:
+        flow.append(
+            _titled(
+                T("adr.fund_title"), fundamentals, Paragraph(T("adr.fund_caption"), s["caption"])
+            )
+        )
+    return _section_page(_numbered(4, T("adr.s4")), flow)
+
+
+# ------------------------------------------------------------------ 5. rischio
+
+
+def _tail_table(r: ReportInput) -> Table | None:
+    T = r.T
+    if r.pf_daily is None:
+        return None
+    rows: list[list] = [
+        [T("pdf.h_metric"), T("pdf.h_portfolio"), r.benchmark, T("inv.h_difference")]
+    ]
+    for key, pf, bench in tail_risk(r.pf_daily, r.bench_daily):
+        diff = fmt_pp(pf - bench, r.lang) if finite(pf) and finite(bench) else missing(r.lang)
+        rows.append([T(f"adr.tail_{key}"), r.pct(pf), r.pct(bench), diff])
+    return data_table(rows, [74 * mm, 34 * mm, 34 * mm, 32 * mm])
 
 
 def _sector_risk_table(r: ReportInput) -> Table | None:
@@ -386,28 +635,128 @@ def _sector_risk_table(r: ReportInput) -> Table | None:
     return data_table(rows, [74 * mm, 34 * mm, 34 * mm, 32 * mm])
 
 
+def _correlation(r: ReportInput):
+    if r.returns is None or len(r.positions) < 2:
+        return None
+    top = [t for t in sorted(r.positions, key=lambda k: -r.positions[k]) if t in r.returns.columns]
+    top = top[:MAX_CORRELATION_HOLDINGS]
+    if len(top) < 2:
+        return None
+    corr = r.returns[top].corr(min_periods=20)
+    return heatmap_table(corr, r.lang)
+
+
 def _risk(r: ReportInput) -> list:
-    s, T = styles(), r.T
+    s, T, m = styles(), r.T, r.metrics
     flow: list = [_risk_table(r), Paragraph(T("inv.risk_caption"), s["caption"]), Spacer(1, 6)]
+    tail = _tail_table(r)
+    if tail is not None:
+        flow += [
+            _titled(T("adr.tail_title"), tail, Paragraph(T("adr.tail_caption"), s["caption"])),
+            Spacer(1, 6),
+        ]
+    if r.pf_daily is not None:
+        vol_pf = rolling_volatility(r.pf_daily)
+        if len(vol_pf) >= 2:
+            lines = [(T("pdf.portfolio_legend"), vol_pf, ACCENT, False)]
+            if r.bench_daily is not None:
+                lines.append(
+                    (
+                        r.benchmark,
+                        rolling_volatility(r.bench_daily).loc[vol_pf.index[0] :],
+                        MUTED,
+                        True,
+                    )
+                )
+            flow += [
+                _titled(
+                    T("adr.rollvol_title"),
+                    line_chart(lines, _pct_axis(r), height=46 * mm),
+                    Paragraph(T("adr.rollvol_caption"), s["caption"]),
+                ),
+                Spacer(1, 6),
+            ]
+    flow += [
+        _titled(
+            T("pdf.underwater_title"),
+            underwater_chart(
+                r.pf_value,
+                width=CONTENT_W,
+                height=42 * mm,
+                note=T("pdf.trough", dd=r.pct(m.max_dd), date=fmt_date(m.episodes[0].trough))
+                if m.episodes
+                else "",
+            ),
+        ),
+        Spacer(1, 6),
+    ]
+    corr = _correlation(r)
+    if corr is not None:
+        flow += [
+            _titled(T("adr.corr_title"), corr, Paragraph(T("adr.corr_caption"), s["caption"])),
+            Spacer(1, 6),
+        ]
     sector_table = _sector_risk_table(r)
     if sector_table is not None:
-        flow.append(
-            KeepTogether([Paragraph(T("adr.sector_risk_title").upper(), s["h3"]), sector_table])
+        flow.append(_titled(T("adr.sector_risk_title"), sector_table))
+    return _section_page(_numbered(5, T("adr.s5")), flow)
+
+
+# ------------------------------------------------------------------ 6-7
+
+
+def _worst_table(r: ReportInput, days: int) -> Table | None:
+    T = r.T
+    if r.pf_daily is None:
+        return None
+    windows = worst_windows(r.pf_daily, r.bench_daily, days)
+    if not windows:
+        return None
+    rows: list[list] = [
+        [
+            T("adr.h_window"),
+            T("pdf.h_portfolio"),
+            r.benchmark,
+            T("inv.h_difference"),
+            T("inv.h_amount"),
+        ]
+    ]
+    for w in windows:
+        diff = (
+            fmt_pp(w["portfolio"] - w["benchmark"], r.lang)
+            if finite(w["benchmark"])
+            else missing(r.lang)
         )
-    return _block(_numbered(5, T("adr.s5")), flow, min_space=80 * mm)
+        rows.append(
+            [
+                f"{fmt_date(w['start'])} – {fmt_date(w['end'])}".replace("–", "-"),
+                r.pct(w["portfolio"]),
+                r.pct(w["benchmark"]),
+                diff,
+                r.eur(r.total * w["portfolio"], signed=True),
+            ]
+        )
+    return data_table(rows, [54 * mm, 28 * mm, 28 * mm, 30 * mm, 34 * mm])
 
 
 def _stress(r: ReportInput) -> list:
     s, T = styles(), r.T
-    if not r.stress:
-        flow: list = [Paragraph(T("pdf.no_scenario"), s["small"])]
-    else:
-        flow = [
+    flow: list = []
+    if r.stress:
+        flow += [
             data_table(stress_rows(r), [86 * mm, 28 * mm, 30 * mm, 30 * mm]),
             Paragraph(T("inv.stress_caption"), s["caption"]),
             Paragraph(T("adr.stress_note"), s["caption"]),
+            Spacer(1, 8),
         ]
-    return _block(_numbered(6, T("adr.s6")), flow)
+    else:
+        flow.append(Paragraph(T("pdf.no_scenario"), s["small"]))
+    for days in (21, 63):
+        table = _worst_table(r, days)
+        if table is not None:
+            flow += [_titled(T(f"adr.worst_{days}"), table), Spacer(1, 6)]
+    flow.append(Paragraph(T("adr.worst_caption"), s["caption"]))
+    return _section_page(_numbered(6, T("adr.s6")), flow)
 
 
 def _scenarios(r: ReportInput) -> list:
@@ -452,13 +801,17 @@ def _scenarios(r: ReportInput) -> list:
         paths = p.get("paths")
         if paths is not None:
             flow.append(
-                fan_chart(
-                    paths,
-                    lambda v: r.eur(v),
-                    lambda y: T("adr.year_tick", n=y),
+                _titled(
+                    T("adr.fan_title"),
+                    fan_chart(
+                        paths,
+                        lambda v: r.eur(v),
+                        lambda y: T("adr.year_tick", n=y),
+                        height=60 * mm,
+                    ),
+                    Paragraph(T("adr.fan_caption"), s["caption"]),
                 )
             )
-            flow.append(Paragraph(T("adr.fan_caption"), s["caption"]))
             flow.append(Spacer(1, 4))
         flow.append(projection_table(r))
         cagr_rows = p.get("cagr", {})
@@ -479,10 +832,11 @@ def _scenarios(r: ReportInput) -> list:
         flow.append(Spacer(1, 6))
     else:
         flow.append(Paragraph(T("adr.mc_unavailable"), s["small"]))
-    flow.append(
-        KeepTogether([Paragraph(T("adr.hist_title").upper(), s["h3"]), *historical_block(r)])
-    )
-    return _block(_numbered(7, T("adr.s7")), flow, min_space=90 * mm)
+    flow.append(KeepTogether([_h3(T("adr.hist_title")), *historical_block(r)]))
+    return _section_page(_numbered(7, T("adr.s7")), flow)
+
+
+# ------------------------------------------------------------------ 8-11
 
 
 def _suitability(r: ReportInput) -> list:
@@ -502,23 +856,27 @@ def _suitability(r: ReportInput) -> list:
         rows: list[list] = [
             [T("ov.col_check"), T("ov.col_measured"), T("ov.col_limit"), T("ov.col_status")]
         ]
-        for chk in checks:
-            color = {"ok": GREEN, "breach": RED}.get(chk["status"], MUTED).hexval()[2:]
+        extra: list = []
+        for i, chk in enumerate(checks, start=1):
+            color = {"ok": GREEN, "breach": RED}.get(chk["status"], MUTED)
             label = {"ok": T("ov.status_ok"), "breach": T("ov.status_breach")}.get(
                 chk["status"], T("ov.status_na")
             )
-            rows.append(
-                [
-                    Paragraph(clean(chk["label"]), s["cell"]),
-                    chk["measured"],
-                    chk["limit"],
-                    Paragraph(f"<b><font color='#{color}'>{clean(label)}</font></b>", s["cell"]),
-                ]
+            rows.append([chk["label"], chk["measured"], chk["limit"], label])
+            extra += [
+                ("TEXTCOLOR", (3, i), (3, i), color),
+                ("FONTNAME", (3, i), (3, i), "Helvetica-Bold"),
+            ]
+        flow.append(
+            data_table(
+                rows,
+                [64 * mm, 40 * mm, 40 * mm, 30 * mm],
+                right_from=1,
+                extra=[("ALIGN", (3, 0), (3, -1), "LEFT"), *extra],
             )
-        flow.append(data_table(rows, [64 * mm, 40 * mm, 40 * mm, 30 * mm], right_from=1))
-        flow[-1].setStyle(TableStyle([("ALIGN", (3, 0), (3, -1), "LEFT")]))
+        )
     flow.append(Paragraph(T("adr.s8_caption"), s["caption"]))
-    return _block(_numbered(8, T("adr.s8")), flow)
+    return _section_page(_numbered(8, T("adr.s8")), flow)
 
 
 def _observations(r: ReportInput) -> list:
@@ -538,11 +896,48 @@ def _observations(r: ReportInput) -> list:
         ),
     ]
     if r.what_if:
-        flow += [Spacer(1, 6), Paragraph(T("adr.whatif_title").upper(), s["h3"])]
+        flow += [Spacer(1, 8), _h3(T("adr.whatif_title"))]
         for item in r.what_if[:4]:
             flow.append(Paragraph(f"–&nbsp;&nbsp;{clean(item)}", s["body"]))
         flow.append(Paragraph(T("adr.whatif_caption"), s["caption"]))
-    return _block(_numbered(9, T("adr.s9")), flow, min_space=70 * mm)
+    return _section_page(_numbered(9, T("adr.s9")), flow)
+
+
+def _signoff(r: ReportInput) -> Table:
+    """Riquadro firme della revisione (compilazione a mano o digitale)."""
+    s, T = styles(), r.T
+    rows = [
+        [
+            Paragraph(T("adr.so_prepared"), s["cell_muted"]),
+            Paragraph(clean(r.advisor or ""), s["cell"]),
+            Paragraph(T("adr.so_date"), s["cell_muted"]),
+            "",
+        ],
+        [
+            Paragraph(T("adr.so_reviewed"), s["cell_muted"]),
+            "",
+            Paragraph(T("adr.so_date"), s["cell_muted"]),
+            "",
+        ],
+        [
+            Paragraph(T("adr.so_client"), s["cell_muted"]),
+            "",
+            Paragraph(T("adr.so_date"), s["cell_muted"]),
+            "",
+        ],
+    ]
+    table = Table(rows, colWidths=[38 * mm, 74 * mm, 18 * mm, 44 * mm], rowHeights=[12 * mm] * 3)
+    table.setStyle(
+        TableStyle(
+            [
+                ("LINEBELOW", (1, 0), (1, -1), 0.5, MUTED),
+                ("LINEBELOW", (3, 0), (3, -1), 0.5, MUTED),
+                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ]
+        )
+    )
+    return table
 
 
 def _review(r: ReportInput) -> list:
@@ -551,31 +946,57 @@ def _review(r: ReportInput) -> list:
     flow: list = []
     for i, point in enumerate(points, start=1):
         flow.append(Paragraph(f"<b>{i:02d}</b>&nbsp;&nbsp;{clean(point)}", s["body"]))
-        flow.append(Spacer(1, 2))
+        flow.append(Spacer(1, 3))
     flow.append(Paragraph(T("adr.s10_caption"), s["caption"]))
-    return _block(_numbered(10, T("adr.s10")), flow)
+    flow += [
+        Spacer(1, 12),
+        KeepTogether(
+            [
+                _h3(T("adr.signoff_title")),
+                Spacer(1, 2),
+                _signoff(r),
+                Paragraph(T("adr.signoff_caption"), s["caption"]),
+            ]
+        ),
+    ]
+    return _section_page(_numbered(10, T("adr.s10")), flow)
 
 
 def _methodology(r: ReportInput) -> list:
     s, T = styles(), r.T
     definitions = [
         T(f"adr.def_{key}")
-        for key in ("te", "ir", "capture", "hhi", "risk", "episodes", "scenarios")
+        for key in (
+            "te",
+            "ir",
+            "capture",
+            "hhi",
+            "risk",
+            "episodes",
+            "scenarios",
+            "tail",
+            "rolling",
+        )
     ]
-    flow: list = [
-        notices_block(r),
-        Spacer(1, 4),
-        Paragraph(T("adr.defs_title").upper(), s["h3"]),
-    ]
+    flow: list = [notices_block(r), Spacer(1, 6), _h3(T("adr.defs_title"))]
     flow += [Paragraph(clean(text), s["fine"]) for text in definitions]
-    return [CondPageBreak(80 * mm), section(_numbered(11, T("adr.s11"))), Spacer(1, 4), *flow]
+    return _section_page(_numbered(11, T("adr.s11")), flow)
 
 
 def build_advisor_report(r: ReportInput) -> bytes:
-    """Il report Advisor come bytes PDF."""
+    """La revisione di portafoglio Advisor come bytes PDF."""
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
     rid = report_reference(r, now, "advisor")
-    story: list = [*_cover(r, now, rid), PageBreak()]
+    s = styles()
+    toc = TableOfContents()
+    toc.levelStyles = [
+        ParagraphStyle(
+            "toc0", parent=s["body"], fontSize=8.6, leading=13, leftIndent=0, firstLineIndent=0
+        )
+    ]
+    toc.dotsMinLevel = 0
+    story: list = [*_cover(r, now, rid, toc), PageBreak()]
+    story += _executive(r)
     story += _profile(r)
     story += _performance(r)
     story += _holdings(r)
@@ -586,4 +1007,12 @@ def build_advisor_report(r: ReportInput) -> bytes:
     story += _observations(r)
     story += _review(r)
     story += _methodology(r)
-    return render_pdf(story, r, r.T("adr.doc_title"), rid)
+    return render_pdf(
+        story,
+        r,
+        r.T("adr.doc_title"),
+        rid,
+        header_right=f"{r.T('adr.title')} · {r.portfolio_name} · {fmt_date(r.metrics.end)}",
+        cover=True,
+        toc=toc,
+    )

@@ -12,9 +12,9 @@ su Postgres usare `alembic upgrade head` (DB nuovo) o `alembic stamp head`
 (DB già esistente) — vedi README.
 """
 
-import hashlib
 import json
 import os
+import secrets
 from datetime import datetime
 from pathlib import Path
 
@@ -39,7 +39,11 @@ from sqlalchemy.dialects.sqlite import insert as _sqlite_insert
 from sqlalchemy.engine import Engine
 
 from portfolio_intelligence.config import DEFAULT_RISK_PROFILE, RISK_PROFILES
-from portfolio_intelligence.data.validators import safe_load_positions, validate_price_rows
+from portfolio_intelligence.data.validators import (
+    is_valid_client_code,
+    safe_load_positions,
+    validate_price_rows,
+)
 
 DB_PATH = Path("data/market.db")
 
@@ -273,6 +277,8 @@ def create_client(
     code = name.strip()
     if not code:
         raise ValueError("The client code cannot be empty")
+    if not is_valid_client_code(code):
+        raise ValueError("Client code: letters, digits, spaces and - _ . / only")
     if risk_profile not in RISK_PROFILES:
         raise ValueError(f"Unknown risk profile: {risk_profile}")
     engine = engine or get_engine()
@@ -380,11 +386,13 @@ def delete_advisor_data(advisor: str, engine: Engine | None = None) -> dict[str,
     """Cancella tutti i dati di un consulente (richiesta di cancellazione account).
 
     Portafogli e analisi vengono eliminati. Le righe di audit restano per
-    finalità di sicurezza ma vengono pseudonimizzate: l'identità diventa un
-    hash non reversibile e il dettaglio (nomi dei clienti) viene oscurato.
+    finalità di sicurezza ma senza identità: l'email diventa un codice
+    casuale non derivato da essa e il dettaglio (nomi dei clienti) viene oscurato.
     """
     engine = engine or get_engine()
-    pseudonym = "deleted:" + hashlib.sha256(advisor.encode()).hexdigest()[:16]
+    # codice casuale, non derivabile dall'email: un hash dell'email si potrebbe
+    # ricalcolare e ricollegare alla persona (GDPR, considerando 26)
+    pseudonym = "deleted:" + secrets.token_hex(8)
     with engine.begin() as conn:
         portfolios = conn.execute(
             delete(portfolios_table).where(portfolios_table.c.advisor == advisor)

@@ -431,8 +431,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "advisorw.feature3_title": ("Client reporting", "Reportistica per il cliente"),
     "advisorw.feature3_desc": (
-        "Three-page PDF with methodology, profile consistency check and risk warnings.",
-        "PDF di tre pagine con metodologia, verifica di coerenza con il profilo e avvertenze.",
+        "Portfolio review for the advisor (investment view, benchmark analysis, risk, stress tests, Monte Carlo, suitability context, sign-off) and a four-page report for the client.",
+        "Revisione di portafoglio per il consulente (sintesi d'investimento, confronto col benchmark, rischi, stress test, Monte Carlo, contesto di adeguatezza, firme) e report di quattro pagine per il cliente.",
     ),
     "advisorw.feature4_title": ("Data and controls", "Dati e controlli"),
     "advisorw.feature4_desc": (
@@ -735,12 +735,12 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "landing.f4_t": ("PDF report", "Report PDF"),
     "landing.f4_d": (
-        "A three-page summary to keep or share with your advisor.",
-        "Una sintesi di tre pagine da conservare o condividere con il consulente.",
+        "A four-page report to keep or share with your advisor.",
+        "Un report di quattro pagine da conservare o condividere con il consulente.",
     ),
     "landing.fact1": (
-        "Nasdaq-100 stocks with stored history and financials",
-        "titoli Nasdaq-100 con storico prezzi e bilanci",
+        "Nasdaq-100 stocks with stored price history",
+        "titoli Nasdaq-100 con storico prezzi",
     ),
     "landing.fact2": ("Health Score components", "componenti dell'Health Score"),
     "landing.fact3": (
@@ -842,10 +842,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "side.deleted_toast": ("Client portfolio deleted", "Portafoglio cliente eliminato"),
     "side.privacy": ("Privacy and data", "Privacy e dati"),
     "side.erase_all_hint": (
-        "Deletes all your saved portfolios and analyses. Security log entries "
-        "are kept but anonymized. The action cannot be undone.",
-        "Elimina tutti i portafogli e le analisi salvate. Le voci del registro "
-        "di sicurezza restano ma vengono anonimizzate. L'operazione non è reversibile.",
+        "Deletes all your saved portfolios and analyses. Security log entries are kept, with your email replaced by a random code not derived from it and their details removed. The action cannot be undone.",
+        "Elimina tutti i portafogli e le analisi salvate. Le voci del registro di sicurezza restano, con l'email sostituita da un codice casuale non derivato da essa e senza dettagli. L'operazione non è reversibile.",
     ),
     "side.erase_all_confirm": (
         "I understand that all my data will be deleted",
@@ -853,10 +851,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "side.erase_all_btn": ("Delete all my data", "Elimina tutti i miei dati"),
     "side.erase_all_done": (
-        "Deleted {portfolios} portfolios and {analyses} analyses; "
-        "{audit_pseudonymized} log entries anonymized.",
-        "Eliminati {portfolios} portafogli e {analyses} analisi; "
-        "{audit_pseudonymized} voci di registro anonimizzate.",
+        "Deleted {portfolios} portfolios and {analyses} analyses; {audit_pseudonymized} log entries de-identified.",
+        "Eliminati {portfolios} portafogli e {analyses} analisi; {audit_pseudonymized} voci di registro rese non riconducibili.",
     ),
     "side.empty_title": ("Empty portfolio", "Portafoglio vuoto"),
     "side.empty_hint": (
@@ -2659,5 +2655,173 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "adr.h_sector_risk": (
         "Risk contribution",
         "Contributo al rischio",
+    ),
+    "adr.contents": (
+        "Contents",
+        "Indice",
+    ),
+    "adr.confidential": (
+        "Confidential. Working document prepared for the professional advisor; it supports, and does not replace, the advisor's own assessment. Not investment advice, research, an offer or a solicitation.",
+        "Riservato. Documento di lavoro predisposto per il consulente professionale; supporta, e non sostituisce, la sua valutazione. Non è consulenza, ricerca, offerta né sollecitazione.",
+    ),
+    "adr.kf_title": (
+        "Key figures",
+        "Dati principali",
+    ),
+    "adr.growth_title": (
+        "Growth of 100 versus {benchmark}",
+        "Crescita di 100 rispetto al {benchmark}",
+    ),
+    "adr.calendar_title": (
+        "Calendar-year returns",
+        "Rendimenti per anno solare",
+    ),
+    "adr.h_year": (
+        "Year",
+        "Anno",
+    ),
+    "adr.partial": (
+        "(partial)",
+        "(parziale)",
+    ),
+    "adr.calendar_caption": (
+        "Current weights applied to each year; partial years cover only the part inside the observation window.",
+        "Pesi attuali applicati a ogni anno; gli anni parziali coprono solo la parte dentro la finestra di osservazione.",
+    ),
+    "adr.rolling_title": (
+        "Rolling 12-month return",
+        "Rendimento mobile a 12 mesi",
+    ),
+    "adr.rolling_caption": (
+        "Return over the preceding 252 trading days at each date: shows how consistently the portfolio and the benchmark have delivered.",
+        "Rendimento dei 252 giorni di borsa precedenti a ogni data: mostra con quanta continuità portafoglio e benchmark hanno reso.",
+    ),
+    "adr.rollvol_title": (
+        "Rolling volatility, 63 trading days",
+        "Volatilità mobile, 63 giorni di borsa",
+    ),
+    "adr.rollvol_caption": (
+        "Annualized standard deviation over the preceding quarter: identifies changes in the risk regime.",
+        "Deviazione standard annualizzata del trimestre precedente: individua i cambi di regime di rischio.",
+    ),
+    "adr.tail_title": (
+        "Tail risk",
+        "Rischio di coda",
+    ),
+    "adr.tail_caption": (
+        "Historical estimates on daily data over the window, no distributional assumption; worst windows use overlapping periods of 5, 21 and 63 trading days.",
+        "Stime storiche su dati giornalieri della finestra, nessuna ipotesi sulla distribuzione; le finestre peggiori usano periodi sovrapposti di 5, 21 e 63 giorni di borsa.",
+    ),
+    "adr.tail_var95": (
+        "VaR 95%, 1 day",
+        "VaR 95%, 1 giorno",
+    ),
+    "adr.tail_es95": (
+        "Expected Shortfall 95%, 1 day",
+        "Expected Shortfall 95%, 1 giorno",
+    ),
+    "adr.tail_var99": (
+        "VaR 99%, 1 day",
+        "VaR 99%, 1 giorno",
+    ),
+    "adr.tail_es99": (
+        "Expected Shortfall 99%, 1 day",
+        "Expected Shortfall 99%, 1 giorno",
+    ),
+    "adr.tail_worst_day": (
+        "Worst day",
+        "Giorno peggiore",
+    ),
+    "adr.tail_worst_week": (
+        "Worst 5 trading days",
+        "Peggiori 5 giorni di borsa",
+    ),
+    "adr.tail_worst_month": (
+        "Worst 21 trading days",
+        "Peggiori 21 giorni di borsa",
+    ),
+    "adr.tail_worst_quarter": (
+        "Worst 63 trading days",
+        "Peggiori 63 giorni di borsa",
+    ),
+    "adr.corr_title": (
+        "Correlation of daily returns between holdings",
+        "Correlazione dei rendimenti giornalieri tra i titoli",
+    ),
+    "adr.corr_caption": (
+        "Pairwise correlation over the window (largest holdings). Values close to 1 indicate holdings that move together and add little diversification.",
+        "Correlazione tra coppie nella finestra (titoli principali). Valori vicini a 1 indicano titoli che si muovono insieme e aggiungono poca diversificazione.",
+    ),
+    "adr.fund_title": (
+        "Fundamental characteristics by holding",
+        "Caratteristiche fondamentali per titolo",
+    ),
+    "adr.fund_caption": (
+        "Last twelve months from SEC EDGAR filings or backup sources; n/a where the data is not available. Descriptive, not a valuation opinion.",
+        "Ultimi dodici mesi dai depositi SEC EDGAR o da fonti di riserva; n/d dove il dato non è disponibile. Descrittivo, non un giudizio di valutazione.",
+    ),
+    "rpt.m_pe_short": (
+        "P/E",
+        "P/E",
+    ),
+    "adr.h_window": (
+        "Window",
+        "Finestra",
+    ),
+    "adr.worst_21": (
+        "Worst historical months (21 trading days), current weights",
+        "Peggiori mesi storici (21 giorni di borsa), pesi attuali",
+    ),
+    "adr.worst_63": (
+        "Worst historical quarters (63 trading days), current weights",
+        "Peggiori trimestri storici (63 giorni di borsa), pesi attuali",
+    ),
+    "adr.worst_caption": (
+        "Non-overlapping windows with the largest losses over the observation window, replayed with today's weights; the amount applies the loss to today's value. Historical, not a forecast.",
+        "Finestre non sovrapposte con le perdite maggiori nella finestra di osservazione, rigiocate con i pesi di oggi; l'importo applica la perdita al valore di oggi. Storico, non una previsione.",
+    ),
+    "adr.fan_title": (
+        "Distribution of simulated values",
+        "Distribuzione dei valori simulati",
+    ),
+    "adr.signoff_title": (
+        "Review sign-off",
+        "Firma della revisione",
+    ),
+    "adr.signoff_caption": (
+        "Sign-off is part of the advisor's own process; the software does not record it.",
+        "La firma fa parte del processo del consulente; il software non la registra.",
+    ),
+    "adr.so_prepared": (
+        "Prepared by",
+        "Predisposto da",
+    ),
+    "adr.so_reviewed": (
+        "Reviewed by",
+        "Rivisto da",
+    ),
+    "adr.so_client": (
+        "Discussed with the client",
+        "Discusso con il cliente",
+    ),
+    "adr.so_date": (
+        "Date",
+        "Data",
+    ),
+    "adr.def_tail": (
+        "Expected Shortfall: average return on the days beyond the VaR threshold at the same confidence level; worst N-day window: lowest cumulative return over any N consecutive trading days.",
+        "Expected Shortfall: rendimento medio nei giorni oltre la soglia del VaR allo stesso livello di confidenza; peggior finestra di N giorni: il rendimento cumulato più basso su N giorni di borsa consecutivi.",
+    ),
+    "adr.def_rolling": (
+        "Rolling measures: computed at each date on the preceding window (252 trading days for returns, 63 for volatility).",
+        "Misure mobili: calcolate a ogni data sulla finestra precedente (252 giorni di borsa per i rendimenti, 63 per la volatilità).",
+    ),
+    "pos.invalid_ticker": (
+        "Not a valid ticker: use letters, digits and . - ^ = only (e.g. AAPL, ENI.MI).",
+        "Ticker non valido: solo lettere, cifre e . - ^ = (es. AAPL, ENI.MI).",
+    ),
+    "adv.code_invalid": (
+        "Client code: letters, digits, spaces and - _ . / only (up to 60 characters).",
+        "Codice cliente: solo lettere, cifre, spazi e - _ . / (fino a 60 caratteri).",
     ),
 }

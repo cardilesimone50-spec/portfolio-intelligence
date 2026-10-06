@@ -5,7 +5,7 @@ import streamlit as st
 from portfolio_intelligence.analytics.insights import stock_scores
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.returns import compute_daily_returns
-from portfolio_intelligence.ui.components import dna_card_html, pct, sec
+from portfolio_intelligence.ui.components import dna_card_html, pct, sec, styled
 from portfolio_intelligence.views.common import TRADING_DAYS, cached_fundamentals, cached_prices
 from portfolio_intelligence.views.context import ViewContext
 
@@ -22,38 +22,42 @@ def render(ctx: ViewContext) -> None:
         try:
             data = cached_fundamentals(fund_tickers)
             st.dataframe(
-                data,
+                styled(
+                    data,
+                    {
+                        "dividend_yield": ("pp", 2),
+                        "revenue": ("compact",),
+                        "net_income": ("compact",),
+                        "total_debt": ("compact",),
+                        "gross_margin": ("pct", 1, False),
+                        "operating_margin": ("pct", 1, False),
+                        "net_margin": ("pct", 1, False),
+                        "revenue_growth": ("pct", 1, True),
+                        "earnings_growth": ("pct", 1, True),
+                        "debt_to_equity": ("num", 1),
+                        "pe": ("num", 1),
+                        "forward_pe": ("num", 1),
+                        "ev_ebitda": ("num", 1),
+                        "ps": ("num", 1),
+                    },
+                ),
                 column_config={
                     "name": st.column_config.TextColumn(t("fund.name")),
                     "sector": st.column_config.TextColumn(t("fund.sector")),
-                    "dividend_yield": st.column_config.NumberColumn(
-                        t("fund.div_yield"), format="%.2f%%"
-                    ),
-                    "revenue": st.column_config.NumberColumn(t("fund.revenue"), format="compact"),
-                    "net_income": st.column_config.NumberColumn(
-                        t("fund.net_income"), format="compact"
-                    ),
-                    "gross_margin": st.column_config.NumberColumn(
-                        t("fund.gross_margin"), format="percent"
-                    ),
-                    "operating_margin": st.column_config.NumberColumn(
-                        t("fund.op_margin"), format="percent"
-                    ),
-                    "net_margin": st.column_config.NumberColumn(
-                        t("fund.net_margin"), format="percent"
-                    ),
-                    "total_debt": st.column_config.NumberColumn(t("fund.debt"), format="compact"),
-                    "debt_to_equity": st.column_config.NumberColumn(t("fund.de"), format="%.1f"),
-                    "revenue_growth": st.column_config.NumberColumn(
-                        t("fund.rev_growth"), format="percent"
-                    ),
-                    "earnings_growth": st.column_config.NumberColumn(
-                        t("fund.eps_growth"), format="percent"
-                    ),
-                    "pe": st.column_config.NumberColumn("P/E", format="%.1f"),
-                    "forward_pe": st.column_config.NumberColumn(t("fund.fwd_pe"), format="%.1f"),
-                    "ev_ebitda": st.column_config.NumberColumn("EV/EBITDA", format="%.1f"),
-                    "ps": st.column_config.NumberColumn("P/S", format="%.1f"),
+                    "dividend_yield": st.column_config.NumberColumn(t("fund.div_yield")),
+                    "revenue": st.column_config.NumberColumn(t("fund.revenue")),
+                    "net_income": st.column_config.NumberColumn(t("fund.net_income")),
+                    "gross_margin": st.column_config.NumberColumn(t("fund.gross_margin")),
+                    "operating_margin": st.column_config.NumberColumn(t("fund.op_margin")),
+                    "net_margin": st.column_config.NumberColumn(t("fund.net_margin")),
+                    "total_debt": st.column_config.NumberColumn(t("fund.debt")),
+                    "debt_to_equity": st.column_config.NumberColumn(t("fund.de")),
+                    "revenue_growth": st.column_config.NumberColumn(t("fund.rev_growth")),
+                    "earnings_growth": st.column_config.NumberColumn(t("fund.eps_growth")),
+                    "pe": st.column_config.NumberColumn("P/E"),
+                    "forward_pe": st.column_config.NumberColumn(t("fund.fwd_pe")),
+                    "ev_ebitda": st.column_config.NumberColumn("EV/EBITDA"),
+                    "ps": st.column_config.NumberColumn("P/S"),
                     "source": st.column_config.TextColumn(t("fund.source")),
                 },
             )

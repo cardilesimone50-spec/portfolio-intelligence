@@ -270,3 +270,48 @@ def test_risk_regime_compares_the_last_quarter_with_the_full_window():
     m = compute_report_metrics(pf, pf, pd.Series({"A": 1.0}), pd.Series({"A": 1.0}), fund, 0.0)
     regime = " ".join(dict(investment_view(m, "QQQ", None, None, "en"))["Risk regime"])
     assert "Over the last quarter volatility rose" in regime
+
+
+# ------------------------------------------------------------------ analisi di dettaglio Advisor
+
+
+def test_calendar_returns_compound_each_year_and_flag_partial_years():
+    from portfolio_intelligence.analytics.report_metrics import calendar_returns
+
+    index = pd.bdate_range("2023-03-01", "2025-06-30")
+    pf = pd.Series(0.001, index=index)
+    years = calendar_returns(pf, pf * 0.5)
+    assert list(years.index) == [2023, 2024, 2025]
+    days_2024 = (index.year == 2024).sum()
+    assert years.loc[2024, "portfolio"] == pytest.approx(1.001**days_2024 - 1)
+    assert bool(years.loc[2023, "partial"]) and bool(years.loc[2025, "partial"])
+    assert not bool(years.loc[2024, "partial"])
+
+
+def test_tail_risk_orders_var_and_shortfall():
+    from portfolio_intelligence.analytics.report_metrics import tail_risk
+
+    rng = np.random.default_rng(11)
+    index = pd.bdate_range("2022-01-03", periods=700)
+    pf = pd.Series(rng.normal(0.0003, 0.015, 700), index=index)
+    rows = {key: (p, b) for key, p, b in tail_risk(pf, pf * 0.6)}
+    assert rows["es95"][0] <= rows["var95"][0] <= 0  # lo shortfall è oltre il VaR
+    assert rows["var99"][0] <= rows["var95"][0]
+    assert rows["worst_quarter"][0] <= rows["worst_day"][0] or rows["worst_quarter"][0] < 0
+    assert rows["var95"][1] > rows["var95"][0]  # il benchmark meno volatile perde meno
+
+
+def test_worst_windows_do_not_overlap():
+    from portfolio_intelligence.analytics.report_metrics import worst_windows
+
+    rng = np.random.default_rng(12)
+    index = pd.bdate_range("2021-01-04", periods=800)
+    pf = pd.Series(rng.normal(0.0002, 0.012, 800), index=index)
+    windows = worst_windows(pf, pf, 21, count=3)
+    assert len(windows) == 3
+    assert windows[0]["portfolio"] <= windows[1]["portfolio"] <= windows[2]["portfolio"]
+    for a in windows:
+        for b in windows:
+            if a is not b:
+                assert a["end"] < b["start"] or b["end"] < a["start"]
+    assert windows[0]["benchmark"] == pytest.approx(windows[0]["portfolio"])

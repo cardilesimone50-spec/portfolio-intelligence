@@ -51,38 +51,41 @@ def auth_configured() -> bool:
         return False
 
 
-def resolve_require_auth(default_if_unset: bool) -> None:
-    """Decide REQUIRE_AUTH e lo scrive nell'ambiente, con questa precedenza:
+def resolve_require_auth(default_if_unset: bool) -> bool:
+    """Decide se imporre l'auth, con questa precedenza:
 
-    1. variabile d'ambiente REQUIRE_AUTH già impostata esplicitamente
-       (scelta dell'operatore: Docker, systemd, shell — vince sempre);
-    2. `require_auth` dentro `[auth]` nei secrets — comodo su Streamlit
-       Community Cloud, dove si impostano secrets dalla dashboard ma non
-       variabili d'ambiente per singola app;
+    1. variabile d'ambiente REQUIRE_AUTH impostata dall'operatore (Docker,
+       systemd, shell: vince sempre);
+    2. `require_auth` dentro `[auth]` nei secrets (Streamlit Community Cloud,
+       dove si impostano secrets dalla dashboard ma non variabili d'ambiente);
     3. `default_if_unset`, il default del profilo chiamante (investor=False,
-       advisor=True — vedi app_investor.py/app_advisor.py).
+       advisor=True).
 
-    Va chiamata PRIMA di `auth_required_but_missing()`, che poi legge solo
-    la variabile d'ambiente: qui c'è la risoluzione, lì solo il controllo.
+    Sola lettura: non scrive nulla nell'ambiente. Investor e Advisor girano
+    nello stesso processo (app.py): un valore scritto da una sessione
+    deciderebbe il controllo per tutte le altre.
     """
-    if os.getenv("REQUIRE_AUTH") is not None:
-        return
+    explicit = os.getenv("REQUIRE_AUTH")
+    if explicit is not None:
+        return explicit.strip().lower() == "true"
     try:
         secrets_auth = st.secrets.get("auth", {})
         if "require_auth" in secrets_auth:
-            os.environ["REQUIRE_AUTH"] = "true" if secrets_auth["require_auth"] else "false"
-            return
+            return bool(secrets_auth["require_auth"])
     except Exception:
         pass
-    os.environ["REQUIRE_AUTH"] = "true" if default_if_unset else "false"
+    return default_if_unset
 
 
-def auth_required_but_missing() -> bool:
-    """True se è stato chiesto di imporre l'auth (REQUIRE_AUTH=true, già
-    risolto da `resolve_require_auth`) ma l'OIDC non è configurato: in
-    questo caso l'isolamento dati non è garantito e l'app non deve servire
-    richieste."""
-    required = os.getenv("REQUIRE_AUTH", "false").strip().lower() == "true"
+def auth_required_but_missing(required: bool | None = None) -> bool:
+    """True se l'auth va imposta ma l'OIDC non è configurato: l'isolamento dati
+    non è garantito e l'app non deve servire richieste.
+
+    `required`: l'esito di `resolve_require_auth` per il profilo corrente;
+    se assente si legge la sola variabile d'ambiente dell'operatore.
+    """
+    if required is None:
+        required = os.getenv("REQUIRE_AUTH", "false").strip().lower() == "true"
     return required and not auth_configured()
 
 

@@ -96,7 +96,7 @@ def render_sidebar() -> SidebarSettings:
     """
     with st.sidebar:
         st.markdown(
-            '<div class="brand" style="font-size:.9rem">◆ SMARTEE<b>FINANCE</b></div>',
+            '<div class="brand" style="font-size:.9rem">SMARTEE<b>FINANCE</b></div>',
             unsafe_allow_html=True,
         )
         area_switch("investor", "area_sw_side")

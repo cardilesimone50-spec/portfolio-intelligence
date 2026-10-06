@@ -11,11 +11,13 @@ i titoli, Source Sans per interfaccia e numeri; entrambi serviti da Streamlit
 
 import streamlit as st
 
+from portfolio_intelligence.ui.brand import mark_data_uri
 from portfolio_intelligence.visualization.charts import GAIN_TEXT, LOSS
 
 AMBER = "#d97706"  # status mid-band only (gauge/health)
 ACCENT = "#1E40AF"  # brand primary
 ACCENT_HOVER = "#1E3A8A"
+BRAND_MARK = mark_data_uri()  # simbolo del marchio davanti alla scritta (.brand)
 
 
 def inject_theme() -> None:
@@ -74,6 +76,11 @@ def inject_theme() -> None:
             text-transform: uppercase; font-weight: 500;
         }}
         .brand b {{ color: var(--accent); font-weight: 700; }}
+        .brand::before {{
+            content: ""; display: inline-block; width: 1.15em; height: 1.15em;
+            margin-right: 0.55em; vertical-align: -0.22em;
+            background: url("{BRAND_MARK}") no-repeat center / contain;
+        }}
         .brand-product {{
             text-transform: none; white-space: nowrap;
             font-size: 0.75rem; font-weight: 600; color: var(--muted);

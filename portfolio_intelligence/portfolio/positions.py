@@ -60,7 +60,13 @@ def normalize_position(raw) -> dict:
 
 def normalize_portfolio(raw: dict) -> dict[str, dict]:
     """Normalizza un intero dict {ticker: posizione} (nuovo, legacy o misto)."""
-    return {str(t).upper(): normalize_position(v) for t, v in raw.items()}
+    from portfolio_intelligence.data.validators import is_valid_ticker
+
+    return {
+        str(t).upper(): normalize_position(v)
+        for t, v in raw.items()
+        if is_valid_ticker(str(t).upper())  # niente testo arbitrario dal DB o dall'import
+    }
 
 
 def add_lot(existing: dict | None, qty: float, price: float, date=None) -> dict:

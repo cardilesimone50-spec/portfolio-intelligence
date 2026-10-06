@@ -28,6 +28,7 @@ import streamlit as st
 
 from portfolio_intelligence.i18n import set_language
 from portfolio_intelligence.ui.area_switch import ROUTER_FLAG
+from portfolio_intelligence.ui.brand import page_icon
 from portfolio_intelligence.ui.components import render_profile_chooser
 from portfolio_intelligence.ui.legal import DOCS as LEGAL_DOCS
 from portfolio_intelligence.ui.legal import (
@@ -51,7 +52,7 @@ def _go_advisor() -> None:
 
 if st.query_params.get("legal") in LEGAL_DOCS:
     # pagina legale aperta dal footer (nuova scheda): niente routing per profilo
-    st.set_page_config(page_title="Smarteefinance | Legal", page_icon="◆", layout="wide")
+    st.set_page_config(page_title="Smarteefinance | Legal", page_icon=page_icon(), layout="wide")
     inject_theme()
     render_legal_page_if_requested()
 
@@ -73,7 +74,7 @@ if run_app is not None:
 else:
     st.set_page_config(
         page_title="Smarteefinance | Choose your profile",
-        page_icon="◆",
+        page_icon=page_icon(),
         layout="wide",
         initial_sidebar_state="collapsed",
     )

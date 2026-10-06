@@ -294,3 +294,35 @@ def test_advisor_and_client_documents_have_distinct_references(make_report):
     advisor_ref = ref.search(_pages(build_advisor_report(report))[0]).group(1)
     client_ref = ref.search(_pages(build_investor_report(report))[0]).group(1)
     assert advisor_ref != client_ref
+
+
+def test_advisor_review_is_an_investment_committee_document(make_report):
+    """Copertina con indice, una sezione per pagina, analisi di dettaglio, firme."""
+    report = make_report(projection=_projection(), advisor_issued=True, advisor="adv@example.com")
+    pages = _pages(build_advisor_report(report))
+    assert len(pages) >= 12
+    cover = pages[0]
+    assert "CONTENTS" in cover and "11. METHODOLOGY, DATA SOURCES AND DISCLOSURES" in cover
+    assert "SMARTEEFINANCE" in cover
+    text = _text(pages)
+    for title in (
+        "CALENDAR-YEAR RETURNS",
+        "ROLLING 12-MONTH RETURN",
+        "TAIL RISK",
+        "ROLLING VOLATILITY, 63 TRADING DAYS",
+        "CORRELATION OF DAILY RETURNS BETWEEN HOLDINGS",
+        "WORST HISTORICAL QUARTERS",
+        "REVIEW SIGN-OFF",
+    ):
+        assert title in text, title
+    # intestazione col marchio su ogni pagina tranne la copertina
+    assert all("SMARTEEFINANCE" in page and "Portfolio Review" in page for page in pages[1:])
+
+
+def test_brand_mark_is_shared_by_app_and_pdf():
+    from portfolio_intelligence.ui.brand import MARK_PNG, mark_drawing, mark_svg, page_icon
+
+    svg = mark_svg(24)
+    assert svg.startswith("<svg") and svg.count("<polygon") == 4
+    assert len(mark_drawing(30).contents) == 4
+    assert MARK_PNG.exists() and page_icon() == str(MARK_PNG)

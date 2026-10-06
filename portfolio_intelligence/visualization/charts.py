@@ -493,3 +493,32 @@ def multi_line(frame: pd.DataFrame, height: int = 320, y_format: str = ",.0f") -
         )
         .properties(height=height)
     )
+
+
+def risk_return_scatter(
+    stats: pd.DataFrame, x_title: str, y_title: str, height: int = 420
+) -> alt.Chart:
+    """Rischio contro rendimento per titolo, assi in percentuale.
+
+    Scala simmetrico-logaritmica sui rendimenti: pochi titoli con rendimenti
+    estremi non schiacciano tutti gli altri sullo zero.
+    """
+    return (
+        alt.Chart(stats)
+        .mark_circle(size=46, opacity=0.75, color=PALETTE[0])
+        .encode(
+            x=alt.X("annual_volatility:Q", title=x_title, axis=alt.Axis(format="%")),
+            y=alt.Y(
+                "period_return:Q",
+                title=y_title,
+                axis=alt.Axis(format="%"),
+                scale=alt.Scale(type="symlog"),
+            ),
+            tooltip=[
+                alt.Tooltip("ticker:N", title="Ticker"),
+                alt.Tooltip("period_return:Q", title=y_title, format="+.1%"),
+                alt.Tooltip("annual_volatility:Q", title=x_title, format=".1%"),
+            ],
+        )
+        .properties(height=height)
+    )

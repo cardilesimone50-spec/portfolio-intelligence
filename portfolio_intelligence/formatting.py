@@ -57,6 +57,24 @@ def fmt_num(value, lang: str = "en", decimals: int = 2, signed: bool = False) ->
     return _localize(f"{float(value):{'+' if signed else ''},.{decimals}f}", lang)
 
 
+def fmt_compact(value, lang: str = "en", decimals: int = 1) -> str:
+    """Grandi importi abbreviati: 391.0B / 391,0 Mld, 12.5M / 12,5 Mln."""
+    if _bad(value):
+        return missing(lang)
+    value = float(value)
+    units = (
+        (1e12, "T", "Bln"),
+        (1e9, "B", "Mld"),
+        (1e6, "M", "Mln"),
+        (1e3, "K", "k"),
+    )
+    for size, en, it in units:
+        if abs(value) >= size:
+            number = _localize(f"{value / size:.{decimals}f}", lang)
+            return f"{number} {it}" if lang == "it" else f"{number}{en}"
+    return fmt_num(value, lang, 0)
+
+
 def fmt_pp(value, lang: str = "en", decimals: int = 1) -> str:
     """Differenza in punti percentuali, sempre con segno (0.034 → +3.4 pp)."""
     if _bad(value):

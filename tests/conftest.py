@@ -75,6 +75,10 @@ def build_report_input(days: int = 1250, **overrides) -> ReportInput:
         pnl=8000.0,
         pnl_pct=1.0,
         price_source="Yahoo (chart)",
+        pf_daily=computed["pf_daily"],
+        bench_daily=computed["bench_daily"],
+        returns=computed["returns"],
+        fund=fund,
     )
     fields.update(overrides)
     return ReportInput(**fields)

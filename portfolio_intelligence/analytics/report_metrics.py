@@ -479,3 +479,108 @@ def rebased(series: pd.Series) -> pd.Series:
 
 def finite(value: float | None) -> bool:
     return value is not None and bool(np.isfinite(value))
+
+
+# ------------------------------------------------------------------ analisi di dettaglio (Advisor)
+
+
+def calendar_returns(pf_daily: pd.Series, bench_daily: pd.Series | None) -> pd.DataFrame:
+    """Rendimento per anno solare: colonne portfolio, benchmark, partial (anno incompleto)."""
+    pf = pf_daily.dropna()
+    if pf.empty:
+        return pd.DataFrame(columns=["portfolio", "benchmark", "partial"])
+    years = pf.groupby(pf.index.year).apply(lambda s: float((1 + s).prod() - 1))
+    if bench_daily is not None:
+        bench = bench_daily.dropna().loc[pf.index[0] : pf.index[-1]]
+        bench_years = bench.groupby(bench.index.year).apply(lambda s: float((1 + s).prod() - 1))
+    else:
+        bench_years = pd.Series(dtype=float)
+    first, last = pf.index[0], pf.index[-1]
+    partial = {
+        year: (year == first.year and (first.month, first.day) > (1, 7))
+        or (year == last.year and (last.month, last.day) < (12, 24))
+        for year in years.index
+    }
+    return pd.DataFrame(
+        {
+            "portfolio": years,
+            "benchmark": bench_years.reindex(years.index),
+            "partial": pd.Series(partial),
+        }
+    )
+
+
+def rolling_return(daily: pd.Series, window: int = ROLLING_WINDOW) -> pd.Series:
+    """Rendimento mobile su `window` giorni di borsa (per i grafici)."""
+    value = (1 + daily.dropna()).cumprod()
+    return (value / value.shift(window) - 1).dropna()
+
+
+def rolling_volatility(daily: pd.Series, window: int = RECENT_DAYS) -> pd.Series:
+    return (daily.dropna().rolling(window).std() * TRADING_DAYS**0.5).dropna()
+
+
+def tail_risk(
+    pf_daily: pd.Series, bench_daily: pd.Series | None
+) -> list[tuple[str, float, float]]:
+    """Rischio di coda storico: (chiave, portafoglio, benchmark) in frazioni.
+
+    VaR ed Expected Shortfall al 95% e 99% su un giorno, peggior giorno e
+    peggiori finestre di 5, 21 e 63 giorni di borsa (settimana, mese, trimestre).
+    """
+    pf = pf_daily.dropna()
+    bench = (
+        bench_daily.dropna().loc[pf.index[0] : pf.index[-1]]
+        if bench_daily is not None and len(pf)
+        else pd.Series(dtype=float)
+    )
+
+    def worst(daily: pd.Series, days: int) -> float:
+        if len(daily) < days:
+            return NAN
+        value = (1 + daily).cumprod()
+        return float((value / value.shift(days) - 1).min())
+
+    rows = [
+        ("var95", value_at_risk(pf, 0.95), value_at_risk(bench, 0.95)),
+        ("es95", expected_shortfall(pf, 0.95), expected_shortfall(bench, 0.95)),
+        ("var99", value_at_risk(pf, 0.99), value_at_risk(bench, 0.99)),
+        ("es99", expected_shortfall(pf, 0.99), expected_shortfall(bench, 0.99)),
+        (
+            "worst_day",
+            float(pf.min()) if len(pf) else NAN,
+            float(bench.min()) if len(bench) else NAN,
+        ),
+        ("worst_week", worst(pf, 5), worst(bench, 5)),
+        ("worst_month", worst(pf, 21), worst(bench, 21)),
+        ("worst_quarter", worst(pf, 63), worst(bench, 63)),
+    ]
+    return rows
+
+
+def worst_windows(
+    pf_daily: pd.Series, bench_daily: pd.Series | None, days: int, count: int = 3
+) -> list[dict]:
+    """Le `count` peggiori finestre di `days` giorni (non sovrapposte), con il benchmark accanto."""
+    pf = pf_daily.dropna()
+    if len(pf) <= days:
+        return []
+    value = (1 + pf).cumprod()
+    window = (value / value.shift(days) - 1).dropna().sort_values()
+    bench = bench_daily.dropna() if bench_daily is not None else None
+    chosen: list[dict] = []
+    for end, ret in window.items():
+        end_pos = value.index.get_loc(end)
+        start = value.index[end_pos - days]
+        if any(not (end < c["start"] or start > c["end"]) for c in chosen):
+            continue
+        bench_ret = NAN
+        if bench is not None:
+            span = bench.loc[start:end].iloc[1:]
+            bench_ret = float((1 + span).prod() - 1) if len(span) else NAN
+        chosen.append(
+            {"start": start, "end": end, "portfolio": float(ret), "benchmark": bench_ret}
+        )
+        if len(chosen) == count:
+            break
+    return chosen

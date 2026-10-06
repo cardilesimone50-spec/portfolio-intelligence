@@ -15,6 +15,7 @@ Stato di sessione: `adv_page`, `adv_client` (codice del cliente attivo),
 `positions` (il portafoglio di lavoro, condiviso con le viste).
 """
 
+import html
 import json
 from collections.abc import Callable
 
@@ -37,6 +38,7 @@ from portfolio_intelligence.data.store import (
     log_audit,
     save_portfolio,
 )
+from portfolio_intelligence.data.validators import is_valid_client_code
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import normalize_portfolio
 from portfolio_intelligence.router import compute_portfolio
@@ -273,7 +275,7 @@ def _render_rail(advisor: str, clients: dict) -> tuple[str, bool, float]:
     )
     with st.sidebar:
         st.markdown(
-            '<div class="brand adv-brand">◆ SMARTEE<b>FINANCE</b>'
+            '<div class="brand adv-brand">SMARTEE<b>FINANCE</b>'
             f'<span class="brand-product">{t("adv.product")}</span></div>',
             unsafe_allow_html=True,
         )
@@ -332,8 +334,8 @@ def _page_header(
     st.markdown(
         f'<div class="adv-head{"" if rule else " bare"}">'
         + (f'<div class="adv-crumb">{crumb}</div>' if crumb else "")
-        + f'<h1 class="page-title adv-title">{title}</h1>'
-        + (f'<div class="adv-meta">{meta}</div>' if meta else "")
+        + f'<h1 class="page-title adv-title">{html.escape(title)}</h1>'
+        + (f'<div class="adv-meta">{html.escape(meta)}</div>' if meta else "")
         + "</div>",
         unsafe_allow_html=True,
     )
@@ -529,14 +531,14 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
     for i, row in enumerate(shown):
         if "error" in row:
             data = [
-                ("c-code", row["name"]),
+                ("c-code", html.escape(row["name"])),
                 ("", t(f"prof.{row['profile']}")),
                 ("num", "n/a"),
                 ("num", "n/a"),
                 ("num", "n/a"),
                 ("num", "n/a"),
                 ("health", "n/a"),
-                ("flag", t("adv.analysis_failed", err=row["error"])),
+                ("flag", html.escape(t("adv.analysis_failed", err=row["error"]))),
             ]
         else:
             color = status_color(row["health"])
@@ -549,7 +551,8 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
             data = [
                 (
                     "c-code",
-                    f'<span class="dot" style="background:{color}"></span>{row["name"]}{marker}',
+                    f'<span class="dot" style="background:{color}"></span>'
+                    f"{html.escape(row['name'])}{marker}",
                 ),
                 ("", t(f"prof.{row['profile']}")),
                 ("num", eur(row["value"])),
@@ -557,7 +560,7 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
                 ("num", _vol_cell(row)),
                 ("num", f"{row['top_ticker']} {pct(row['top_weight'], 0)}"),
                 ("health", f'<span style="color:{text_safe(color)}">{row["health"]}</span>'),
-                ("flag", row["problem"]),
+                ("flag", html.escape(row["problem"])),
             ]
         with st.container(key=f"adv_book_row_{i}"):
             cell_col, action_col = st.columns(widths, gap="small", vertical_alignment="center")
@@ -618,7 +621,9 @@ def _page_new_client(advisor: str, clients: dict) -> None:
             )
             name = (st.session_state.get("adv_new_name") or "").strip()
             error = st.session_state.pop("adv_create_error", None)
-            if name in clients or error:
+            if name and not is_valid_client_code(name):
+                st.error(t("adv.code_invalid"))
+            elif name in clients or error:
                 st.error(error or t("adv.code_exists"))
         with st.container(border=True):
             tab_manual, tab_import = st.tabs([t("gate.tab_manual"), t("gate.tab_import")])
@@ -645,7 +650,9 @@ def _page_new_client(advisor: str, clients: dict) -> None:
             ),
             unsafe_allow_html=True,
         )
-        ready = bool(name) and bool(positions) and name not in clients
+        ready = (
+            bool(name) and is_valid_client_code(name) and bool(positions) and name not in clients
+        )
         st.button(
             t("adv.create"),
             type="primary",

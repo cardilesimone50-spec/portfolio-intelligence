@@ -12,7 +12,7 @@ from portfolio_intelligence.portfolio.optimization import (
 )
 from portfolio_intelligence.portfolio.returns import portfolio_expected_return
 from portfolio_intelligence.portfolio.risk import portfolio_volatility
-from portfolio_intelligence.ui.components import sec
+from portfolio_intelligence.ui.components import sec, styled
 from portfolio_intelligence.views.common import TRADING_DAYS
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import efficient_frontier_chart
@@ -63,23 +63,22 @@ def render(ctx: ViewContext) -> None:
         compare = points.set_index("nome")
         compare["sharpe"] = (compare["annual_return"] - risk_free) / compare["annual_volatility"]
         st.dataframe(
-            compare,
+            styled(
+                compare,
+                {
+                    "annual_return": ("pct", 1, False),
+                    "annual_volatility": ("pct", 1, False),
+                    "sharpe": ("num", 2),
+                },
+            ),
             column_config={
                 "_index": st.column_config.TextColumn(t("mvo.portfolio")),
-                "annual_return": st.column_config.NumberColumn(
-                    t("mvo.exp_return"), format="percent"
-                ),
-                "annual_volatility": st.column_config.NumberColumn(
-                    t("mvo.volatility"), format="percent"
-                ),
-                "sharpe": st.column_config.NumberColumn("Sharpe", format="%.2f"),
+                "annual_return": st.column_config.NumberColumn(t("mvo.exp_return")),
+                "annual_volatility": st.column_config.NumberColumn(t("mvo.volatility")),
+                "sharpe": st.column_config.NumberColumn("Sharpe"),
             },
         )
         st.markdown(f"**{t('mvo.weights')}**")
         st.caption(t("mvo.weights_caption"))
-        st.dataframe(
-            pd.DataFrame(candidates),
-            column_config={
-                col: st.column_config.NumberColumn(col, format="percent") for col in candidates
-            },
-        )
+        weights_table = pd.DataFrame(candidates)
+        st.dataframe(styled(weights_table, {col: ("pct", 1, False) for col in candidates}))

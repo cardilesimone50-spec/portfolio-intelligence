@@ -70,3 +70,38 @@ def test_duplicate_lots_average_the_cost_price():
     positions = parse_positions(content, "lots.csv")
     assert positions["AAPL"]["qty"] == 20.0
     assert positions["AAPL"]["price"] == 150.0
+
+
+# ------------------------------------------------ sicurezza: nessun testo arbitrario come ticker
+
+
+def test_import_drops_rows_whose_ticker_is_not_a_market_symbol():
+    payload = '<iframe srcdoc="x">'
+    content = f"Ticker;Controvalore\nAAPL;1000\n{payload};500\nENI.MI;300\n".encode()
+    positions = parse_positions(content, "pos.csv")
+    assert set(positions) == {"AAPL", "ENI.MI"}
+
+
+def test_saved_portfolios_with_markup_tickers_are_cleaned_on_load():
+    from portfolio_intelligence.portfolio.positions import normalize_portfolio
+
+    cleaned = normalize_portfolio({"AAPL": 1000.0, "Y<IFRAME SRCDOC=X>": 10.0, "BRK.B": 5.0})
+    assert set(cleaned) == {"AAPL", "BRK.B"}
+
+
+def test_client_codes_cannot_carry_markup(tmp_path):
+    import pytest
+
+    from portfolio_intelligence.data.store import create_client, get_engine
+
+    engine = get_engine(f"sqlite:///{tmp_path / 'c.db'}")
+    with pytest.raises(ValueError):
+        create_client("adv@x", "<img src=x>", {"AAPL": 1.0}, engine=engine)
+    create_client("adv@x", "Rossi - C/42", {"AAPL": 1.0}, engine=engine)
+
+
+def test_position_cards_escape_provider_names():
+    from portfolio_intelligence.ui.components import position_card_html
+
+    html_text = position_card_html("AAPL", 100.0, 0.5, "#123456", company="<b>x</b> & co")
+    assert "<b>x</b>" not in html_text and "&lt;b&gt;x&lt;/b&gt; &amp; co" in html_text

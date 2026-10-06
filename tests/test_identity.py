@@ -59,19 +59,30 @@ def test_auth_configured_false_without_any_secrets(monkeypatch):
 def test_resolve_require_auth_env_var_explicit_wins_over_secrets(monkeypatch):
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setattr(identity.st, "secrets", {"auth": {"require_auth": False}})
-    identity.resolve_require_auth(default_if_unset=False)
-    assert os.environ["REQUIRE_AUTH"] == "true"  # l'operatore ha scelto, non si tocca
+    assert identity.resolve_require_auth(default_if_unset=False) is True  # vince l'operatore
 
 
 def test_resolve_require_auth_falls_back_to_secrets_when_env_unset(monkeypatch):
     monkeypatch.delenv("REQUIRE_AUTH", raising=False)
     monkeypatch.setattr(identity.st, "secrets", {"auth": {"require_auth": True}})
-    identity.resolve_require_auth(default_if_unset=False)
-    assert os.environ["REQUIRE_AUTH"] == "true"  # letto dai secrets, non dal default
+    assert identity.resolve_require_auth(default_if_unset=False) is True  # dai secrets
 
 
 def test_resolve_require_auth_falls_back_to_default_when_neither_set(monkeypatch):
     monkeypatch.delenv("REQUIRE_AUTH", raising=False)
     monkeypatch.setattr(identity.st, "secrets", {})
-    identity.resolve_require_auth(default_if_unset=True)
-    assert os.environ["REQUIRE_AUTH"] == "true"  # nessuna scelta esplicita: usa il default
+    assert identity.resolve_require_auth(default_if_unset=True) is True  # il default
+    assert "REQUIRE_AUTH" not in os.environ  # sola lettura: nessun effetto sul processo
+
+
+def test_investor_first_does_not_open_the_advisor_without_auth(monkeypatch):
+    """Stesso processo, nessun OIDC: aprire prima Investor non sblocca l'Advisor."""
+    monkeypatch.delenv("REQUIRE_AUTH", raising=False)
+    monkeypatch.setattr(identity.st, "secrets", {})
+    monkeypatch.setattr(identity, "auth_configured", lambda: False)
+    investor = identity.resolve_require_auth(default_if_unset=False)
+    assert identity.auth_required_but_missing(investor) is False
+    advisor = identity.resolve_require_auth(default_if_unset=True)
+    assert identity.auth_required_but_missing(advisor) is True
+    # e l'Investor resta aperto anche dopo l'Advisor
+    assert identity.auth_required_but_missing(identity.resolve_require_auth(False)) is False

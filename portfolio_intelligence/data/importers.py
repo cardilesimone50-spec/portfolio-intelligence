@@ -4,6 +4,8 @@ import io
 
 import pandas as pd
 
+from portfolio_intelligence.data.validators import is_valid_ticker
+
 _TICKER_COLUMNS = {
     "ticker",
     "symbol",
@@ -108,8 +110,8 @@ def parse_positions(content: bytes, filename: str) -> dict:
     positions: dict = {}
     for _, row in df.iterrows():
         ticker = str(row[ticker_col]).strip().upper()
-        if not ticker or ticker == "NAN":
-            continue
+        if not ticker or ticker == "NAN" or not is_valid_ticker(ticker):
+            continue  # cella vuota o non un simbolo di borsa: mai testo arbitrario nell'app
         try:
             if with_cost:
                 qty = _to_number(row[quantity_col])

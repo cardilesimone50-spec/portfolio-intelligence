@@ -71,7 +71,7 @@ def test_require_auth_check_runs_inside_bootstrap_before_anything_else():
     with open("portfolio_intelligence/router.py") as f:
         source = f.read()
     def_pos = source.index("def bootstrap_page(")
-    gate_pos = source.index("auth_required_but_missing()", def_pos)
+    gate_pos = source.index("auth_required_but_missing(require_auth)", def_pos)
     # dopo il gate, bootstrap_page non fa più nient'altro che st.stop()
     next_def_pos = source.index("\ndef ", gate_pos)
     assert def_pos < gate_pos < next_def_pos

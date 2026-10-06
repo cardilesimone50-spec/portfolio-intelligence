@@ -18,7 +18,7 @@ restringe, così il documento resta sempre di quattro pagine.
 from datetime import datetime
 
 from reportlab.lib.units import mm
-from reportlab.platypus import HRFlowable, KeepInFrame, PageBreak, Paragraph, Spacer
+from reportlab.platypus import KeepInFrame, PageBreak, Paragraph, Spacer
 
 from portfolio_intelligence.analytics.report_metrics import finite, rebased
 from portfolio_intelligence.analytics.report_narrative import (
@@ -176,8 +176,6 @@ def _page1(r: ReportInput, now: str, rid: str) -> list:
         T("pdf.currency_eur") if r.in_eur else T("pdf.currency_orig"),
     ]
     story: list = [
-        Paragraph("SMARTEEFINANCE · PORTFOLIO INTELLIGENCE", s["wordmark"]),
-        HRFlowable(width="100%", thickness=2, color=ACCENT, spaceAfter=8),
         Paragraph(T("inv.title"), s["h1"]),
     ]
     if r.recipient:
@@ -622,4 +620,10 @@ def build_investor_report(r: ReportInput) -> bytes:
         if i:
             story.append(PageBreak())
         story.append(KeepInFrame(CONTENT_W, FRAME_H, page, mode="shrink"))
-    return render_pdf(story, r, r.T("inv.doc_title"), rid)
+    return render_pdf(
+        story,
+        r,
+        r.T("inv.doc_title"),
+        rid,
+        header_right=f"{r.T('inv.title')} · {r.portfolio_name}",
+    )

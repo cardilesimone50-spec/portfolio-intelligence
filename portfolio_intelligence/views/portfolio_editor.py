@@ -5,11 +5,13 @@ usano l'onboarding Investor (gate.py, prefisso "gate") e la scheda cliente
 dell'area Advisor (prefisso "adv"): il prefisso separa le chiavi dei widget.
 """
 
+import html
 from datetime import date
 
 import streamlit as st
 
 from portfolio_intelligence.data.importers import parse_positions
+from portfolio_intelligence.data.validators import is_valid_ticker
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from portfolio_intelligence.views.common import (
@@ -81,6 +83,10 @@ def _add(prefix: str) -> None:
     if not chosen:
         return
     k = str(chosen).upper().strip()
+    if not is_valid_ticker(k):
+        st.session_state[f"{prefix}_ticker"] = None
+        st.toast(t("pos.invalid_ticker"))
+        return
     qty = float(st.session_state.get(f"{prefix}_qty_{k}") or 0)
     when = st.session_state.get(f"{prefix}_date_{k}")
     iso = when.isoformat() if when else ""
@@ -109,6 +115,9 @@ def manual_entry(prefix: str) -> None:
             key=f"{prefix}_ticker",
         )
     key = str(chosen).upper().strip() if chosen else ""
+    if key and not is_valid_ticker(key):
+        st.warning(t("pos.invalid_ticker"))
+        key = ""
     preview = ticker_preview(key) if key else None
     current_price = float(preview["price"]) if preview and preview.get("price") else None
     with c_qty:
@@ -162,9 +171,9 @@ def manual_entry(prefix: str) -> None:
         return
     if preview:
         st.session_state.setdefault("names", {})[key] = preview["name"]
-        parts = [f"<b>{preview['name']}</b>"]
+        parts = [f"<b>{html.escape(str(preview['name']))}</b>"]
         if preview.get("sector"):
-            parts.append(preview["sector"])
+            parts.append(html.escape(str(preview["sector"])))
         if current_price is not None:
             sym = "$" if preview.get("currency") == "USD" else preview.get("currency", "")
             price = f"{sym}{current_price:,.2f}"
@@ -279,7 +288,9 @@ def positions_table(prefix: str, title: str | None = None, empty_hint: str | Non
             data_col, action_col = st.columns(widths, gap="small", vertical_alignment="center")
             data_col.markdown(
                 '<div class="tbl-grid">'
-                + "".join(f'<div class="td {css}">{text}</div>' for css, text in cells)
+                + "".join(
+                    f'<div class="td {css}">{html.escape(str(text))}</div>' for css, text in cells
+                )
                 + "</div>",
                 unsafe_allow_html=True,
             )

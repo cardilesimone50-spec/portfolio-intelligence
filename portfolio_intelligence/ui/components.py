@@ -1,9 +1,11 @@
 """Componenti UI riusabili: hero, card, sezioni, breakdown, landing."""
 
+import html
+
 import streamlit as st
 
 from portfolio_intelligence.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD
-from portfolio_intelligence.formatting import fmt_eur, fmt_num, fmt_pct
+from portfolio_intelligence.formatting import fmt_compact, fmt_eur, fmt_num, fmt_pct, missing
 from portfolio_intelligence.i18n import get_language, t
 from portfolio_intelligence.visualization.charts import AMBER_TEXT, GAIN, GAIN_TEXT, LOSS
 
@@ -32,6 +34,37 @@ def pct(value: float | None, decimals: int = 1, signed: bool = False) -> str:
 
 def num(value: float | None, decimals: int = 2) -> str:
     return fmt_num(value, get_language(), decimals)
+
+
+def styled(frame, spec: dict[str, tuple]):
+    """Styler con i numeri nella convenzione della lingua dell'interfaccia.
+
+    `spec`: {colonna: (tipo, ...)} con tipo "pct" (decimali, con_segno),
+    "num" (decimali), "eur" (decimali), "compact" e "pp" (valore già in punti
+    percentuali). I valori restano numerici: l'ordinamento non cambia.
+    Le colonne assenti nel frame vengono ignorate.
+    """
+    lang = get_language()
+
+    def formatter(kind: str, *args):
+        if kind == "pct":
+            decimals, signed = args
+            return lambda v: fmt_pct(v, lang, decimals, signed)
+        if kind == "num":
+            return lambda v: fmt_num(v, lang, args[0])
+        if kind == "eur":
+            return lambda v: fmt_eur(v, lang, args[0])
+        if kind == "compact":
+            return lambda v: fmt_compact(v, lang)
+        if kind == "pp":
+            return lambda v: fmt_num(v, lang, args[0]) + "%"
+        raise ValueError(kind)
+
+    columns = set(frame.columns)
+    return frame.style.format(
+        {col: formatter(*spec_) for col, spec_ in spec.items() if col in columns},
+        na_rep=missing(lang),
+    )
 
 
 def sec(title: str) -> None:
@@ -84,7 +117,8 @@ def position_card_html(
     `amount_label` sostituisce la formattazione EUR (es. carico in USD);
     `right_label` sostituisce la percentuale a destra (es. P&L colorato).
     """
-    name = f'<div class="pos-name">{company}</div>' if company else ""
+    name = f'<div class="pos-name">{html.escape(company)}</div>' if company else ""
+    ticker = html.escape(ticker)
     shown_amount = amount_label if amount_label is not None else eur(amount)
     right = right_label if right_label is not None else f"{weight:.0%}"
     return (
@@ -108,7 +142,8 @@ def ticker_preview_html(ticker: str, color: str, preview: dict | None) -> str:
             f'<div class="tp-name">{ticker}</div>'
             f'<div class="tp-meta">Custom ticker</div></div></div>'
         )
-    meta = ticker + (f" · {preview['sector']}" if preview.get("sector") else "")
+    ticker = html.escape(ticker)
+    meta = ticker + (f" · {html.escape(str(preview['sector']))}" if preview.get("sector") else "")
     price_html = ""
     if preview.get("price") is not None:
         sym = "$" if preview.get("currency") == "USD" else preview.get("currency", "")
@@ -121,7 +156,7 @@ def ticker_preview_html(ticker: str, color: str, preview: dict | None) -> str:
         price_html = f'<div class="tp-price">{sym}{preview["price"]:,.2f} {chg_html}</div>'
     return (
         f'<div class="ticker-preview">{avatar}<div class="tp-main">'
-        f'<div class="tp-name">{preview["name"]}</div>'
+        f'<div class="tp-name">{html.escape(str(preview["name"]))}</div>'
         f'<div class="tp-meta">{meta}</div>{price_html}</div></div>'
     )
 
@@ -185,7 +220,7 @@ def dna_card_html(dna: dict[str, float], label: str, title: str | None = None) -
         )
     return (
         f'<div class="panel"><div class="dna-title">{title}</div>{rows}'
-        f'<div class="dna-status">{label}</div></div>'
+        f'<div class="dna-status">{html.escape(label)}</div></div>'
     )
 
 

@@ -16,7 +16,7 @@ from portfolio_intelligence.analytics.options import (
 )
 from portfolio_intelligence.data.options_chain import mid_price, nearest_strike_row
 from portfolio_intelligence.i18n import t
-from portfolio_intelligence.ui.components import eur, sec
+from portfolio_intelligence.ui.components import eur, sec, styled
 from portfolio_intelligence.views.common import TRADING_DAYS, cached_option_chain
 from portfolio_intelligence.views.context import ViewContext
 
@@ -66,6 +66,23 @@ def _market_check(
         else:
             verdict = t("opt.iv_inline")
         st.caption(t("opt.iv_note", iv=f"{iv:.0%}", rv=f"{sigma:.0%}", verdict=verdict))
+
+
+# tabelle di confronto dei contratti: numeri nella convenzione della lingua
+OPTION_TABLE_FORMAT = {
+    "strike": ("num", 2),
+    "strike_pct": ("pct", 1, False),
+    "mid": ("num", 2),
+    "cost_pct": ("pct", 2, False),
+    "cost_month_pct": ("pct", 2, False),
+    "floor": ("num", 2),
+    "locked_pnl": ("eur", 0),
+    "yield_pct": ("pct", 2, False),
+    "yield_ann": ("pct", 1, False),
+    "income": ("eur", 0),
+    "iv": ("pct", 1, False),
+    "oi": ("num", 0),
+}
 
 
 def render(ctx: ViewContext) -> None:
@@ -168,27 +185,17 @@ def render(ctx: ViewContext) -> None:
         if not facts.empty:
             with st.expander(t("opt.compare_put_title")):
                 st.dataframe(
-                    facts,
+                    styled(facts, OPTION_TABLE_FORMAT),
                     column_config={
-                        "strike": st.column_config.NumberColumn(
-                            t("opt.col_strike"), format="%.2f"
-                        ),
-                        "strike_pct": st.column_config.NumberColumn(
-                            t("opt.col_strike_pct"), format="percent"
-                        ),
-                        "mid": st.column_config.NumberColumn(t("opt.col_mid"), format="%.2f"),
-                        "cost_pct": st.column_config.NumberColumn(
-                            t("opt.col_cost_pct"), format="percent"
-                        ),
-                        "cost_month_pct": st.column_config.NumberColumn(
-                            t("opt.col_cost_month"), format="percent"
-                        ),
-                        "floor": st.column_config.NumberColumn(t("opt.col_floor"), format="%.2f"),
-                        "locked_pnl": st.column_config.NumberColumn(
-                            t("opt.col_locked"), format="%.0f €"
-                        ),
-                        "iv": st.column_config.NumberColumn(t("opt.col_iv"), format="percent"),
-                        "oi": st.column_config.NumberColumn(t("opt.col_oi"), format="%.0f"),
+                        "strike": st.column_config.NumberColumn(t("opt.col_strike")),
+                        "strike_pct": st.column_config.NumberColumn(t("opt.col_strike_pct")),
+                        "mid": st.column_config.NumberColumn(t("opt.col_mid")),
+                        "cost_pct": st.column_config.NumberColumn(t("opt.col_cost_pct")),
+                        "cost_month_pct": st.column_config.NumberColumn(t("opt.col_cost_month")),
+                        "floor": st.column_config.NumberColumn(t("opt.col_floor")),
+                        "locked_pnl": st.column_config.NumberColumn(t("opt.col_locked")),
+                        "iv": st.column_config.NumberColumn(t("opt.col_iv")),
+                        "oi": st.column_config.NumberColumn(t("opt.col_oi")),
                     },
                     hide_index=True,
                     width="stretch",
@@ -218,26 +225,16 @@ def render(ctx: ViewContext) -> None:
         if not facts.empty:
             with st.expander(t("opt.compare_call_title")):
                 st.dataframe(
-                    facts,
+                    styled(facts, OPTION_TABLE_FORMAT),
                     column_config={
-                        "strike": st.column_config.NumberColumn(
-                            t("opt.col_strike"), format="%.2f"
-                        ),
-                        "strike_pct": st.column_config.NumberColumn(
-                            t("opt.col_strike_pct"), format="percent"
-                        ),
-                        "mid": st.column_config.NumberColumn(t("opt.col_mid"), format="%.2f"),
-                        "yield_pct": st.column_config.NumberColumn(
-                            t("opt.col_yield"), format="percent"
-                        ),
-                        "yield_ann": st.column_config.NumberColumn(
-                            t("opt.col_yield_ann"), format="percent"
-                        ),
-                        "income": st.column_config.NumberColumn(
-                            t("opt.col_income"), format="%.0f €"
-                        ),
-                        "iv": st.column_config.NumberColumn(t("opt.col_iv"), format="percent"),
-                        "oi": st.column_config.NumberColumn(t("opt.col_oi"), format="%.0f"),
+                        "strike": st.column_config.NumberColumn(t("opt.col_strike")),
+                        "strike_pct": st.column_config.NumberColumn(t("opt.col_strike_pct")),
+                        "mid": st.column_config.NumberColumn(t("opt.col_mid")),
+                        "yield_pct": st.column_config.NumberColumn(t("opt.col_yield")),
+                        "yield_ann": st.column_config.NumberColumn(t("opt.col_yield_ann")),
+                        "income": st.column_config.NumberColumn(t("opt.col_income")),
+                        "iv": st.column_config.NumberColumn(t("opt.col_iv")),
+                        "oi": st.column_config.NumberColumn(t("opt.col_oi")),
                     },
                     hide_index=True,
                     width="stretch",

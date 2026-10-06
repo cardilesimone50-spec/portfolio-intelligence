@@ -34,7 +34,7 @@ Non chiediamo nome, email o altri dati identificativi. **Attenzione**: gli estra
 |---|---|---|---|
 | Dati dell'account ricevuti dal fornitore di identità (email, nome) | Autenticazione e separazione dei dati tra consulenti | Esecuzione del contratto (art. 6.1.b) | Fino alla cancellazione dell'account |
 | Portafogli dei clienti salvati e storico delle analisi | Erogazione del servizio al consulente | Esecuzione del contratto (art. 6.1.b) | Fino alla cancellazione da parte del consulente |
-| Registro di sicurezza (chi ha fatto cosa e quando) | Sicurezza e accertamento di abusi | Legittimo interesse (art. 6.1.f) | {{audit_retention}}; alla cancellazione dell'account le voci vengono anonimizzate |
+| Registro di sicurezza (chi ha fatto cosa e quando) | Sicurezza e accertamento di abusi | Legittimo interesse (art. 6.1.f) | {{audit_retention}}; alla cancellazione dell'account l'email è sostituita da un codice casuale non derivato da essa e i dettagli sono rimossi |
 
 **Dati dei clienti del consulente.** Per i dati dei propri clienti il consulente agisce come **titolare** del trattamento, mentre {{name}} agisce come **responsabile** ai sensi dell'art. 28 GDPR, sulla base di un accordo sul trattamento dei dati da sottoscrivere prima dell'uso professionale. Raccomandiamo di identificare i portafogli con codici interni e non con nomi e cognomi.
 
