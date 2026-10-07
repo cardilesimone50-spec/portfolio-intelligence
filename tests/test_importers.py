@@ -105,3 +105,13 @@ def test_position_cards_escape_provider_names():
 
     html_text = position_card_html("AAPL", 100.0, 0.5, "#123456", company="<b>x</b> & co")
     assert "<b>x</b>" not in html_text and "&lt;b&gt;x&lt;/b&gt; &amp; co" in html_text
+
+
+def test_to_number_reads_italian_and_english_formats():
+    from portfolio_intelligence.data.importers import _to_number
+
+    assert _to_number("1.234,56 €") == 1234.56
+    assert _to_number("$2,275.20") == 2275.20
+    assert _to_number("1,200,000") == 1_200_000
+    assert _to_number("12,5") == 12.5
+    assert _to_number("1.200.000") == 1_200_000

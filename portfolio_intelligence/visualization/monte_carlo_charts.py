@@ -9,12 +9,22 @@ from portfolio_intelligence.i18n import t
 FAN_COLOR = "#1E40AF"  # colore del marchio: un'unica tinta, intensità diverse per le fasce
 BASELINE_COLOR = "#64748b"
 
-# Euro con il punto come separatore delle migliaia (convenzione italiana)
-_EUR_LABEL = "replace(format(datum.value, ',.0f'), /,/g, '.') + ' €'"
+
+# Etichette dell'asse in euro: i separatori arrivano dal locale del grafico
+# (charts.localized), il simbolo segue la convenzione della lingua
+def _eur_label() -> str:
+    from portfolio_intelligence.i18n import get_language
+
+    if get_language() == "it":
+        return "format(datum.value, ',.0f') + ' €'"
+    return "'€' + format(datum.value, ',.0f')"
 
 
 def _eur(value: float) -> str:
-    return f"{value:,.0f} €".replace(",", ".")
+    from portfolio_intelligence.formatting import fmt_eur
+    from portfolio_intelligence.i18n import get_language
+
+    return fmt_eur(value, get_language())
 
 
 def fan_data(result: MonteCarloResult) -> pd.DataFrame:
@@ -38,7 +48,7 @@ def fan_chart(result: MonteCarloResult, height: int = 320) -> alt.Chart:
         scale=alt.Scale(domain=[0, result.horizon_years], nice=False),
         axis=alt.Axis(tickCount=result.horizon_years, format="d", grid=False),
     )
-    y_axis = alt.Axis(labelExpr=_EUR_LABEL, title=None, grid=True, gridOpacity=0.4)
+    y_axis = alt.Axis(labelExpr=_eur_label(), title=None, grid=True, gridOpacity=0.4)
     tooltip = [
         alt.Tooltip("when:N", title=t("mc.tt_when")),
         alt.Tooltip("p90_eur:N", title=t("mc.tt_p90")),

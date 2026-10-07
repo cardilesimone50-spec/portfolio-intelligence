@@ -53,13 +53,29 @@ _COST_PRICE_COLUMNS = {
 
 
 def _to_number(value) -> float:
-    """Converte importi anche in formato italiano ('1.234,56 €') in float."""
+    """Converte importi in formato italiano ('1.234,56 €') o inglese ('$2,275.20') in float.
+
+    Con virgola e punto insieme il separatore decimale è l'ultimo dei due; più
+    virgole sono migliaia all'inglese ('1,200,000'). Una virgola sola resta
+    decimale, come negli export dei broker italiani ('12,345' = 12,345).
+    """
     if isinstance(value, (int, float)):
         return float(value)
-    text = str(value).replace("€", "").replace(" ", "").strip()
-    if "," in text:
-        # formato italiano: il punto è il separatore delle migliaia
-        text = text.replace(".", "").replace(",", ".")
+    text = str(value)
+    for symbol in ("€", "$", "£", "\u00a0", "'", " "):
+        text = text.replace(symbol, "")
+    text = text.strip()
+    if "," in text and "." in text:
+        if text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")  # 1.234,56
+        else:
+            text = text.replace(",", "")  # 2,275.20
+    elif text.count(",") > 1:
+        text = text.replace(",", "")  # 1,200,000
+    elif "," in text:
+        text = text.replace(",", ".")  # 12,5
+    elif text.count(".") > 1:
+        text = text.replace(".", "")  # 1.200.000
     return float(text)
 
 

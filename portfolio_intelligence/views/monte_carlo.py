@@ -14,10 +14,11 @@ from portfolio_intelligence.analytics.monte_carlo import (
     simulate,
 )
 from portfolio_intelligence.config import TRADING_DAYS
-from portfolio_intelligence.formatting import ui_pct
+from portfolio_intelligence.formatting import ui_num, ui_pct
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.ui.components import eur, notice, sec
 from portfolio_intelligence.views.context import ViewContext
+from portfolio_intelligence.visualization.charts import show as show_chart
 from portfolio_intelligence.visualization.monte_carlo_charts import fan_chart
 
 HORIZONS = [1, 3, 5]
@@ -104,7 +105,9 @@ def render(ctx: ViewContext) -> None:
         default="bootstrap",
         format_func=lambda m: t(f"mc.method_{m}"),
     )
-    n_sims = n_col.select_slider(t("mc.simulations"), SIMULATIONS, value=1000)
+    n_sims = n_col.select_slider(
+        t("mc.simulations"), SIMULATIONS, value=1000, format_func=lambda n: ui_num(n, 0)
+    )
 
     returns, weights = _inputs(ctx)
     history = returns.dropna()
@@ -146,14 +149,14 @@ def render(ctx: ViewContext) -> None:
         unsafe_allow_html=True,
     )
 
-    st.altair_chart(fan_chart(result), width="stretch")
+    show_chart(fan_chart(result), width="stretch")
     st.caption(
         t(
             "mc.history",
             n=len(history),
             start=f"{history.index[0]:%d/%m/%Y}",
             end=f"{history.index[-1]:%d/%m/%Y}",
-            sims=f"{result.n_simulations:,}".replace(",", "."),
+            sims=ui_num(result.n_simulations, 0),
         )
     )
     if len(history) < SHORT_HISTORY_DAYS:

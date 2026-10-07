@@ -29,6 +29,7 @@ from portfolio_intelligence.visualization.charts import (
     simple_line,
     underwater_chart,
 )
+from portfolio_intelligence.visualization.charts import show as show_chart
 
 
 def render(ctx: ViewContext) -> None:
@@ -89,7 +90,7 @@ def render(ctx: ViewContext) -> None:
 
     sec(t("an.vs_bench", benchmark=BENCHMARK))
     bench_value = (1 + c["bench_daily"]).cumprod()
-    st.altair_chart(
+    show_chart(
         benchmark_overlay(c["pf_value"], bench_value, BENCHMARK),
         width="stretch",
     )
@@ -101,11 +102,11 @@ def render(ctx: ViewContext) -> None:
     col_dd, col_hist = st.columns(2, gap="large")
     with col_dd:
         sec(t("an.underwater"))
-        st.altair_chart(underwater_chart(c["pf_value"]), width="stretch")
+        show_chart(underwater_chart(c["pf_value"]), width="stretch")
         st.caption(t("an.underwater_caption"))
     with col_hist:
         sec(t("an.distribution"))
-        st.altair_chart(returns_histogram(c["pf_daily"], c["var_95"]), width="stretch")
+        show_chart(returns_histogram(c["pf_daily"], c["var_95"]), width="stretch")
         st.caption(t("an.distribution_caption"))
 
     if len(c["pf_daily"]) >= 80:
@@ -113,7 +114,7 @@ def render(ctx: ViewContext) -> None:
         with col_rvol:
             sec(t("an.rolling_vol"))
             rolling_vol = (c["pf_daily"].rolling(60).std() * TRADING_DAYS**0.5).dropna()
-            st.altair_chart(simple_line(rolling_vol), width="stretch")
+            show_chart(simple_line(rolling_vol), width="stretch")
             st.caption(t("an.rolling_vol_caption"))
         with col_rbeta:
             sec(t("an.rolling_beta", benchmark=BENCHMARK))
@@ -122,7 +123,7 @@ def render(ctx: ViewContext) -> None:
                 aligned["pf"].rolling(60).cov(aligned["bench"])
                 / aligned["bench"].rolling(60).var()
             ).dropna()
-            st.altair_chart(
+            show_chart(
                 simple_line(rolling_beta, color=PALETTE[0], y_format=".1f"),
                 width="stretch",
             )
@@ -135,12 +136,12 @@ def render(ctx: ViewContext) -> None:
         contributions_eur = pd.Series(
             {t: amounts[t] * float(cum_by_ticker.get(t, 0.0)) for t in amounts}
         )
-        st.altair_chart(contribution_bars(contributions_eur), width="stretch")
+        show_chart(contribution_bars(contributions_eur), width="stretch")
         st.caption(t("an.attribution_caption"))
     with col_alloc:
         sec(t("an.allocation"))
-        st.altair_chart(allocation_bars(amounts), width="stretch")
+        show_chart(allocation_bars(amounts), width="stretch")
 
     sec(t("an.base100"))
     normalized = c["prices"] / c["prices"].iloc[0] * 100
-    st.altair_chart(multi_line(normalized, height=300), width="stretch")
+    show_chart(multi_line(normalized, height=300), width="stretch")

@@ -23,6 +23,31 @@ ACCENT = "#b57400"
 MUTED = "#9ca3af"
 # assi temporali numerici: i nomi dei mesi di Vega sono solo in inglese
 DATE_AXIS = "%m/%Y"
+# formato dei numeri di Vega in italiano: virgola decimale, punto delle migliaia
+_IT_LOCALE = {
+    "number": {"decimal": ",", "thousands": ".", "grouping": [3], "currency": ["", "\u00a0€"]}
+}
+
+
+def localized(chart):
+    """Il grafico con i separatori numerici della lingua corrente (etichette e tooltip)."""
+    from portfolio_intelligence.i18n import get_language
+
+    if get_language() != "it":
+        return chart
+    chart = chart.copy(deep=True)
+    if chart.config is alt.Undefined:
+        chart.config = alt.Config(locale=_IT_LOCALE)
+    else:
+        chart.config.locale = _IT_LOCALE
+    return chart
+
+
+def show(chart, **kwargs):
+    """st.altair_chart con i numeri nella lingua dell'interfaccia."""
+    import streamlit as st
+
+    return st.altair_chart(localized(chart), **kwargs)
 
 
 def allocation_bars(amounts: dict[str, float]) -> alt.Chart:
@@ -164,7 +189,10 @@ def radar_chart(scores: dict[str, float]) -> alt.Chart:
         .encode(
             x="x:Q",
             y="y:Q",
-            tooltip=[alt.Tooltip("asse:N"), alt.Tooltip("valore:Q", format=".0f")],
+            tooltip=[
+                alt.Tooltip("asse:N", title=t("chart.axis")),
+                alt.Tooltip("valore:Q", title=t("chart.score"), format=".0f"),
+            ],
         )
     )
     axis_labels = pd.DataFrame(
@@ -186,7 +214,8 @@ def monthly_bars(monthly: pd.Series) -> alt.Chart:
     """Timeline dei rendimenti mensili, colore per segno, etichette dirette."""
     df = pd.DataFrame(
         {
-            "mese": monthly.index.strftime("%b %y"),
+            # mese in cifre (11/25): leggibile in ogni lingua, come nei report PDF
+            "mese": monthly.index.strftime("%m/%y"),
             "rendimento": monthly.values,
             "ordine": range(len(monthly)),
         }

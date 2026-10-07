@@ -18,7 +18,7 @@ import streamlit as st
 from portfolio_intelligence.analytics.insights import find_opportunities
 from portfolio_intelligence.analytics.performance import (
     annualized_sharpe,
-    max_drawdown,
+    drawdown_from_returns,
 )
 from portfolio_intelligence.config import (
     HEALTH_SCORE_FAIR,
@@ -39,6 +39,7 @@ from portfolio_intelligence.visualization.charts import (
     LOSS,
     benchmark_overlay,
 )
+from portfolio_intelligence.visualization.charts import show as show_chart
 from portfolio_intelligence.visualization.pdf_advisor import build_advisor_report
 from portfolio_intelligence.visualization.pdf_report import build_investor_report
 
@@ -268,7 +269,7 @@ def key_figures(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
             t(
                 "ov.kf_bench",
                 benchmark=BENCHMARK,
-                value=pct(max_drawdown(bench_value)),
+                value=pct(drawdown_from_returns(c["bench_daily"])),
             ),
             "",
         ),
@@ -471,7 +472,7 @@ def render(ctx: ViewContext, recipient_field) -> None:
     perf_col, mon_col = st.columns([1.35, 1], gap="large")
     with perf_col:
         sec(t("ov.perf_title", benchmark=BENCHMARK))
-        st.altair_chart(
+        show_chart(
             benchmark_overlay(c["pf_value"], (1 + c["bench_daily"]).cumprod(), BENCHMARK),
             width="stretch",
         )
@@ -526,8 +527,13 @@ def render(ctx: ViewContext, recipient_field) -> None:
         simulations, discarded, has_candidates = checkup.scenario_results(ctx)
         for text in simulations:
             st.markdown(text)
-        if not simulations:
-            st.caption(t("chk.no_improve") if has_candidates else t("chk.no_scenario"))
+        if not simulations and has_candidates:
+            # la frase termina con i due punti: seguono gli scenari scartati
+            st.caption(t("chk.no_improve"))
+            for text in discarded:
+                st.caption(t("chk.discarded") + text)
+        elif not simulations:
+            st.caption(t("chk.no_scenario"))
 
     sec(t("ov.reporting_title"))
     with st.container(border=True):

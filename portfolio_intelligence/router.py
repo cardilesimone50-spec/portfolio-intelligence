@@ -9,6 +9,7 @@ sono i profili a differire per davvero — non ha senso nasconderla dietro
 parametri generici.
 """
 
+import html
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -181,13 +182,12 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
 
 
 def render_header(in_eur: bool, product_tag: str) -> None:
-    from portfolio_intelligence.data import yahoo_client
-
+    source = st.session_state.get("price_source")
+    source_html = f" · {t('top.source')}: {html.escape(source)}" if source else ""
     st.markdown(
         f"""<div class="topbar">
         <span class="brand">SMARTEE<b>FINANCE</b><span class="brand-product">{product_tag}</span></span>
-        <span class="brand-tag">{t("top.eur") if in_eur else t("top.orig")}
-        · {t("top.source")}: {yahoo_client.last_price_source}</span></div>""",
+        <span class="brand-tag">{t("top.eur") if in_eur else t("top.orig")}{source_html}</span></div>""",
         unsafe_allow_html=True,
     )
 
@@ -212,7 +212,7 @@ def render_nav_and_dispatch(
 
     with st.container(key="navbar"):
         macro_label = st.segmented_control(
-            "Section",
+            t("a11y.section"),
             list(macro_labels.values()),
             default=macro_labels[default_macro],
             label_visibility="collapsed",
@@ -224,7 +224,7 @@ def render_nav_and_dispatch(
         labels = [label for label, _ in subnav[macro]]
         with st.container(key="subnav"):
             sub = st.segmented_control(
-                "Subsection",
+                t("a11y.subsection"),
                 labels,
                 default=labels[0],
                 label_visibility="collapsed",

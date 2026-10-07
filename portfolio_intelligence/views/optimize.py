@@ -16,6 +16,7 @@ from portfolio_intelligence.ui.components import sec, styled
 from portfolio_intelligence.views.common import TRADING_DAYS
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import efficient_frontier_chart
+from portfolio_intelligence.visualization.charts import show as show_chart
 
 
 def render(ctx: ViewContext) -> None:
@@ -54,7 +55,7 @@ def render(ctx: ViewContext) -> None:
 
     col_frontier, col_compare = st.columns([3, 2], gap="large")
     with col_frontier:
-        st.altair_chart(
+        show_chart(
             efficient_frontier_chart(efficient_frontier(returns), points),
             width="stretch",
         )

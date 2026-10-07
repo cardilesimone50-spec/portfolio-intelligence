@@ -15,9 +15,9 @@ from portfolio_intelligence.analytics.options import (
     zero_cost_collar,
 )
 from portfolio_intelligence.data.options_chain import mid_price, nearest_strike_row
-from portfolio_intelligence.formatting import ui_num, ui_pct
-from portfolio_intelligence.i18n import t
-from portfolio_intelligence.ui.components import eur, sec, styled
+from portfolio_intelligence.formatting import missing, ui_num, ui_pct
+from portfolio_intelligence.i18n import get_language, t
+from portfolio_intelligence.ui.components import eur, sec, signed_eur, styled
 from portfolio_intelligence.views.common import TRADING_DAYS, cached_option_chain
 from portfolio_intelligence.views.context import ViewContext
 
@@ -44,7 +44,7 @@ def _market_check(
     )
     m3.metric(
         t("opt.mkt_iv"),
-        ui_pct(iv, 0) if iv == iv else "—",
+        ui_pct(iv, 0) if iv == iv else missing(get_language()),
         delta=f"RV {sigma:.0%}",
         delta_color="off",
     )
@@ -58,7 +58,7 @@ def _market_check(
             bid=ui_num(float(row.get("bid") or 0), 2),
             ask=ui_num(float(row.get("ask") or 0), 2),
             last=ui_num(float(row.get("lastPrice") or 0), 2),
-            oi=f"{int(oi):,}" if oi == oi and oi is not None else "—",
+            oi=ui_num(oi, 0) if oi == oi and oi is not None else missing(get_language()),
         )
     )
     if iv == iv:
@@ -147,7 +147,7 @@ def render(ctx: ViewContext) -> None:
     p1, p2, p3 = st.columns(3)
     p1.metric(t("pos.buy_price"), ui_num(cost, 2))
     p2.metric(
-        t("opt.put_strike"),
+        t("opt.put_strike_abs"),
         ui_num(put["strike"], 2),
         delta=t("opt.premium_delta", premium=ui_num(put["premium"], 2)),
         delta_color="off",
@@ -172,7 +172,7 @@ def render(ctx: ViewContext) -> None:
                 key,
                 cost=ui_num(cost, 2),
                 pnl=ui_num(locked, 2, signed=True),
-                total=("+" if locked_total >= 0 else "") + eur(locked_total),
+                total=signed_eur(locked_total),
             )
         )
     _market_check(put_chain, "put", put["strike"], spot, sigma, rate)
@@ -216,9 +216,12 @@ def render(ctx: ViewContext) -> None:
             premium=ui_num(call["premium"], 2),
             yld=ui_pct(period_yield, 2),
         )
-        + f" (~{period_yield * 365 / days:.1%}/y · {'+' if call['premium'] >= 0 else ''}"
-        + eur(call["premium"] * qty * fx)
-        + ")"
+        + " "
+        + t(
+            "opt.income_annual",
+            ann=ui_pct(period_yield * 365 / days, 1),
+            total=signed_eur(call["premium"] * qty * fx),
+        )
     )
     _market_check(call_chain, "call", call["strike"], spot, sigma, rate)
     if call_chain is not None:

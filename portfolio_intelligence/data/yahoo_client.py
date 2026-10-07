@@ -16,23 +16,21 @@ from portfolio_intelligence.data.providers import build_default_chain
 _NASDAQ100_URL = "https://www.slickcharts.com/nasdaq100"
 _HEADERS = {"User-Agent": "Mozilla/5.0 (portfolio-intelligence research script)"}
 
-# sorgente effettiva dell'ultimo download riuscito (per mostrarla nella UI)
-last_price_source: str = "—"
 
-
-def fetch_price_history(tickers: list[str], period: str = "1y") -> pd.DataFrame:
-    """Scarica i prezzi di chiusura (adjusted) via la catena di provider dati."""
-    global last_price_source
+def fetch_prices_with_source(tickers: list[str], period: str = "1y") -> tuple[pd.DataFrame, str]:
+    """Prezzi di chiusura (adjusted) dalla catena di provider, con la sorgente effettiva."""
     data, source = build_default_chain().fetch(tickers, period)
-    last_price_source = source
-
     missing = [
         ticker for ticker in tickers if ticker not in data.columns or data[ticker].isna().all()
     ]
     if missing:
         raise ValueError(f"No data found for tickers: {', '.join(missing)}")
+    return data, source
 
-    return data
+
+def fetch_price_history(tickers: list[str], period: str = "1y") -> pd.DataFrame:
+    """Scarica i prezzi di chiusura (adjusted) via la catena di provider dati."""
+    return fetch_prices_with_source(tickers, period)[0]
 
 
 def get_ticker_info(ticker: str) -> dict:

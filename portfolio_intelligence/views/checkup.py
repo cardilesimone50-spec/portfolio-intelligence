@@ -23,7 +23,7 @@ from portfolio_intelligence.analytics.interpret import (
     interpret_volatility,
 )
 from portfolio_intelligence.analytics.performance import (
-    max_drawdown,
+    drawdown_from_returns,
 )
 from portfolio_intelligence.analytics.report_metrics import compute_report_metrics, stress_tests
 from portfolio_intelligence.data.store import load_analyses, log_analysis, log_audit
@@ -52,7 +52,8 @@ from portfolio_intelligence.views.common import (
 )
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.views.monte_carlo import report_projection
-from portfolio_intelligence.visualization.charts import equity_area, simple_line
+from portfolio_intelligence.visualization.charts import GAIN_TEXT, equity_area, simple_line
+from portfolio_intelligence.visualization.charts import show as show_chart
 from portfolio_intelligence.visualization.pdf_advisor import build_advisor_report
 from portfolio_intelligence.visualization.pdf_common import ReportInput
 from portfolio_intelligence.visualization.pdf_report import build_investor_report
@@ -88,7 +89,7 @@ def render(ctx: ViewContext) -> None:
             st.markdown(f"**{dna_label(c['dna'])}**")
     with col_equity:
         sec(t("chk.capital_section", period=period_text(period)))
-        st.altair_chart(
+        show_chart(
             equity_area(total * (1 + c["pf_daily"]).cumprod(), total),
             width="stretch",
         )
@@ -136,9 +137,9 @@ def render(ctx: ViewContext) -> None:
         if value is None or value != value:
             return ""
         return (
-            "color: #0ea371; font-weight: 600"
+            f"color: {GAIN_TEXT}; font-weight: 600"  # verde da testo: contrasto AA su bianco
             if value >= 0
-            else "color: #dc2626; font-weight: 600"
+            else "color: #b91c1c; font-weight: 600"
         )
 
     st.dataframe(
@@ -321,7 +322,7 @@ def scenario_results(ctx: ViewContext) -> tuple[list[str], list[str], bool]:
     def simulate_change(new_pf: list) -> tuple[float, int]:
         new_vol = portfolio_volatility(c["returns"], new_pf) * TRADING_DAYS**0.5
         new_daily = portfolio_daily_returns(c["returns"], new_pf)
-        new_dd = max_drawdown((1 + new_daily).cumprod())
+        new_dd = drawdown_from_returns(new_daily)
         new_radar = radar_scores(new_vol, new_pf, new_dd, c["avg_corr"])
         new_dna = dna_scores(c["fund"], new_pf, new_vol, c["avg_corr"])
         new_breakdown = health_breakdown(new_dna, new_radar, usd_exposure(new_pf))
@@ -505,7 +506,7 @@ def history_panel(ctx: ViewContext) -> None:
                     trend["health"].to_numpy(dtype=float),
                     index=pd.to_datetime(trend["timestamp"]),
                 ).sort_index()
-                st.altair_chart(simple_line(series, y_format=".0f"), width="stretch")
+                show_chart(simple_line(series, y_format=".0f"), width="stretch")
                 delta_h = int(series.iloc[-1] - series.iloc[0])
                 st.caption(
                     t(

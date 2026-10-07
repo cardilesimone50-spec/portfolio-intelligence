@@ -17,6 +17,7 @@ from portfolio_intelligence.ui.components import pct, sec, styled
 from portfolio_intelligence.views.common import TRADING_DAYS, cached_prices, market_db_required
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import multi_line
+from portfolio_intelligence.visualization.charts import show as show_chart
 
 # orizzonte → giorni e periodo Yahoo
 HORIZON_DAYS = {"1y": 365, "2y": 730, "5y": 1826}
@@ -33,7 +34,6 @@ def render(ctx: ViewContext) -> None:
     st.caption(t("bt.caption"))
     all_prices = market_db_required("backtest")
     if all_prices is None:
-        st.info(t("xc.no_db"))
         return
 
     options = list(MARKET_STRATEGIES)
@@ -85,7 +85,10 @@ def render(ctx: ViewContext) -> None:
                 )
                 weights_now = pd.Series(amounts) / sum(amounts.values())
                 if "buy_hold" in chosen:
-                    curves["buy_hold"] = buy_and_hold(my_prices, weights_now)
+                    # acquisto iniziale pagato come nelle altre strategie
+                    curves["buy_hold"] = buy_and_hold(my_prices, weights_now) * (
+                        1 - cost_bps / 10_000
+                    )
                 if "max_sharpe" in chosen:
                     curves["max_sharpe"] = run_backtest(my_prices, max_sharpe, cost_bps=cost_bps)
                 if "min_var" in chosen:
@@ -94,12 +97,18 @@ def render(ctx: ViewContext) -> None:
             st.error(f"{exc}")
 
     if curves:
+        # stessa finestra per tutte: si parte dalla prima data comune, ribasata a 100
+        start = max(curve.dropna().index[0] for curve in curves.values())
+        curves = {
+            key: curve.loc[start:] / curve.loc[start:].iloc[0] * 100
+            for key, curve in curves.items()
+        }
         curves = {t(f"bt.s_{key}"): curve for key, curve in curves.items()}
         equity = pd.DataFrame(curves).dropna(how="all")
         cols = st.columns(len(curves))
         for col, (name, curve) in zip(cols, curves.items(), strict=False):
             col.metric(name, pct(curve.iloc[-1] / 100 - 1, 0, signed=True))
-        st.altair_chart(multi_line(equity, height=380), width="stretch")
+        show_chart(multi_line(equity, height=380), width="stretch")
 
         strategy_stats = pd.DataFrame(
             [

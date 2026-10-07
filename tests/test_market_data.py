@@ -19,7 +19,8 @@ def test_fetch_price_history_valid(monkeypatch):
     result = yahoo_client.fetch_price_history(["AAPL", "MSFT"], period="5d")
     assert list(result.columns) == ["AAPL", "MSFT"]
     assert len(result) == 2
-    assert yahoo_client.last_price_source == "Fake"
+    _, source = yahoo_client.fetch_prices_with_source(["AAPL", "MSFT"], period="5d")
+    assert source == "Fake"
 
 
 def test_fetch_price_history_missing_ticker_raises(monkeypatch):
@@ -39,3 +40,23 @@ def test_fetch_price_history_all_providers_failed(monkeypatch):
 
     with pytest.raises(ValueError, match="No data provider"):
         yahoo_client.fetch_price_history(["AAPL"], period="5d")
+
+
+def test_chain_fills_tickers_missing_from_first_provider():
+    from portfolio_intelligence.data.providers import ProviderChain
+
+    class Partial:
+        name = "First"
+
+        def fetch(self, tickers, period):
+            return pd.DataFrame({tk: [1.0, 2.0] for tk in tickers if tk != "RARE"})
+
+    class Second:
+        name = "Second"
+
+        def fetch(self, tickers, period):
+            return pd.DataFrame({tk: [3.0, 4.0] for tk in tickers})
+
+    data, source = ProviderChain([Partial(), Second()]).fetch(["AAPL", "RARE"], "1y")
+    assert set(data.columns) == {"AAPL", "RARE"}
+    assert source == "First + Second"

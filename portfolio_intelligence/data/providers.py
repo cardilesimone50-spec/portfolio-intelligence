@@ -124,7 +124,10 @@ class YahooChartProvider:
         values = adjusted or close
         if not timestamps or not values:
             raise ProviderError(f"Yahoo chart: empty series for {ticker}")
-        index = pd.to_datetime(timestamps, unit="s").normalize()
+        # data nell'ora locale della borsa: in UTC le barre FX (23:00 UTC) e
+        # asiatiche cadrebbero sul giorno precedente
+        offset = int((result.get("meta") or {}).get("gmtoffset") or 0)
+        index = pd.to_datetime([ts + offset for ts in timestamps], unit="s").normalize()
         return pd.Series(values, index=index, name=ticker).dropna()
 
     def fetch(self, tickers: list[str], period: str) -> pd.DataFrame:
@@ -239,26 +242,43 @@ class ProviderChain:
         return self._providers[0].name
 
     def fetch(self, tickers: list[str], period: str) -> tuple[pd.DataFrame, str]:
+        """Prezzi per tutti i ticker: i mancanti si chiedono al provider successivo.
+
+        Un risultato parziale non chiude la catena: un ticker che il primo
+        provider non serve può arrivare da uno dei successivi.
+        """
         errors = []
+        frames: list[pd.DataFrame] = []
+        sources: list[str] = []
+        missing = list(tickers)
         for provider in self._providers:
+            if not missing:
+                break
             try:
-                data = provider.fetch(tickers, period)
+                data = provider.fetch(missing, period)
             except ProviderError as exc:
                 log.warning("%s failed, trying next provider: %s", provider.name, exc)
                 errors.append(str(exc))
                 continue
-            if not data.empty and not data.isna().all().all():
-                if errors:
-                    log.info(
-                        "%s served the request after %d failed provider(s)",
-                        provider.name,
-                        len(errors),
-                    )
-                return data, provider.name
-            log.warning("%s returned an empty result, trying next provider", provider.name)
-            errors.append(f"{provider.name}: empty result")
-        log.error("All providers failed for %d ticker(s): %s", len(tickers), " · ".join(errors))
-        raise ValueError("No data provider responded: " + " · ".join(errors))
+            served = [c for c in data.columns if c in missing and data[c].notna().any()]
+            if not served:
+                log.warning("%s returned an empty result, trying next provider", provider.name)
+                errors.append(f"{provider.name}: empty result")
+                continue
+            frames.append(data[served])
+            sources.append(provider.name)
+            missing = [tk for tk in missing if tk not in served]
+            if missing:
+                log.info(
+                    "%s lacked %d ticker(s), trying next provider", provider.name, len(missing)
+                )
+        if not frames:
+            log.error(
+                "All providers failed for %d ticker(s): %s", len(tickers), " · ".join(errors)
+            )
+            raise ValueError("No data provider responded: " + " · ".join(errors))
+        data = pd.concat(frames, axis=1).sort_index() if len(frames) > 1 else frames[0]
+        return data, " + ".join(sources)
 
 
 def build_default_chain() -> ProviderChain:

@@ -12,8 +12,8 @@ import streamlit as st
 
 from portfolio_intelligence.data.importers import parse_positions
 from portfolio_intelligence.data.validators import is_valid_ticker
-from portfolio_intelligence.formatting import ui_num, ui_pct
-from portfolio_intelligence.i18n import t
+from portfolio_intelligence.formatting import missing, ui_num, ui_pct
+from portfolio_intelligence.i18n import get_language, sector_text, t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from portfolio_intelligence.views.common import (
     cached_price_on,
@@ -79,7 +79,8 @@ def _clear_positions() -> None:
     st.session_state.positions = {}
 
 
-def _add(prefix: str) -> None:
+def add_position(prefix: str) -> None:
+    """Aggiunge il lotto inserito nei widget `{prefix}_*`, con validazione del ticker."""
     chosen = st.session_state.get(f"{prefix}_ticker")
     if not chosen:
         return
@@ -154,7 +155,7 @@ def manual_entry(prefix: str) -> None:
             disabled=not key,
             help=t(
                 "pos.price_auto_help",
-                current=ui_num(current_price, 2) if current_price else "—",
+                current=ui_num(current_price, 2) if current_price else missing(get_language()),
             ),
         )
     with c_add:
@@ -163,7 +164,7 @@ def manual_entry(prefix: str) -> None:
             key=f"{prefix}_add",
             type="primary",
             width="stretch",
-            on_click=_add,
+            on_click=add_position,
             args=(prefix,),
             disabled=not key,
         )
@@ -174,7 +175,7 @@ def manual_entry(prefix: str) -> None:
         st.session_state.setdefault("names", {})[key] = preview["name"]
         parts = [f"<b>{html.escape(str(preview['name']))}</b>"]
         if preview.get("sector"):
-            parts.append(html.escape(str(preview["sector"])))
+            parts.append(html.escape(str(sector_text(preview["sector"]))))
         if current_price is not None:
             sym = "$" if preview.get("currency") == "USD" else preview.get("currency", "")
             price = f"{sym}{ui_num(current_price, 2)}"
@@ -236,7 +237,7 @@ def invested_text(positions: dict, decimals: int = 2) -> str:
 
     total = sum(cost for _, _, cost in cost_basis(positions).values())
     if not total:
-        return "—"
+        return missing(get_language())
     text = ui_num(total, decimals)
     return f"{text} USD" if all(is_usd_listing(tk) for tk in positions) else text
 
@@ -290,11 +291,16 @@ def positions_table(prefix: str, title: str | None = None, empty_hint: str | Non
         qty, avg, cost = rows[ticker]
         cells = [
             ("sym", ticker),
-            ("name", company_name(ticker) or "—"),
-            ("r", ui_num(qty, 4).rstrip("0").rstrip(",.") if qty is not None else "—"),
-            ("r", ui_num(avg, 2) if avg is not None else "—"),
+            ("name", company_name(ticker) or missing(get_language())),
+            (
+                "r",
+                ui_num(qty, 4).rstrip("0").rstrip(",.")
+                if qty is not None
+                else missing(get_language()),
+            ),
+            ("r", ui_num(avg, 2) if avg is not None else missing(get_language())),
             ("r", ui_num(cost, 2)),
-            ("r", ui_pct(cost / total, 1) if total else "—"),
+            ("r", ui_pct(cost / total, 1) if total else missing(get_language())),
         ]
         with st.container(key=f"{prefix}_pe_row_{ticker}"):
             data_col, action_col = st.columns(widths, gap="small", vertical_alignment="center")

@@ -86,3 +86,13 @@ def test_fetch_eurusd_prefers_ecb_and_falls_back_to_yahoo(monkeypatch):
 
     monkeypatch.setattr(fx, "fetch_eurusd_ecb", _ecb_down)
     assert fx.fetch_eurusd("1y").iloc[0] == pytest.approx(1.20)
+
+
+def test_non_euro_non_usd_listings_are_not_dollars():
+    from portfolio_intelligence.data.fx import is_usd_listing
+
+    assert is_usd_listing("AAPL")
+    assert is_usd_listing("BRK.B")
+    assert not is_usd_listing("ENI.MI")
+    assert not is_usd_listing("HSBA.L")
+    assert not is_usd_listing("NESN.SW")

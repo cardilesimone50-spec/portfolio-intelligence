@@ -12,15 +12,16 @@ import streamlit as st
 
 from portfolio_intelligence.config import HISTORY_PERIODS, INVESTOR_HISTORY_PERIOD, RISK_PROFILES
 from portfolio_intelligence.data.importers import parse_positions
-from portfolio_intelligence.formatting import ui_num
-from portfolio_intelligence.i18n import t
-from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
+from portfolio_intelligence.formatting import missing, ui_num
+from portfolio_intelligence.i18n import get_language, t
+from portfolio_intelligence.portfolio.positions import aggregate, normalize_portfolio
 from portfolio_intelligence.ui.area_switch import area_switch
 from portfolio_intelligence.ui.components import (
     empty_state,
     eur,
     position_card_html,
     sec,
+    set_amounts_in_eur,
     ticker_preview_html,
 )
 from portfolio_intelligence.views import portfolio_editor as pe
@@ -47,23 +48,8 @@ class SidebarSettings:
 
 
 def _add_holding() -> None:
-    # runs as a callback (before widgets re-instantiate), so clearing the
-    # add_ticker widget key here is allowed by Streamlit
-    chosen = st.session_state.get("add_ticker")
-    if not chosen:
-        return
-    k = str(chosen).upper().strip()
-    qty = float(st.session_state.get(f"add_qty_{k}") or 0)
-    when = st.session_state.get(f"add_date_{k}")
-    iso = when.isoformat() if when else ""
-    price = float(st.session_state.get(f"add_price_{k}_{iso}") or 0)
-    if price <= 0 and when:
-        price = float(cached_price_on(k, iso) or 0)
-    if qty <= 0 or price <= 0:
-        st.toast(t("pos.price_lookup_failed", ticker=k, date=iso))
-        return
-    st.session_state.positions[k] = add_lot(st.session_state.positions.get(k), qty, price, when)
-    st.session_state.add_ticker = None
+    # stessa logica (e validazione del ticker) dell'editor: widget con prefisso "add"
+    pe.add_position("add")
 
 
 def analysis_parameters(
@@ -78,6 +64,7 @@ def analysis_parameters(
         key=f"{key_prefix}_period",
     )
     in_eur = st.toggle(t("side.in_eur"), value=True, help=t("side.in_eur_help"))
+    set_amounts_in_eur(in_eur)
     rf_baseline_pct = min(10.0, max(0.0, round(cached_risk_free() * 100, 2)))
     risk_free = (
         st.number_input(
@@ -111,7 +98,7 @@ def render_sidebar() -> SidebarSettings:
         sec(t("side.add_stock"))
 
         new_ticker = st.selectbox(
-            "Search stock",
+            t("a11y.search_stock"),
             known_tickers(),
             index=None,
             placeholder=t("gate.search_placeholder"),
@@ -158,7 +145,7 @@ def render_sidebar() -> SidebarSettings:
                 key=f"add_price_{key}_{iso}",
                 help=t(
                     "pos.price_auto_help",
-                    current=ui_num(current_price, 2) if current_price else "—",
+                    current=ui_num(current_price, 2) if current_price else missing(get_language()),
                 ),
             )
             st.button(t("gate.add"), width="stretch", type="primary", on_click=_add_holding)

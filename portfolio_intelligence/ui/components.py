@@ -1,6 +1,7 @@
 """Componenti UI riusabili: hero, card, sezioni, breakdown, landing."""
 
 import html
+from contextvars import ContextVar
 
 import streamlit as st
 
@@ -14,7 +15,7 @@ from portfolio_intelligence.formatting import (
     ui_num,
     ui_pct,
 )
-from portfolio_intelligence.i18n import get_language, period_text, t
+from portfolio_intelligence.i18n import get_language, period_text, sector_text, t
 from portfolio_intelligence.visualization.charts import AMBER_TEXT, GAIN, GAIN_TEXT, LOSS
 
 AMBER = "#d97706"  # status mid-band (gauge/health)
@@ -26,12 +27,25 @@ def _comp_name(name: str) -> str:
     return name if translated.startswith("comp.") else translated
 
 
+# Importi in euro o nelle valute di quotazione, per esecuzione (come la lingua):
+# con la conversione disattivata i valori sono in valute miste, senza simbolo €.
+_AMOUNTS_IN_EUR: ContextVar[bool] = ContextVar("amounts_in_eur", default=True)
+
+
+def set_amounts_in_eur(flag: bool) -> None:
+    _AMOUNTS_IN_EUR.set(bool(flag))
+
+
 def eur(value: float, decimals: int = 0) -> str:
-    """Importo in euro nella convenzione della lingua: €16,076 (EN), 16.076 € (IT)."""
+    """Importo nella convenzione della lingua: €16,076 (EN), 16.076 € (IT); senza € se non in EUR."""
+    if not _AMOUNTS_IN_EUR.get():
+        return fmt_num(value, get_language(), decimals)
     return fmt_eur(value, get_language(), decimals)
 
 
 def signed_eur(value: float, decimals: int = 0) -> str:
+    if not _AMOUNTS_IN_EUR.get():
+        return fmt_num(value, get_language(), decimals, signed=True)
     return fmt_eur(value, get_language(), decimals, signed=True)
 
 
@@ -151,7 +165,8 @@ def ticker_preview_html(ticker: str, color: str, preview: dict | None) -> str:
             f'<div class="tp-meta">Custom ticker</div></div></div>'
         )
     ticker = html.escape(ticker)
-    meta = ticker + (f" · {html.escape(str(preview['sector']))}" if preview.get("sector") else "")
+    sector = sector_text(preview.get("sector") or "")
+    meta = ticker + (f" · {html.escape(str(sector))}" if sector else "")
     price_html = ""
     if preview.get("price") is not None:
         sym = "$" if preview.get("currency") == "USD" else preview.get("currency", "")
@@ -228,7 +243,7 @@ def dna_card_html(dna: dict[str, float], label: str, title: str | None = None) -
             f'<div class="dna-row"><div class="dna-name">{_comp_name(name)}</div>'
             f'<div class="dna-track"><div class="dna-fill {css}" '
             f'style="width:{score if known else 0:.0f}%"></div></div>'
-            f'<div class="dna-value">{ui_num(score, 0) if known else "—"}</div></div>'
+            f'<div class="dna-value">{ui_num(score, 0) if known else missing(get_language())}</div></div>'
         )
     return (
         f'<div class="panel"><div class="dna-title">{title}</div>{rows}'
