@@ -13,13 +13,13 @@ from portfolio_intelligence.ui.components import sec, styled
 from portfolio_intelligence.views.common import PERIOD_DAYS, TRADING_DAYS, market_db_required
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import risk_return_scatter
+from portfolio_intelligence.visualization.charts import show as show_chart
 
 
 def render(ctx: ViewContext) -> None:
     sec(t("mkt.title"))
     all_prices = market_db_required("mercato")
     if all_prices is None:
-        st.info(t("mkt.no_db"))
         return
 
     ndx_period = st.selectbox(
@@ -46,7 +46,7 @@ def render(ctx: ViewContext) -> None:
     col_scatter, col_table = st.columns([3, 2], gap="large")
     with col_scatter:
         st.markdown(t("mkt.scatter", period=period_label))
-        st.altair_chart(
+        show_chart(
             risk_return_scatter(stats, t("mkt.vol"), t("mkt.ret", period=period_label)),
             width="stretch",
         )

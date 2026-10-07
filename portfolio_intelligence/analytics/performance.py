@@ -69,6 +69,18 @@ def max_drawdown(prices: pd.Series) -> float:
     return float(drawdowns.min())
 
 
+def drawdown_from_returns(daily: pd.Series) -> float:
+    """Massimo drawdown da rendimenti giornalieri, partendo dal capitale iniziale (1,0).
+
+    Con la base, una perdita già nel primo giorno conta: è la definizione dei report PDF.
+    """
+    daily = daily.dropna()
+    if daily.empty:
+        return float("nan")
+    base = pd.Series([1.0], index=[daily.index[0] - pd.Timedelta(days=1)])
+    return max_drawdown(pd.concat([base, (1 + daily).cumprod()]))
+
+
 def sortino_ratio(
     returns: pd.DataFrame, portfolio: Portfolio, risk_free_rate: float = 0.0
 ) -> float:

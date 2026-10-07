@@ -113,7 +113,7 @@ def test_key_figures_show_pnl_and_benchmark_side_by_side():
     }
     assert cells["Market value"][0] == "€100,000"
     assert cells["Unrealized P&L"][0] == "+€10,000"
-    assert "QQQ" in cells["Return 1y"][1]
+    assert "QQQ" in cells["Return 1 year"][1]
     assert cells["Money-weighted return"][0] == "+8.0%"
 
 

@@ -47,7 +47,8 @@ from portfolio_intelligence.data.store import (
     save_portfolio,
 )
 from portfolio_intelligence.data.validators import is_valid_client_code
-from portfolio_intelligence.i18n import t
+from portfolio_intelligence.formatting import missing
+from portfolio_intelligence.i18n import get_language, period_text, t
 from portfolio_intelligence.portfolio.positions import normalize_portfolio
 from portfolio_intelligence.router import compute_portfolio
 from portfolio_intelligence.ui.area_switch import area_switch
@@ -430,9 +431,21 @@ def _book_rows(clients: dict, period: str, in_eur: bool) -> list[dict]:
         except (ValueError, KeyError, ZeroDivisionError) as exc:
             row["error"] = str(exc)
         band = PROFILE_VOL.get(record["risk_profile"])
-        row["review"] = "error" not in row and (
-            row["health"] < HEALTH_SCORE_FAIR or (band is not None and row["vol"] > band)
-        )
+        vol_out = "error" not in row and band is not None and row["vol"] > band
+        health_low = "error" not in row and row["health"] < HEALTH_SCORE_FAIR
+        row["review"] = vol_out or health_low
+        if row["review"] and row["problem"] == t("chk.no_problems"):
+            # da rivedere senza un problema dalle regole: si mostra il motivo della revisione
+            row["problem"] = (
+                t(
+                    "adv.review_vol",
+                    vol=pct(row["vol"]),
+                    band=pct(band, 0),
+                    profile=t(f"prof.{record['risk_profile']}").lower(),
+                )
+                if vol_out
+                else t("adv.review_health", health=row["health"], fair=HEALTH_SCORE_FAIR)
+            )
         rows.append(row)
     # chi richiede attenzione per primo: da rivedere, poi Health crescente
     return sorted(rows, key=lambda r: (not r["review"], r.get("health", 101), r["name"]))
@@ -530,7 +543,9 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
 
     asof = max((r["asof"] for r in analysed), default=None)
     if asof:
-        st.caption(t("adv.book_asof", date=f"{pd.Timestamp(asof):%d/%m/%Y}", period=period))
+        st.caption(
+            t("adv.book_asof", date=f"{pd.Timestamp(asof):%d/%m/%Y}", period=period_text(period))
+        )
     search_col, _gap, export_col, new_col = st.columns([2, 0.6, 1, 1], vertical_alignment="bottom")
     query = search_col.text_input(
         t("adv.search"),
@@ -573,21 +588,22 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
             + "</div>",
             unsafe_allow_html=True,
         )
+    na = missing(get_language())
     for i, row in enumerate(shown):
         if "error" in row:
             data = [
                 ("c-code", html.escape(row["name"])),
                 ("", t(f"prof.{row['profile']}")),
-                ("num", "n/a"),
-                ("num", "n/a"),
-                ("num", "n/a"),
-                ("num", "n/a"),
-                ("health", "n/a"),
+                ("num", na),
+                ("num", na),
+                ("num", na),
+                ("num", na),
+                ("health", na),
                 ("flag", html.escape(t("adv.analysis_failed", err=row["error"]))),
             ]
         else:
             color = status_color(row["health"])
-            ret = row["pnl_pct"] if row["pnl_pct"] == row["pnl_pct"] else row["cum"]
+            ret = row["pnl_pct"]  # senza prezzo di carico: n/d, mai il rendimento di periodo
             marker = (
                 f'<div class="pending">{t("adv.unsaved_short")}</div>'
                 if row["name"] in _drafts()
@@ -601,7 +617,10 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
                 ),
                 ("", t(f"prof.{row['profile']}")),
                 ("num", eur(row["value"])),
-                ("num " + ("up" if ret >= 0 else "down"), pct(ret, signed=True)),
+                (
+                    "num " + ("up" if ret >= 0 else "down" if ret < 0 else ""),
+                    pct(ret, signed=True),
+                ),
                 ("num", _vol_cell(row)),
                 ("num", f"{row['top_ticker']} {pct(row['top_weight'], 0)}"),
                 ("health", f'<span style="color:{text_safe(color)}">{row["health"]}</span>'),
@@ -688,15 +707,14 @@ def _page_new_client(advisor: str, clients: dict) -> None:
         pe.positions_table("adv", empty_hint=t("adv.empty_positions"))
     with side, st.container(border=True):
         positions = st.session_state.positions
-        invested = sum(cost for _, _, cost in pe.cost_basis(positions).values())
         profile = st.session_state.get("adv_new_profile", DEFAULT_RISK_PROFILE)
         benchmark = st.session_state.get("adv_new_benchmark", DEFAULT_BENCHMARK)
         rows = [
-            (t("adv.client_code"), name or "—"),
+            (t("adv.client_code"), name or missing(get_language())),
             (t("side.risk_profile"), t(f"prof.{profile}")),
             (t("adv.benchmark"), html.escape(benchmark_label(benchmark))),
             (t("gate.sum_positions"), str(len(positions))),
-            (t("gate.sum_invested"), f"{invested:,.2f}" if invested else "—"),
+            (t("gate.sum_invested"), pe.invested_text(positions)),
         ]
         st.markdown(
             f'<div class="sum-h">{t("gate.summary")}</div>'

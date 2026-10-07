@@ -59,8 +59,8 @@ def run_backtest(
 
     cost_bps: costo di transazione in basis point (20 = 0.20%) applicato al
     controvalore scambiato a ogni ribilanciamento (acquisto iniziale incluso).
-    Approssimazione: il turnover è calcolato tra pesi target consecutivi,
-    ignorando la deriva dei pesi dentro il trimestre.
+    Tra due ribilanciamenti i pesi derivano con i prezzi; il turnover è la
+    distanza tra i pesi derivati a fine periodo e i nuovi pesi target.
     """
     returns = compute_daily_returns(prices)
     parts = []
@@ -72,7 +72,12 @@ def run_backtest(
         weights = weight_func(history)
         if weights.empty:
             continue
-        segment_returns = segment[weights.index].mul(weights).sum(axis=1, min_count=1)
+        # dentro il periodo i pesi derivano con i prezzi: si compone per titolo e
+        # si ribilancia solo alla data successiva (non ogni giorno)
+        growth = (1 + segment[weights.index].fillna(0.0)).cumprod()
+        value = growth.mul(weights).sum(axis=1) / float(weights.sum())
+        segment_returns = value.pct_change()
+        segment_returns.iloc[0] = value.iloc[0] - 1
 
         if cost_bps:
             if previous_weights is None:
@@ -89,7 +94,9 @@ def run_backtest(
                 )
             segment_returns.iloc[0] -= traded * cost_bps / 10_000
 
-        previous_weights = weights
+        # pesi a fine periodo dopo la deriva: base del turnover al ribilanciamento
+        drifted = weights * growth.iloc[-1]
+        previous_weights = drifted / float(drifted.sum())
         parts.append(segment_returns)
 
     if not parts:

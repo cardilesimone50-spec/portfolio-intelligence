@@ -26,6 +26,7 @@ from portfolio_intelligence.data.store import (
     DB_PATH,
     known_tickers,
     last_date,
+    load_prices,
     save_benchmark_prices,
     save_constituents,
     save_prices,
@@ -49,6 +50,35 @@ def _download(tickers: list[str], **kwargs) -> pd.DataFrame:
     return data
 
 
+# scarto oltre il quale la chiusura del giorno in comune indica una nuova rettifica
+READJUST_TOLERANCE = 0.005
+
+
+def readjusted_tickers(
+    stored: pd.DataFrame | None, update: pd.DataFrame, since: pd.Timestamp
+) -> list[str]:
+    """Ticker la cui chiusura salvata del giorno `since` non coincide con quella nuova.
+
+    Con auto_adjust i prezzi passati cambiano a ogni frazionamento o dividendo:
+    accodare i giorni nuovi a uno storico rettificato in un'altra data creerebbe
+    salti falsi (es. -90% a un frazionamento 10:1).
+    """
+    if stored is None or update.empty:
+        return []
+    day = pd.Timestamp(since).normalize()
+    if day not in stored.index or day not in update.index:
+        return []
+    old, new = stored.loc[day], update.loc[day]
+    changed = []
+    for ticker in update.columns:
+        before, after = old.get(ticker), new.get(ticker)
+        if before is None or after is None or before != before or after != after or not before:
+            continue
+        if abs(float(after) / float(before) - 1) > READJUST_TOLERANCE:
+            changed.append(ticker)
+    return changed
+
+
 def update_nasdaq100() -> None:
     # migrazione una tantum dal vecchio CSV, se il database è vuoto
     if not known_tickers() and (legacy := load_nasdaq100_prices()) is not None:
@@ -70,7 +100,16 @@ def update_nasdaq100() -> None:
         if existing:
             print(f"Aggiorno {len(existing)} ticker dal {since.date()}...")
             update = _download(existing, start=since.strftime("%Y-%m-%d"))
-            save_prices(update)
+            readjusted = readjusted_tickers(load_prices(), update, since)
+            # chiusure rettificate ricalcolate da Yahoo (frazionamento, dividendo):
+            # lo storico salvato non combacia più, si riscarica intero (upsert)
+            fresh = update.drop(columns=readjusted)
+            save_prices(fresh)
+            if readjusted:
+                print(
+                    f"Storico rettificato di nuovo, riscarico {FULL_PERIOD}: {', '.join(readjusted)}"
+                )
+                save_prices(_download(readjusted, period=FULL_PERIOD))
         if new_tickers:
             print(f"Nuovi ticker nell'indice, scarico {FULL_PERIOD}: {', '.join(new_tickers)}")
             save_prices(_download(new_tickers, period=FULL_PERIOD))

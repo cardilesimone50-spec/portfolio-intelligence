@@ -1,5 +1,7 @@
 """Costanti di dominio e accesso dati cachato condivisi da tutte le viste."""
 
+import contextlib
+
 import pandas as pd
 import streamlit as st
 
@@ -14,9 +16,12 @@ from portfolio_intelligence.data.rates import fetch_risk_free_rate
 from portfolio_intelligence.data.sec_edgar import fetch_sec_fundamentals
 from portfolio_intelligence.data.store import load_benchmark_prices
 from portfolio_intelligence.data.store import load_prices as load_stored_prices
-from portfolio_intelligence.data.yahoo_client import fetch_price_history
-from portfolio_intelligence.fundamentals.valuation import empty_fundamentals, fetch_fundamentals
-from portfolio_intelligence.i18n import LANGUAGES, set_language, t
+from portfolio_intelligence.fundamentals.valuation import (
+    FundamentalsCache,
+    empty_fundamentals,
+    fetch_fundamentals,
+)
+from portfolio_intelligence.i18n import LANGUAGES, sector_text, set_language, t
 from portfolio_intelligence.ui.components import empty_state
 
 __all__ = ["TRADING_DAYS"]  # ruff F401: re-esportata per le viste che la importano da qui
@@ -51,8 +56,19 @@ _FALLBACK_TICKERS = [
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def _cached_prices(tickers: tuple[str, ...], period: str) -> tuple[pd.DataFrame, str]:
+    from portfolio_intelligence.data.yahoo_client import fetch_prices_with_source
+
+    return fetch_prices_with_source(list(tickers), period=period)
+
+
 def cached_prices(tickers: tuple[str, ...], period: str) -> pd.DataFrame:
-    return fetch_price_history(list(tickers), period=period)
+    """Prezzi in cache; la sorgente effettiva va nella sessione di chi li ha chiesti."""
+    data, source = _cached_prices(tickers, period)
+    # fuori da una sessione Streamlit (test, thread di download) non c'è dove salvarla
+    with contextlib.suppress(Exception):
+        st.session_state["price_source"] = source
+    return data
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -88,15 +104,23 @@ def _last_prices(tickers: tuple[str, ...]) -> dict[str, float]:
     return last
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+# per ticker: si scaricano solo i titoli nuovi e anche "nessun dato" (ETF) resta in cache
+_FUNDAMENTALS = FundamentalsCache()
+
+
 def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
     """Fondamentali: SEC EDGAR (dati pubblici) → Yahoo → snapshot spedito col deploy."""
-    prices = _last_prices(tickers)
-    return fetch_fundamentals(
-        list(tickers),
-        fallback=_fundamentals_snapshot(),
-        primary=lambda tks: fetch_sec_fundamentals(tks, prices),
-    )
+
+    def fetch(missing: list[str]) -> pd.DataFrame:
+        # ultimo prezzo per i multipli SEC: sulla tupla intera, già in cache dall'analisi
+        prices = _last_prices(tickers)
+        return fetch_fundamentals(
+            missing,
+            fallback=_fundamentals_snapshot(),
+            primary=lambda tks: fetch_sec_fundamentals(tks, prices),
+        )
+
+    return _FUNDAMENTALS.get(list(tickers), fetch)
 
 
 def analysis_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
@@ -107,9 +131,19 @@ def analysis_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
     arricchimento, non un prerequisito).
     """
     try:
-        return cached_fundamentals(tickers)
+        fund = cached_fundamentals(tickers)
     except ValueError:
         return empty_fundamentals(list(tickers))
+    return localized_sectors(fund)
+
+
+def localized_sectors(fund: pd.DataFrame) -> pd.DataFrame:
+    """Copia con i nomi dei settori nella lingua corrente (la cache resta neutra)."""
+    if "sector" not in fund.columns:
+        return fund
+    fund = fund.copy()
+    fund["sector"] = fund["sector"].map(sector_text)
+    return fund
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -139,7 +173,7 @@ def ticker_preview(ticker: str) -> dict | None:
         return None
     return {
         "name": info.get("shortName") or info.get("longName") or "",
-        "sector": info.get("sector") or "",
+        "sector": info.get("sector") or "",  # tradotto alla visualizzazione: cache neutra
         "price": info.get("currentPrice") or info.get("regularMarketPrice"),
         "currency": info.get("currency") or "USD",
         "change": info.get("regularMarketChangePercent"),
@@ -147,8 +181,9 @@ def ticker_preview(ticker: str) -> dict | None:
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def _cached_market_db(_mtime: float | None) -> pd.DataFrame | None:
-    # _mtime nel cache key: il DB aggiornato invalida la cache
+def _cached_market_db(mtime: float | None) -> pd.DataFrame | None:
+    # mtime nella chiave di cache (senza "_" iniziale, che Streamlit escluderebbe):
+    # il DB aggiornato invalida la cache
     prices = load_stored_prices()
     if prices is not None:
         return prices
@@ -156,9 +191,11 @@ def _cached_market_db(_mtime: float | None) -> pd.DataFrame | None:
 
 
 def load_market_db() -> pd.DataFrame | None:
-    from portfolio_intelligence.data.store import DB_PATH
+    from portfolio_intelligence.data.store import sqlite_file
 
-    mtime = DB_PATH.stat().st_mtime if DB_PATH.exists() else None
+    # il file del database configurato (DATABASE_URL o default): cambia → cache nuova
+    path = sqlite_file()
+    mtime = path.stat().st_mtime if path is not None and path.exists() else None
     return _cached_market_db(mtime)
 
 
@@ -204,7 +241,7 @@ def language_selector(key: str) -> None:
     current = st.session_state.get("language", "en")
     codes = list(LANGUAGES)
     choice = st.selectbox(
-        "Language",
+        "Language / Lingua",
         codes,
         index=codes.index(current),
         format_func=lambda code: LANGUAGES[code],

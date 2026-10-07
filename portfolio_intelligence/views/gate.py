@@ -10,7 +10,8 @@ import streamlit as st
 
 from portfolio_intelligence.config import INVESTOR_HISTORY_PERIOD
 from portfolio_intelligence.data.benchmarks import DEFAULT_BENCHMARK
-from portfolio_intelligence.i18n import t
+from portfolio_intelligence.formatting import missing, ui_pct
+from portfolio_intelligence.i18n import get_language, t
 from portfolio_intelligence.ui.area_switch import area_switch
 from portfolio_intelligence.ui.components import render_landing
 from portfolio_intelligence.ui.legal import legal_footer
@@ -231,11 +232,11 @@ def _summary_panel() -> None:
     total = sum(costs)
     if total:
         largest = max(rows, key=lambda k: rows[k][2])
-        largest_txt = f"{largest} · {rows[largest][2] / total:.1%}"
-        top3_txt = f"{sum(costs[:3]) / total:.1%}"
-        total_txt = f"{total:,.2f}"
+        largest_txt = f"{largest} · {ui_pct(rows[largest][2] / total, 1)}"
+        top3_txt = ui_pct(sum(costs[:3]) / total, 1)
+        total_txt = pe.invested_text(positions)
     else:
-        largest_txt = top3_txt = total_txt = "—"
+        largest_txt = top3_txt = total_txt = missing(get_language())
 
     summary = [
         (t("gate.sum_positions"), str(len(positions))),

@@ -55,3 +55,21 @@ def test_buy_and_hold_single_asset_tracks_price():
     expected_final = 100 * PRICES["UP"].iloc[-1] / PRICES["UP"].iloc[0]
     assert equity.iloc[-1] == pytest.approx(expected_final)
     assert equity.iloc[0] == pytest.approx(100.0)
+
+
+def test_weights_drift_between_rebalances():
+    """Dentro il trimestre i pesi derivano: niente ribilanciamento giornaliero."""
+    import numpy as np
+    import pandas as pd
+
+    from portfolio_intelligence.analytics.backtest import equal_weight, run_backtest
+
+    idx = pd.bdate_range("2024-01-01", "2024-06-28")
+    up = pd.Series(np.linspace(100, 200, len(idx)), index=idx)
+    flat = pd.Series(100.0, index=idx)
+    curve = run_backtest(pd.DataFrame({"UP": up, "FLAT": flat}), equal_weight, lookback=60)
+    q2 = curve.loc["2024-04-01":]
+    start = 100.0  # il primo trimestre serve da storico: la curva parte ad aprile
+    up_q2 = up.loc["2024-04-01":].iloc[-1] / up.loc[:"2024-03-29"].iloc[-1]
+    # metà del capitale segue UP per tutto il trimestre, metà resta ferma
+    assert q2.iloc[-1] / start == pytest.approx((up_q2 + 1) / 2, rel=1e-9)

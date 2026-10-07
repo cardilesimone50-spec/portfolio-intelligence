@@ -19,7 +19,7 @@ from portfolio_intelligence.analytics.insights import (
 from portfolio_intelligence.analytics.performance import (
     annualized_geometric_return,
     beta_alpha,
-    max_drawdown,
+    drawdown_from_returns,
     value_at_risk,
 )
 from portfolio_intelligence.config import TRADING_DAYS, rolling_min_periods
@@ -57,7 +57,7 @@ def analyze_portfolio(
 
     annual_ret = annualized_geometric_return(pf_daily)
     annual_vol = portfolio_volatility(returns, portfolio) * TRADING_DAYS**0.5
-    drawdown = max_drawdown(pf_value)
+    drawdown = drawdown_from_returns(pf_daily)
     var_95 = value_at_risk(pf_daily)
     min_periods = rolling_min_periods(len(returns))
     avg_corr = average_pairwise_correlation(returns, min_periods=min_periods)

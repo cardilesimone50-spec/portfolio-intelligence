@@ -5,7 +5,8 @@ import streamlit as st
 
 from portfolio_intelligence.analytics.insights import generate_insights, monthly_returns
 from portfolio_intelligence.analytics.simulation import simulate_shock
-from portfolio_intelligence.i18n import t
+from portfolio_intelligence.formatting import fmt_pp
+from portfolio_intelligence.i18n import get_language, t
 from portfolio_intelligence.portfolio.returns import per_ticker_cumulative_return
 from portfolio_intelligence.portfolio.risk import correlation_matrix
 from portfolio_intelligence.ui.components import eur, pct, sec
@@ -16,6 +17,7 @@ from portfolio_intelligence.visualization.charts import (
     radar_chart,
     weight_vs_risk_bars,
 )
+from portfolio_intelligence.visualization.charts import show as show_chart
 
 
 def render(ctx: ViewContext) -> None:
@@ -44,7 +46,10 @@ def render(ctx: ViewContext) -> None:
         st.caption(t("vis.auto_caption"))
     with col_radar:
         sec(t("vis.radar"))
-        st.altair_chart(radar_chart(c["radar"]), width="stretch")
+        show_chart(
+            radar_chart({t(f"comp.{axis}"): score for axis, score in c["radar"].items()}),
+            width="stretch",
+        )
 
     col_galaxy, col_timeline = st.columns([1.15, 1], gap="large")
     with col_galaxy:
@@ -53,7 +58,7 @@ def render(ctx: ViewContext) -> None:
         if len(amounts) >= 2:
             corr = correlation_matrix(c["returns"], min_periods=c["min_periods"])
             weights_s = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
-            st.altair_chart(
+            show_chart(
                 galaxy_chart(corr, weights_s, per_ticker_cumulative_return(c["prices"])),
                 width="stretch",
             )
@@ -63,7 +68,7 @@ def render(ctx: ViewContext) -> None:
         sec(t("vis.monthly"))
         monthly = monthly_returns(c["pf_daily"])
         if len(monthly) >= 2:
-            st.altair_chart(monthly_bars(monthly), width="stretch")
+            show_chart(monthly_bars(monthly), width="stretch")
             best, worst = monthly.idxmax(), monthly.idxmin()
             st.caption(
                 t(
@@ -82,7 +87,7 @@ def render(ctx: ViewContext) -> None:
         with col_wr:
             sec(t("vis.weight_risk"))
             weights_series_ui = pd.Series({p["ticker"]: p["weight"] for p in portfolio})
-            st.altair_chart(
+            show_chart(
                 weight_vs_risk_bars(weights_series_ui, c["contributions"]),
                 width="stretch",
             )
@@ -95,7 +100,7 @@ def render(ctx: ViewContext) -> None:
                     "vis.weight_risk_text",
                     ticker=top_c,
                     share=pct(c["contributions"].iloc[0], 0),
-                    gap=pct(gap, 0, signed=True),
+                    gap=fmt_pp(gap, get_language(), 0),
                 )
             )
             st.caption(t("vis.mcr_caption"))

@@ -1,5 +1,6 @@
 """Fondamentali di bilancio e multipli di valutazione."""
 
+import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -98,3 +99,79 @@ def fetch_fundamentals(
 def empty_fundamentals(tickers: list[str]) -> pd.DataFrame:
     """Tabella fondamentali tutta NaN: l'analisi prosegue senza bilanci."""
     return pd.DataFrame(index=pd.Index(tickers), columns=FUNDAMENTAL_COLUMNS, dtype=object)
+
+
+class FundamentalsCache:
+    """Cache per ticker dei fondamentali, condivisa tra le sessioni (dati pubblici).
+
+    Una cache sulla tupla intera di ticker riscaricava tutto a ogni combinazione
+    nuova (aggiungere un titolo = rifare tutti) e non ricordava i ticker senza
+    dati (ETF): l'eccezione non resta in cache, quindi ogni interazione
+    ripeteva le richieste. Qui si scaricano solo i ticker mancanti e anche il
+    "nessun dato" resta in memoria, per un tempo più breve (`negative_ttl`):
+    un'interruzione temporanea della fonte non nasconde i dati per un'ora.
+    """
+
+    def __init__(
+        self,
+        ttl: float = 3600.0,
+        negative_ttl: float = 600.0,
+        clock: Callable[[], float] = time.monotonic,
+        max_entries: int = 2048,
+    ):
+        self._ttl = ttl
+        self._negative_ttl = negative_ttl
+        self._max_entries = max_entries
+        self._clock = clock
+        self._entries: dict[str, tuple[float, dict | None]] = {}
+        self._lock = threading.Lock()
+
+    def _fresh(self, ticker: str, now: float) -> tuple[bool, dict | None]:
+        entry = self._entries.get(ticker)
+        if entry is None:
+            return False, None
+        stored_at, row = entry
+        limit = self._ttl if row is not None else self._negative_ttl
+        return (now - stored_at < limit), row
+
+    def get(self, tickers: list[str], fetch: Callable[[list[str]], pd.DataFrame]) -> pd.DataFrame:
+        """Righe per `tickers`; `fetch` riceve solo i ticker non in cache.
+
+        Solleva ValueError se nessun ticker ha dati, come `fetch_fundamentals`.
+        """
+        now = self._clock()
+        rows: dict[str, dict | None] = {}
+        with self._lock:
+            for ticker in tickers:
+                hit, row = self._fresh(ticker, now)
+                if hit:
+                    rows[ticker] = row
+        missing = [ticker for ticker in tickers if ticker not in rows]
+        if missing:
+            try:
+                frame = fetch(missing)
+            except ValueError:  # nessun dato per nessuno dei mancanti
+                frame = pd.DataFrame()
+            fetched = {
+                ticker: (frame.loc[ticker].to_dict() if ticker in frame.index else None)
+                for ticker in missing
+            }
+            with self._lock:
+                stamp = self._clock()
+                for ticker, row in fetched.items():
+                    self._entries[ticker] = (stamp, row)
+                # ticker liberi nella vista Fondamentali: la memoria resta limitata
+                overflow = len(self._entries) - self._max_entries
+                if overflow > 0:
+                    oldest = sorted(self._entries, key=lambda tk: self._entries[tk][0])
+                    for ticker in oldest[:overflow]:
+                        del self._entries[ticker]
+            rows.update(fetched)
+        found = {ticker: rows[ticker] for ticker in tickers if rows.get(ticker) is not None}
+        if not found:
+            raise ValueError(f"No fundamental data found for: {', '.join(tickers)}")
+        return pd.DataFrame.from_dict(found, orient="index")
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()

@@ -13,16 +13,19 @@ import streamlit as st
 from portfolio_intelligence.config import HISTORY_PERIODS, INVESTOR_HISTORY_PERIOD, RISK_PROFILES
 from portfolio_intelligence.data.benchmarks import DEFAULT_BENCHMARK
 from portfolio_intelligence.data.importers import parse_positions
-from portfolio_intelligence.i18n import t
-from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
+from portfolio_intelligence.formatting import missing, ui_num
+from portfolio_intelligence.i18n import get_language, t
+from portfolio_intelligence.portfolio.positions import aggregate, normalize_portfolio
 from portfolio_intelligence.ui.area_switch import area_switch
 from portfolio_intelligence.ui.components import (
     empty_state,
     eur,
     position_card_html,
     sec,
+    set_amounts_in_eur,
     ticker_preview_html,
 )
+from portfolio_intelligence.views import portfolio_editor as pe
 from portfolio_intelligence.views.common import (
     cached_price_on,
     cached_risk_free,
@@ -31,6 +34,9 @@ from portfolio_intelligence.views.common import (
     ticker_preview,
 )
 from portfolio_intelligence.visualization.charts import PALETTE
+
+# chiave stabile dello storico; nei report il nome è tradotto (checkup.display_name)
+DEFAULT_PORTFOLIO = "My portfolio"
 
 
 @dataclass
@@ -45,23 +51,8 @@ class SidebarSettings:
 
 
 def _add_holding() -> None:
-    # runs as a callback (before widgets re-instantiate), so clearing the
-    # add_ticker widget key here is allowed by Streamlit
-    chosen = st.session_state.get("add_ticker")
-    if not chosen:
-        return
-    k = str(chosen).upper().strip()
-    qty = float(st.session_state.get(f"add_qty_{k}") or 0)
-    when = st.session_state.get(f"add_date_{k}")
-    iso = when.isoformat() if when else ""
-    price = float(st.session_state.get(f"add_price_{k}_{iso}") or 0)
-    if price <= 0 and when:
-        price = float(cached_price_on(k, iso) or 0)
-    if qty <= 0 or price <= 0:
-        st.toast(t("pos.price_lookup_failed", ticker=k, date=iso))
-        return
-    st.session_state.positions[k] = add_lot(st.session_state.positions.get(k), qty, price, when)
-    st.session_state.add_ticker = None
+    # stessa logica (e validazione del ticker) dell'editor: widget con prefisso "add"
+    pe.add_position("add")
 
 
 def analysis_parameters(
@@ -72,9 +63,11 @@ def analysis_parameters(
         t("side.horizon"),
         list(HISTORY_PERIODS),
         index=HISTORY_PERIODS.index(default_period),
+        format_func=lambda code: t(f"period.{code}"),
         key=f"{key_prefix}_period",
     )
     in_eur = st.toggle(t("side.in_eur"), value=True, help=t("side.in_eur_help"))
+    set_amounts_in_eur(in_eur)
     rf_baseline_pct = min(10.0, max(0.0, round(cached_risk_free() * 100, 2)))
     risk_free = (
         st.number_input(
@@ -87,7 +80,7 @@ def analysis_parameters(
         )
         / 100
     )
-    st.caption(t("side.risk_free_caption", rate=f"{rf_baseline_pct:.2f}"))
+    st.caption(t("side.risk_free_caption", rate=ui_num(rf_baseline_pct, 2)))
     return period, in_eur, risk_free
 
 
@@ -108,7 +101,7 @@ def render_sidebar() -> SidebarSettings:
         sec(t("side.add_stock"))
 
         new_ticker = st.selectbox(
-            "Search stock",
+            t("a11y.search_stock"),
             known_tickers(),
             index=None,
             placeholder=t("gate.search_placeholder"),
@@ -155,7 +148,7 @@ def render_sidebar() -> SidebarSettings:
                 key=f"add_price_{key}_{iso}",
                 help=t(
                     "pos.price_auto_help",
-                    current=f"{current_price:,.2f}" if current_price else "—",
+                    current=ui_num(current_price, 2) if current_price else missing(get_language()),
                 ),
             )
             st.button(t("gate.add"), width="stretch", type="primary", on_click=_add_holding)
@@ -184,7 +177,7 @@ def render_sidebar() -> SidebarSettings:
                 weight = costs[ticker] / total if total else 0
                 company = known_names.get(ticker, "")
                 label = (
-                    f"{agg['qty']:g} × {agg['price']:,.2f}"
+                    f"{agg['qty']:g} × {ui_num(agg['price'], 2)}"
                     if agg is not None
                     else eur(costs[ticker])
                 )
@@ -246,7 +239,13 @@ def render_sidebar() -> SidebarSettings:
                     if col_del.button(t("side.remove"), key=f"del_{ticker}", width="stretch"):
                         st.session_state.positions.pop(ticker, None)
                         st.rerun()
-            st.caption(t("pos.total_cost", total=f"{total:,.0f}", n=len(positions)))
+            st.caption(
+                t(
+                    "pos.total_cost",
+                    total=pe.invested_text(st.session_state.positions, 0),
+                    n=len(positions),
+                )
+            )
         else:
             empty_state(t("side.empty_title"), t("side.empty_hint"))
 
@@ -280,7 +279,7 @@ def render_sidebar() -> SidebarSettings:
             )
 
     return SidebarSettings(
-        portfolio_name="My portfolio",
+        portfolio_name=DEFAULT_PORTFOLIO,
         period=period,
         in_eur=in_eur,
         risk_free=risk_free,

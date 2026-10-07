@@ -16,6 +16,7 @@ from portfolio_intelligence.ui.components import num, sec
 from portfolio_intelligence.views.common import PERIOD_DAYS, market_db_required
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import correlation_bars, correlation_heatmap
+from portfolio_intelligence.visualization.charts import show as show_chart
 
 
 def render(ctx: ViewContext) -> None:
@@ -24,9 +25,7 @@ def render(ctx: ViewContext) -> None:
     sec(t("xc.title"))
     st.caption(t("xc.caption"))
     all_prices = market_db_required("corr")
-    if all_prices is None:
-        st.info(t("xc.no_db"))
-    else:
+    if all_prices is not None:
         col_sel, col_per = st.columns([2, 1])
         with col_sel:
             corr_ticker = st.selectbox(
@@ -52,10 +51,10 @@ def render(ctx: ViewContext) -> None:
             col_top, col_bottom = st.columns(2, gap="large")
             with col_top:
                 st.markdown(t("xc.together", ticker=corr_ticker))
-                st.altair_chart(correlation_bars(corr.head(10)), width="stretch")
+                show_chart(correlation_bars(corr.head(10)), width="stretch")
             with col_bottom:
                 st.markdown(t("xc.opposite", ticker=corr_ticker))
-                st.altair_chart(correlation_bars(corr.tail(10).sort_values()), width="stretch")
+                show_chart(correlation_bars(corr.tail(10).sort_values()), width="stretch")
 
     if computed is not None and len(amounts) >= 2:
         sec(t("xc.portfolio"))
@@ -82,4 +81,4 @@ def render(ctx: ViewContext) -> None:
                 tightest = pairs.idxmax()
                 st.caption(t("xc.tightest", a=tightest[0], b=tightest[1], value=num(pairs.max())))
         with col_heat:
-            st.altair_chart(correlation_heatmap(pf_corr), width="stretch")
+            show_chart(correlation_heatmap(pf_corr), width="stretch")

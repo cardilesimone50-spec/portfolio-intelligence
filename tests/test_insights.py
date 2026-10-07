@@ -12,6 +12,7 @@ from portfolio_intelligence.analytics.insights import (
     radar_scores,
     risk_contributions,
     stock_scores,
+    weight_imbalance,
 )
 
 rng = np.random.default_rng(11)
@@ -35,8 +36,12 @@ def test_risk_contributions_sum_to_one_and_rank_volatile_first():
 
 
 def test_concentration_score_extremes():
-    equal = [{"ticker": t, "weight": 0.25} for t in "ABCD"]
-    assert concentration_score(equal) == pytest.approx(0.0)
+    broad = [{"ticker": f"T{i}", "weight": 0.05} for i in range(20)]
+    assert concentration_score(broad) == pytest.approx(0.0)
+    # tre titoli equipesati restano concentrati (scala assoluta, coerente col report)
+    three = [{"ticker": t, "weight": 1 / 3} for t in "ABC"]
+    assert concentration_score(three) > 50
+    assert weight_imbalance(three) == pytest.approx(0.0)
     single = [{"ticker": "A", "weight": 1.0}]
     assert concentration_score(single) == 100.0
     concentrated = [{"ticker": "A", "weight": 0.9}, {"ticker": "B", "weight": 0.1}]

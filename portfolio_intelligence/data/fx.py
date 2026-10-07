@@ -28,15 +28,57 @@ ECB_EURUSD_URL = "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00
 _EUR_SUFFIXES = (".MI", ".PA", ".DE", ".AS", ".BR", ".MC", ".F", ".VI", ".LS", ".HE", ".IR")
 
 
+# borse fuori dall'area euro e fuori dagli USA (suffissi Yahoo): né USD né EUR,
+# quindi né convertite con EUR/USD né contate come esposizione al dollaro
+_OTHER_SUFFIXES = (
+    ".L",
+    ".IL",
+    ".SW",
+    ".TO",
+    ".V",
+    ".NE",
+    ".HK",
+    ".T",
+    ".AX",
+    ".NZ",
+    ".SI",
+    ".KS",
+    ".KQ",
+    ".TW",
+    ".SS",
+    ".SZ",
+    ".NS",
+    ".BO",
+    ".ST",
+    ".CO",
+    ".OL",
+    ".IC",
+    ".WA",
+    ".PR",
+    ".BD",
+    ".IS",
+    ".TA",
+    ".JO",
+    ".SA",
+    ".MX",
+    ".BA",
+    ".SN",
+    ".JK",
+    ".KL",
+    ".BK",
+    ".SR",
+)
+
+
 def is_usd_listing(ticker: str) -> bool:
-    """True se il ticker quota in USD (nessun suffisso o suffisso USA)."""
+    """True se il ticker quota in USD: nessun suffisso, o classi USA come 'BRK.B'."""
     ticker = ticker.upper()
     benchmark = BENCHMARKS.get(ticker)
     if benchmark is not None:
         return benchmark.currency == "USD"
     if "." not in ticker:
         return True
-    return not ticker.endswith(_EUR_SUFFIXES)
+    return not ticker.endswith(_EUR_SUFFIXES + _OTHER_SUFFIXES)
 
 
 def fetch_eurusd_ecb(period: str = "1y") -> pd.Series:

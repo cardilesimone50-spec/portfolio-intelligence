@@ -11,7 +11,7 @@ from portfolio_intelligence.analytics.insights import (
     risk_contributions,
     usd_exposure,
 )
-from portfolio_intelligence.analytics.performance import max_drawdown
+from portfolio_intelligence.analytics.performance import drawdown_from_returns
 from portfolio_intelligence.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD, rolling_min_periods
 from portfolio_intelligence.data.fx import convert_to_eur
 from portfolio_intelligence.i18n import t
@@ -55,7 +55,7 @@ def quick_client_analysis(items: tuple, period_key: str, eur_flag: bool, lang: s
     daily_c = portfolio_daily_returns(returns_c, pf_c)
     value_c = (1 + daily_c).cumprod()
     vol_c = portfolio_volatility(returns_c, pf_c) * TRADING_DAYS**0.5
-    dd_c = max_drawdown(value_c)
+    dd_c = drawdown_from_returns(daily_c)
     mp_c = rolling_min_periods(len(returns_c))
     corr_c = average_pairwise_correlation(returns_c, min_periods=mp_c)
     radar_c = radar_scores(vol_c, pf_c, dd_c, corr_c)

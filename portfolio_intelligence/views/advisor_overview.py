@@ -18,7 +18,7 @@ import streamlit as st
 from portfolio_intelligence.analytics.insights import find_opportunities
 from portfolio_intelligence.analytics.performance import (
     annualized_sharpe,
-    max_drawdown,
+    drawdown_from_returns,
 )
 from portfolio_intelligence.config import (
     HEALTH_SCORE_FAIR,
@@ -28,7 +28,7 @@ from portfolio_intelligence.config import (
     MONITOR_MAX_USD,
     MONITOR_MIN_DRAWDOWN,
 )
-from portfolio_intelligence.i18n import t
+from portfolio_intelligence.i18n import period_text, t
 from portfolio_intelligence.portfolio.returns import per_ticker_cumulative_return
 from portfolio_intelligence.ui.components import eur, num, pct, sec, signed_eur
 from portfolio_intelligence.views import checkup
@@ -39,6 +39,7 @@ from portfolio_intelligence.visualization.charts import (
     LOSS,
     benchmark_overlay,
 )
+from portfolio_intelligence.visualization.charts import show as show_chart
 from portfolio_intelligence.visualization.pdf_advisor import build_advisor_report
 from portfolio_intelligence.visualization.pdf_report import build_investor_report
 
@@ -252,7 +253,7 @@ def key_figures(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
             tone(ctx.irr),
         ),
         (
-            t("ov.kf_return", period=ctx.period),
+            t("ov.kf_return", period=period_text(ctx.period)),
             pct(c["cum_return"], signed=True),
             t("ov.kf_bench", benchmark=benchmark, value=pct(bench_cum, signed=True)),
             tone(c["cum_return"]),
@@ -269,7 +270,7 @@ def key_figures(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
             t(
                 "ov.kf_bench",
                 benchmark=benchmark,
-                value=pct(max_drawdown(bench_value)),
+                value=pct(drawdown_from_returns(c["bench_daily"])),
             ),
             "",
         ),
@@ -426,7 +427,9 @@ def _holdings_table(ctx: ViewContext) -> None:
             "pnl": st.column_config.NumberColumn(t("ov.col_pnl", ccy=ccy)),
             "pnl_pct": st.column_config.NumberColumn(t("ov.col_pnl_pct")),
             "risk": st.column_config.NumberColumn(t("ov.col_risk")),
-            "period_return": st.column_config.NumberColumn(t("chk.col_return", period=ctx.period)),
+            "period_return": st.column_config.NumberColumn(
+                t("chk.col_return", period=period_text(ctx.period))
+            ),
         },
         hide_index=True,
         width="stretch",
@@ -456,7 +459,7 @@ def render(ctx: ViewContext, recipient_field) -> None:
             [
                 t("ov.asof", date=f"<b>{price_date:%d/%m/%Y}</b>"),
                 t("ov.ccy", ccy="<b>EUR</b>" if ctx.in_eur else f"<b>{t('ov.native_ccy')}</b>"),
-                t("ov.window", period=f"<b>{ctx.period}</b>"),
+                t("ov.window", period=f"<b>{period_text(ctx.period)}</b>"),
                 t("ov.benchmark", benchmark=f"<b>{html.escape(ctx.benchmark_label)}</b>"),
             ]
         )
@@ -470,7 +473,7 @@ def render(ctx: ViewContext, recipient_field) -> None:
     perf_col, mon_col = st.columns([1.35, 1], gap="large")
     with perf_col:
         sec(t("ov.perf_title", benchmark=ctx.benchmark_label))
-        st.altair_chart(
+        show_chart(
             benchmark_overlay(
                 c["pf_value"], (1 + c["bench_daily"]).cumprod(), ctx.benchmark_label
             ),
@@ -529,8 +532,13 @@ def render(ctx: ViewContext, recipient_field) -> None:
         simulations, discarded, has_candidates = checkup.scenario_results(ctx)
         for text in simulations:
             st.markdown(text)
-        if not simulations:
-            st.caption(t("chk.no_improve") if has_candidates else t("chk.no_scenario"))
+        if not simulations and has_candidates:
+            # la frase termina con i due punti: seguono gli scenari scartati
+            st.caption(t("chk.no_improve"))
+            for text in discarded:
+                st.caption(t("chk.discarded") + text)
+        elif not simulations:
+            st.caption(t("chk.no_scenario"))
 
     sec(t("ov.reporting_title"))
     with st.container(border=True):

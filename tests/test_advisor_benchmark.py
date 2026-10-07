@@ -186,7 +186,7 @@ def test_view_context_describes_the_client_benchmark():
 def test_overview_key_figures_compare_with_the_client_benchmark():
     cells = {label: (value, sub) for label, value, sub, _ in ov.key_figures(_ctx("FTSEMIB.MI"))}
 
-    assert cells["Return 1y"][1].startswith("FTSE MIB: ")
+    assert cells["Return 1 year"][1].startswith("FTSE MIB: ")
     assert "FTSE MIB" in cells["Sharpe ratio"][1]
     assert not any("QQQ" in sub for _, sub in cells.values())
 

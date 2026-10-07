@@ -1,12 +1,21 @@
 """Componenti UI riusabili: hero, card, sezioni, breakdown, landing."""
 
 import html
+from contextvars import ContextVar
 
 import streamlit as st
 
 from portfolio_intelligence.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD
-from portfolio_intelligence.formatting import fmt_compact, fmt_eur, fmt_num, fmt_pct, missing
-from portfolio_intelligence.i18n import get_language, t
+from portfolio_intelligence.formatting import (
+    fmt_compact,
+    fmt_eur,
+    fmt_num,
+    fmt_pct,
+    missing,
+    ui_num,
+    ui_pct,
+)
+from portfolio_intelligence.i18n import get_language, period_text, sector_text, t
 from portfolio_intelligence.visualization.charts import AMBER_TEXT, GAIN, GAIN_TEXT, LOSS
 
 AMBER = "#d97706"  # status mid-band (gauge/health)
@@ -18,12 +27,25 @@ def _comp_name(name: str) -> str:
     return name if translated.startswith("comp.") else translated
 
 
+# Importi in euro o nelle valute di quotazione, per esecuzione (come la lingua):
+# con la conversione disattivata i valori sono in valute miste, senza simbolo €.
+_AMOUNTS_IN_EUR: ContextVar[bool] = ContextVar("amounts_in_eur", default=True)
+
+
+def set_amounts_in_eur(flag: bool) -> None:
+    _AMOUNTS_IN_EUR.set(bool(flag))
+
+
 def eur(value: float, decimals: int = 0) -> str:
-    """Importo in euro nella convenzione della lingua: €16,076 (EN), 16.076 € (IT)."""
+    """Importo nella convenzione della lingua: €16,076 (EN), 16.076 € (IT); senza € se non in EUR."""
+    if not _AMOUNTS_IN_EUR.get():
+        return fmt_num(value, get_language(), decimals)
     return fmt_eur(value, get_language(), decimals)
 
 
 def signed_eur(value: float, decimals: int = 0) -> str:
+    if not _AMOUNTS_IN_EUR.get():
+        return fmt_num(value, get_language(), decimals, signed=True)
     return fmt_eur(value, get_language(), decimals, signed=True)
 
 
@@ -120,7 +142,7 @@ def position_card_html(
     name = f'<div class="pos-name">{html.escape(company)}</div>' if company else ""
     ticker = html.escape(ticker)
     shown_amount = amount_label if amount_label is not None else eur(amount)
-    right = right_label if right_label is not None else f"{weight:.0%}"
+    right = right_label if right_label is not None else ui_pct(weight, 0)
     return (
         f'<div class="pos-row">'
         f"{_avatar(ticker, color)}"
@@ -143,7 +165,8 @@ def ticker_preview_html(ticker: str, color: str, preview: dict | None) -> str:
             f'<div class="tp-meta">Custom ticker</div></div></div>'
         )
     ticker = html.escape(ticker)
-    meta = ticker + (f" · {html.escape(str(preview['sector']))}" if preview.get("sector") else "")
+    sector = sector_text(preview.get("sector") or "")
+    meta = ticker + (f" · {html.escape(str(sector))}" if sector else "")
     price_html = ""
     if preview.get("price") is not None:
         sym = "$" if preview.get("currency") == "USD" else preview.get("currency", "")
@@ -152,8 +175,8 @@ def ticker_preview_html(ticker: str, color: str, preview: dict | None) -> str:
         if chg is not None:
             css = "up" if chg >= 0 else "down"
             arrow = "▲" if chg >= 0 else "▼"
-            chg_html = f'<span class="tp-chg {css}">{arrow} {chg:+.2f}%</span>'
-        price_html = f'<div class="tp-price">{sym}{preview["price"]:,.2f} {chg_html}</div>'
+            chg_html = f'<span class="tp-chg {css}">{arrow} {ui_num(chg, 2, signed=True)}%</span>'
+        price_html = f'<div class="tp-price">{sym}{ui_num(preview["price"], 2)} {chg_html}</div>'
     return (
         f'<div class="ticker-preview">{avatar}<div class="tp-main">'
         f'<div class="tp-name">{html.escape(str(preview["name"]))}</div>'
@@ -176,8 +199,12 @@ def hero_html(
     gain_html = ""
     if gain is not None and gain == gain:
         css_g = "up" if gain >= 0 else "down"
-        pct = f"{gain_pct:+.1%}" if gain_pct is not None and gain_pct == gain_pct else "—"
-        irr_text = t("hero.irr", irr=f"{irr:+.1%}") if irr is not None and irr == irr else ""
+        pct = ui_pct(gain_pct, 1, signed=True)
+        irr_text = (
+            t("hero.irr", irr=ui_pct(irr, 1, signed=True))
+            if irr is not None and irr == irr
+            else ""
+        )
         gain_html = (
             f'<div class="chg chg-line {css_g}">'
             f"{t('hero.gain_line', amount=eur(gain) if gain < 0 else '+' + eur(gain), pct=pct)}"
@@ -188,7 +215,7 @@ def hero_html(
         arrow_t, css_t = ("▲", "up") if today_move >= 0 else ("▼", "down")
         today_html = (
             f'<div class="chg chg-line small {css_t}">'
-            f"{t('hero.last_session')} {arrow_t} {today_move:+.2%}</div>"
+            f"{t('hero.last_session')} {arrow_t} {ui_pct(today_move, 2, signed=True)}</div>"
         )
     return f"""
     <div class="hero-panel" style="--val:{health}; --gcol:{gauge_color}">
@@ -199,7 +226,7 @@ def hero_html(
       <div class="hero-meta">
         <div class="label">{t("hero.value")}</div>
         <div class="big">{value}</div>
-        <div class="chg {css}">{arrow} {change:+.1%} · {period}</div>
+        <div class="chg {css}">{arrow} {ui_pct(change, 1, signed=True)} · {period_text(period)}</div>
         {gain_html}
         {today_html}
       </div>
@@ -216,7 +243,7 @@ def dna_card_html(dna: dict[str, float], label: str, title: str | None = None) -
             f'<div class="dna-row"><div class="dna-name">{_comp_name(name)}</div>'
             f'<div class="dna-track"><div class="dna-fill {css}" '
             f'style="width:{score if known else 0:.0f}%"></div></div>'
-            f'<div class="dna-value">{f"{score:.0f}" if known else "—"}</div></div>'
+            f'<div class="dna-value">{ui_num(score, 0) if known else missing(get_language())}</div></div>'
         )
     return (
         f'<div class="panel"><div class="dna-title">{title}</div>{rows}'

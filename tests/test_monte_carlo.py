@@ -204,8 +204,14 @@ def test_fan_chart_has_bands_median_baseline_and_euro_axis():
     marks = [layer["mark"]["type"] for layer in spec["layer"]]
     assert marks.count("area") == 2 and "line" in marks and marks.count("rule") == 2
     assert "€" in spec["layer"][0]["encoding"]["y"]["axis"]["labelExpr"]
-    data = fan_data(result)
-    assert data["p50_eur"].iloc[0] == "10.000 €"  # punto come separatore delle migliaia
+    from portfolio_intelligence.i18n import set_language
+
+    assert fan_data(result)["p50_eur"].iloc[0] == "€10,000"  # convenzione della lingua
+    set_language("it")
+    try:
+        assert fan_data(result)["p50_eur"].iloc[0] == "10.000 €"
+    finally:
+        set_language("en")
 
 
 def test_client_report_projection_percentages_use_the_simulated_initial_value(make_report):

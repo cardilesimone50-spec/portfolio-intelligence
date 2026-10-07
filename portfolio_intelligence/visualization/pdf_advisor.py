@@ -218,7 +218,7 @@ def _key_figures(r: ReportInput) -> Table:
             r.pct(r.pnl_pct, signed=True) if pnl_known else T("ov.kf_pnl_unknown"),
         ),
         (
-            T("inv.k_total_return", period=r.period),
+            T("inv.k_total_return", period=r.period_label),
             r.pct(m.cum_return, signed=True),
             T("inv.k_bench", benchmark=r.benchmark, value=r.pct(m.bench_cum_return, signed=True)),
         ),
@@ -402,7 +402,7 @@ def _attribution_table(r: ReportInput) -> Table:
         [
             T("pdf.h_ticker"),
             T("inv.h_weight"),
-            T("pdf.h_return", period=r.period),
+            T("pdf.h_return", period=r.period_label),
             T("adr.h_contribution"),
         ]
     ]

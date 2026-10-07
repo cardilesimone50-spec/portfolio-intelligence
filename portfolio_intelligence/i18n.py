@@ -6,22 +6,40 @@ esplicita (usato dal PDF, che riceve `lang` come parametro).
 Ogni voce del catalogo è (inglese, italiano); chiave mancante → torna la chiave.
 """
 
+from contextvars import ContextVar
+
 _EN, _IT = 0, 1
-_LANG = "en"
 LANGUAGES = {"en": "English", "it": "Italiano"}
+# Lingua per esecuzione, non per processo: Streamlit esegue ogni sessione nel
+# proprio thread e una variabile globale farebbe leggere a un utente la lingua
+# scelta da un altro. Un thread nuovo parte dal default inglese.
+_LANG: ContextVar[str] = ContextVar("language", default="en")
 
 
 def set_language(lang: str) -> None:
-    global _LANG
-    _LANG = lang if lang in LANGUAGES else "en"
+    _LANG.set(lang if lang in LANGUAGES else "en")
 
 
 def get_language() -> str:
-    return _LANG
+    return _LANG.get()
 
 
 def t(key: str, **kwargs) -> str:
-    return t_in(_LANG, key, **kwargs)
+    return t_in(_LANG.get(), key, **kwargs)
+
+
+def period_text(code: str) -> str:
+    """Orizzonte leggibile nella lingua corrente ("1 anno"); il codice se sconosciuto."""
+    key = f"period.{code}"
+    return t(key) if key in _CATALOG else code
+
+
+def sector_text(name):
+    """Nome di settore nella lingua corrente; invariato se non in catalogo o vuoto."""
+    if not isinstance(name, str) or not name:
+        return name
+    key = f"sector.{name}"
+    return t(key) if key in _CATALOG else name
 
 
 def t_in(lang: str, key: str, **kwargs) -> str:
@@ -143,8 +161,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "dna.balanced": ("Balanced profile", "Profilo bilanciato"),
     # ---------------------------------------------------------------- executive summary
     "exec.ret": (
-        "Over the period ({period}), with current weights, the portfolio returned {ret}.",
-        "Nel periodo ({period}), a pesi attuali, il portafoglio ha reso {ret}.",
+        "Over the last {period}, with current weights, the portfolio returned {ret}.",
+        "Nell'ultimo periodo ({period}), a pesi attuali, il portafoglio ha reso {ret}.",
     ),
     "exec.corr_weak": (
         "Diversification is weak: the holdings move very similarly (average correlation {corr}).",
@@ -618,7 +636,15 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "adv.col_client": ("Client", "Cliente"),
     "adv.col_profile": ("Profile", "Profilo"),
     "adv.col_value": ("Value", "Valore"),
-    "adv.col_return": ("Return", "Rendimento"),
+    "adv.col_return": ("P&L since purchase", "P&L dal carico"),
+    "adv.review_vol": (
+        "Volatility {vol} above the {band} band of the {profile} profile.",
+        "Volatilità {vol} oltre la banda del {band} del profilo {profile}.",
+    ),
+    "adv.review_health": (
+        "Health Score {health} below the review threshold ({fair}).",
+        "Health Score {health} sotto la soglia di revisione ({fair}).",
+    ),
     "adv.col_vol": ("Volatility", "Volatilità"),
     "adv.col_health": ("Health", "Health"),
     "adv.col_flag": ("Main finding", "Segnalazione principale"),
@@ -858,12 +884,21 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "gate.load_rates": ("Risk-free rate", "Tasso privo di rischio"),
     # ---------------------------------------------------------------- sidebar
     "side.logout": ("Log out", "Esci"),
+    "side.my_portfolio": ("My portfolio", "Il mio portafoglio"),
+    "period.1mo": ("1 month", "1 mese"),
+    "period.6mo": ("6 months", "6 mesi"),
+    "period.1y": ("1 year", "1 anno"),
+    "period.2y": ("2 years", "2 anni"),
+    "period.5y": ("5 years", "5 anni"),
     "side.add_stock": ("Add a stock", "Aggiungi un titolo"),
     "side.search_hint": (
         "Search a stock to see its name and price, then add it.",
         "Cerca un titolo per vederne nome e prezzo, poi aggiungilo.",
     ),
-    "side.your_holdings": ("Your holdings", "Le tue posizioni"),
+    "side.your_holdings": (
+        "Your holdings · weights at cost",
+        "Le tue posizioni · pesi sul carico",
+    ),
     "side.amount": ("Amount (€)", "Importo (€)"),
     "side.save": ("Save", "Salva"),
     "side.remove": ("Remove", "Rimuovi"),
@@ -1070,7 +1105,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "pdf.no_history": ("Price history not available.", "Storico prezzi non disponibile."),
     "pdf.h_ticker": ("Ticker", "Ticker"),
     "pdf.h_company": ("Company", "Società"),
-    "pdf.h_return": ("Return ({period})", "Rendimento ({period})"),
+    "pdf.h_return": ("Return {period}", "Rend. {period}"),
     "pdf.other_holdings": ("other holdings", "altre posizioni"),
     "pdf.coverage": ("Data coverage: ", "Copertura dati: "),
     "pdf.portfolio_legend": ("Portfolio", "Portafoglio"),
@@ -1205,97 +1240,98 @@ _CATALOG: dict[str, tuple[str, str]] = {
     # ---------------------------------------------------------------- options overlay
     "nav.options": ("Options", "Opzioni"),
     "opt.title": (
-        "Protect gains & generate income (options overlay)",
-        "Proteggi i guadagni e genera rendita (overlay di opzioni)",
+        "Options overlay: protection and income scenarios",
+        "Overlay di opzioni: scenari di protezione e rendita",
     ),
     "opt.intro": (
-        "No strategy guarantees profit. What options CAN do on a portfolio you "
-        "already hold: lock in unrealized gains (protective put / collar) or "
-        "monetize upside you are willing to give up (covered call). Figures "
-        "below are theoretical Black-Scholes estimates on realized volatility.",
-        "Nessuna strategia garantisce profitto. Ciò che le opzioni POSSONO "
-        "fare su un portafoglio che possiedi già: bloccare i guadagni non "
-        "realizzati (put protettiva / collar) o monetizzare l'upside a cui sei "
-        "disposto a rinunciare (covered call). Le cifre sotto sono stime "
-        "teoriche Black-Scholes sulla volatilità realizzata.",
+        "Theoretical scenarios on a position already held: a protective put or a "
+        "collar sets a floor on the exit price; a covered call collects a premium "
+        "in exchange for upside above the strike. Figures are Black-Scholes "
+        "estimates on realized volatility. No strategy guarantees a profit.",
+        "Scenari teorici su una posizione già detenuta: una put protettiva o un "
+        "collar fissano un pavimento al prezzo di uscita; una covered call incassa "
+        "un premio in cambio del rialzo oltre lo strike. Le cifre sono stime "
+        "Black-Scholes sulla volatilità realizzata. Nessuna strategia garantisce "
+        "un profitto.",
     ),
     "opt.pick": ("Position", "Posizione"),
     "opt.horizon": ("Horizon", "Orizzonte"),
-    "opt.put_strike": ("Protection level (% of price)", "Livello di protezione (% del prezzo)"),
+    "opt.put_strike": ("Put strike (% of price)", "Strike put (% del prezzo)"),
+    "opt.put_strike_abs": ("Put strike", "Strike put"),
     "opt.call_strike": ("Call strike (% of price)", "Strike call (% del prezzo)"),
     "opt.vol_used": (
         "Inputs: realized annual volatility {vol} over the selected period, "
-        "risk-free {rf}, current price {spot}.",
+        "risk-free rate {rf}, current price {spot}.",
         "Input: volatilità annua realizzata {vol} nel periodo selezionato, "
-        "risk-free {rf}, prezzo attuale {spot}.",
+        "tasso privo di rischio {rf}, prezzo attuale {spot}.",
     ),
-    "opt.protect_title": (
-        "Protect the gain: protective put",
-        "Proteggi il guadagno: put protettiva",
-    ),
+    "opt.protect_title": ("Protective put", "Put protettiva"),
     "opt.protect_text": (
-        "Buying a put with strike {strike} ({days} days) costs ≈ **{premium}** "
-        "per share ({pct} of the position value). Whatever happens, until "
-        "expiry you can sell at {strike}: net of the premium, the minimum exit "
-        "is **{floor}** per share.",
-        "Comprare una put con strike {strike} ({days} giorni) costa ≈ "
-        "**{premium}** per azione ({pct} del valore della posizione). Qualunque "
-        "cosa accada, fino alla scadenza puoi vendere a {strike}: al netto del "
-        "premio, l'uscita minima è **{floor}** per azione.",
+        "A put with strike {strike} and {days} days to expiry is estimated at "
+        "≈ **{premium}** per share ({pct} of the position value). Until expiry it "
+        "gives the right to sell at {strike}: net of the premium, the minimum "
+        "exit price is **{floor}** per share.",
+        "Una put con strike {strike} e {days} giorni alla scadenza è stimata "
+        "≈ **{premium}** per azione ({pct} del valore della posizione). Fino alla "
+        "scadenza dà il diritto di vendere a {strike}: al netto del premio, il "
+        "prezzo minimo di uscita è **{floor}** per azione.",
     ),
     "opt.locked_gain": (
-        "With your average cost of {cost}, this locks a MINIMUM P&L of "
-        "**{pnl}** per share (**{total}** on the whole position), no matter "
-        "what the market does before expiry.",
-        "Con il tuo carico medio di {cost}, questo blocca un P&L MINIMO di "
-        "**{pnl}** per azione (**{total}** sull'intera posizione), qualunque "
-        "cosa faccia il mercato fino alla scadenza.",
+        "Against an average cost of {cost}, the minimum P&L at expiry is "
+        "**{pnl}** per share (**{total}** on the whole position).",
+        "Rispetto al prezzo medio di carico di {cost}, il P&L minimo alla "
+        "scadenza è **{pnl}** per azione (**{total}** sull'intera posizione).",
     ),
     "opt.locked_loss": (
-        "With your average cost of {cost}, the floor sits at {pnl} per share "
-        "versus your cost: the put limits the loss, it does not create a gain.",
-        "Con il tuo carico medio di {cost}, il pavimento è a {pnl} per azione "
-        "rispetto al carico: la put limita la perdita, non crea un guadagno.",
+        "Against an average cost of {cost}, the floor sits at {pnl} per share: "
+        "the put limits the loss, it does not create a gain.",
+        "Rispetto al prezzo medio di carico di {cost}, il pavimento è a {pnl} per "
+        "azione: la put limita la perdita, non crea un guadagno.",
     ),
-    "opt.income_title": ("Income: covered call", "Rendita: covered call"),
+    "opt.income_title": ("Covered call", "Covered call"),
     "opt.income_text": (
-        "Selling a call at {strike} ({days} days) collects ≈ **{premium}** per "
-        "share: **{yld}** on the position over the period. Above {strike} the "
-        "shares are called away and you give up further upside.",
-        "Vendere una call a {strike} ({days} giorni) incassa ≈ **{premium}** "
-        "per azione: **{yld}** sulla posizione nel periodo. Sopra {strike} le "
-        "azioni vengono ritirate e rinunci all'upside oltre quel livello.",
+        "A call sold at {strike} with {days} days to expiry is estimated at "
+        "≈ **{premium}** per share: **{yld}** of the position over the period. "
+        "Above {strike} the shares are called away and further upside is forgone.",
+        "Una call venduta a {strike} con {days} giorni alla scadenza è stimata "
+        "≈ **{premium}** per azione: **{yld}** della posizione nel periodo. Sopra "
+        "{strike} le azioni vengono ritirate e il rialzo ulteriore non è incassato.",
+    ),
+    "opt.income_annual": (
+        "(about {ann} annualized; {total} on the whole position)",
+        "(circa {ann} annualizzato; {total} sull'intera posizione)",
     ),
     "opt.collar_title": ("Zero-cost collar", "Collar a costo zero"),
     "opt.collar_text": (
-        "Selling a call at **{cap}** finances the {floor} put almost exactly "
-        "(net premium ≈ {net}): a price corridor [{floor} – {cap}] at ~zero "
-        "cost. Floor and cap are both binding until expiry.",
-        "Vendere una call a **{cap}** finanzia quasi esattamente la put a "
-        "{floor} (premio netto ≈ {net}): un corridoio di prezzo [{floor} – "
-        "{cap}] a costo ~zero. Pavimento e tetto valgono fino alla scadenza.",
+        "A call sold at **{cap}** finances the put at {floor} almost exactly "
+        "(net premium ≈ {net}): a price corridor from {floor} to {cap} at about "
+        "zero cost. Floor and cap both apply until expiry.",
+        "Una call venduta a **{cap}** finanzia quasi esattamente la put a {floor} "
+        "(premio netto ≈ {net}): un corridoio di prezzo da {floor} a {cap} a costo "
+        "circa zero. Pavimento e tetto valgono entrambi fino alla scadenza.",
     ),
     "opt.disclaimer": (
         "Theoretical Black-Scholes estimates on realized volatility: no "
         "implied-volatility surface, dividends ignored, European exercise. "
-        "Actual market prices and availability differ. Listed options control "
-        "100 shares per contract, so sizes may not match your position. Options "
+        "Actual market prices and availability differ. Listed options cover "
+        "100 shares per contract, so sizes may not match the position. Options "
         "are complex instruments subject to the MiFID II appropriateness "
         "assessment; this panel is a scenario tool, not investment advice or a "
-        "recommendation. No strategy guarantees profit.",
+        "recommendation. No strategy guarantees a profit.",
         "Stime teoriche Black-Scholes sulla volatilità realizzata: nessuna "
         "superficie di volatilità implicita, dividendi ignorati, esercizio "
         "europeo. Prezzi e disponibilità reali di mercato differiscono. Le "
-        "opzioni quotate controllano 100 azioni per contratto: le taglie possono non combaciare con la tua posizione. Le opzioni sono "
-        "strumenti complessi soggetti alla valutazione di appropriatezza "
-        "MiFID II; questo pannello è uno strumento di scenario, non consulenza "
-        "né raccomandazione. Nessuna strategia garantisce profitto.",
+        "opzioni quotate coprono 100 azioni per contratto: le taglie possono non "
+        "combaciare con la posizione. Le opzioni sono strumenti complessi soggetti "
+        "alla valutazione di appropriatezza MiFID II; questo pannello è uno "
+        "strumento di scenario, non consulenza né raccomandazione. Nessuna "
+        "strategia garantisce un profitto.",
     ),
     "opt.no_positions": (
-        "This panel needs at least one position with a known purchase price. "
-        "Add quantity and purchase price in the sidebar.",
-        "Questo pannello richiede almeno una posizione con prezzo di carico "
-        "noto. Aggiungi quantità e prezzo di carico dalla barra laterale.",
+        "This panel needs at least one position with quantity and purchase price. "
+        "They can be entered in the client's portfolio composition.",
+        "Questo pannello richiede almeno una posizione con quantità e prezzo di "
+        "carico, inseribili nella composizione del portafoglio del cliente.",
     ),
     "opt.days_label": ("{days} days", "{days} giorni"),
     "opt.market_title": ("Market check: real quotes", "Verifica di mercato: quotazioni reali"),
@@ -1309,8 +1345,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "expiry, so the comparison is apples to apples.",
         "Contratto reale: strike {strike}, scadenza {expiry} ({days} giorni) · "
         "denaro {bid} / lettera {ask} · ultimo scambio {last} · open interest "
-        "{oi}. La stima teorica qui sopra è ricalcolata sugli STESSI strike e "
-        "scadenza: il confronto è mele con mele.",
+        "{oi}. La stima teorica qui sopra è ricalcolata sugli stessi strike e "
+        "scadenza: le due cifre sono direttamente confrontabili.",
     ),
     "opt.iv_note": (
         "The market prices {iv} implied volatility vs {rv} realized over the "
@@ -1331,19 +1367,18 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "il mercato è sostanzialmente allineato alla storia recente.",
     ),
     "opt.compare_put_title": (
-        "Compare the real protection contracts",
-        "Confronta i contratti di protezione reali",
+        "Listed put contracts near the selected level",
+        "Contratti put quotati vicino al livello scelto",
     ),
     "opt.compare_call_title": (
-        "Compare the real income contracts",
-        "Confronta i contratti di rendita reali",
+        "Listed call contracts near the selected level",
+        "Contratti call quotati vicino al livello scelto",
     ),
     "opt.compare_caption": (
-        "Facts, not advice: every listed contract near your levels, side by "
-        "side. The choice belongs to you and your advisor; the platform does "
-        "not pick instruments.",
-        "Fatti, non consigli: ogni contratto quotato vicino ai tuoi livelli, "
-        "fianco a fianco. La scelta spetta a te e al tuo consulente: la piattaforma non sceglie strumenti.",
+        "Market data, not advice: listed contracts near the selected levels, side "
+        "by side. The platform does not select instruments.",
+        "Dati di mercato, non consigli: i contratti quotati vicino ai livelli "
+        "scelti, fianco a fianco. La piattaforma non seleziona strumenti.",
     ),
     "opt.col_strike": ("Strike", "Strike"),
     "opt.col_strike_pct": ("% of price", "% del prezzo"),
@@ -1353,7 +1388,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "opt.col_floor": ("Floor", "Pavimento"),
     "opt.col_locked": ("Locked P&L", "P&L bloccato"),
     "opt.col_yield": ("Yield (period)", "Rendita (periodo)"),
-    "opt.col_yield_ann": ("Yield /yr", "Rendita /anno"),
+    "opt.col_yield_ann": ("Yield (annualized)", "Rendita (annualizzata)"),
     "opt.col_income": ("Income", "Incasso"),
     "opt.col_iv": ("IV", "IV"),
     "opt.col_oi": ("Open int.", "Open int."),
@@ -1566,10 +1601,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "fund.card_vol": ("Annualized volatility: {vol}", "Volatilità annualizzata: {vol}"),
     # ---------------------------------------------------------------- mercato
     "mkt.title": ("Nasdaq-100 constituents compared", "I costituenti del Nasdaq-100 a confronto"),
-    "mkt.no_db": (
-        "Market database not available: run `python download_nasdaq100.py`.",
-        "Database di mercato non disponibile: esegui `python download_nasdaq100.py`.",
-    ),
     "mkt.period": ("Period", "Periodo"),
     "mkt.p_30": ("1 month", "1 mese"),
     "mkt.p_182": ("6 months", "6 mesi"),
@@ -1603,10 +1634,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "xc.caption": (
         "Correlation of daily returns: **+1** = identical, **0** = independent, **-1** = opposite.",
         "Correlazione dei rendimenti giornalieri: **+1** = identici, **0** = indipendenti, **-1** = opposti.",
-    ),
-    "xc.no_db": (
-        "The Nasdaq-100 database is required: run `python download_nasdaq100.py`.",
-        "Serve il database Nasdaq-100: esegui `python download_nasdaq100.py`.",
     ),
     "xc.reference": ("Reference security", "Titolo di riferimento"),
     "xc.reference_ph": ("Choose a Nasdaq-100 security", "Scegli un titolo del Nasdaq-100"),
@@ -1686,6 +1713,23 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "chart.correlation": ("Correlation", "Correlazione"),
     "chart.return": ("Return", "Rendimento"),
     "chart.date": ("Date", "Data"),
+    "chart.axis": ("Axis", "Asse"),
+    "a11y.section": ("Section", "Sezione"),
+    "a11y.subsection": ("Subsection", "Sottosezione"),
+    "a11y.search_stock": ("Search stock", "Cerca titolo"),
+    # settori (nomi SEC/Yahoo): tradotti al caricamento dei fondamentali
+    "sector.Basic Materials": ("Basic Materials", "Materiali di base"),
+    "sector.Communication Services": ("Communication Services", "Servizi di comunicazione"),
+    "sector.Consumer Cyclical": ("Consumer Cyclical", "Beni di consumo ciclici"),
+    "sector.Consumer Defensive": ("Consumer Defensive", "Beni di consumo difensivi"),
+    "sector.Energy": ("Energy", "Energia"),
+    "sector.Financial Services": ("Financial Services", "Servizi finanziari"),
+    "sector.Healthcare": ("Healthcare", "Sanità"),
+    "sector.Industrials": ("Industrials", "Industria"),
+    "sector.Real Estate": ("Real Estate", "Immobiliare"),
+    "sector.Technology": ("Technology", "Tecnologia"),
+    "sector.Utilities": ("Utilities", "Servizi di pubblica utilità"),
+    "chart.score": ("Score", "Punteggio"),
     "chart.value": ("Value", "Valore"),
     "chart.series": ("Series", "Serie"),
     "chart.from_peak": ("From peak", "Dal massimo"),
@@ -2145,10 +2189,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     # ---------------------------------------------------------------- report: elementi comuni
     "rep.page": ("Page {n} of {total}", "Pagina {n} di {total}"),
     "rep.footer1": (
-        "SmarteeFinance · Portfolio Intelligence · Ref. {rid} · prices: {source} · accuracy and "
-        "completeness of data not guaranteed",
-        "SmarteeFinance · Portfolio Intelligence · Rif. {rid} · prezzi: {source} · accuratezza e "
-        "completezza dei dati non garantite",
+        "SmarteeFinance · Portfolio Intelligence · Ref. {rid} · data sources in the methodology "
+        "notes; accuracy and completeness not guaranteed",
+        "SmarteeFinance · Portfolio Intelligence · Rif. {rid} · fonti dei dati nelle note di "
+        "metodologia; accuratezza e completezza non garantite",
     ),
     "rep.source_unknown": (
         "provider chain (EODHD where licensed, Yahoo, yfinance, Stooq)",
