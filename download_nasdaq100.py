@@ -1,8 +1,8 @@
 """Aggiorna il database locale (data/market.db) con i prezzi dei componenti
 del Nasdaq-100: scarica tutto al primo avvio, poi solo i giorni mancanti.
 
-Aggiorna anche lo storico degli indici di riferimento (S&P 500, FTSE MIB,
-STOXX Europe 600 e QQQ, vedi data/benchmarks.py), che l'analisi usa come
+Aggiorna anche lo storico dei benchmark total return (ETF su Nasdaq-100, S&P 500,
+FTSE MIB e STOXX Europe 600, vedi data/benchmarks.py), che l'analisi usa come
 riserva quando nessun provider risponde, e la composizione del Nasdaq-100.
 
 Rigenera anche lo snapshot dei fondamentali (data/nasdaq100_fundamentals.csv),

@@ -418,7 +418,7 @@ def report_input(
         executive=exec_text,
         lang=lang,
         benchmark=ctx.benchmark_label,
-        benchmark_price_index=ctx.benchmark_price_index,
+        benchmark_name=ctx.benchmark_name,
         in_eur=ctx.in_eur,
         names=ctx.names,
         sector_of={k: str(v) for k, v in sectors.dropna().items() if str(v)},

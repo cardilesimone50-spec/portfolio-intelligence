@@ -480,8 +480,6 @@ def render(ctx: ViewContext, recipient_field) -> None:
             width="stretch",
         )
         st.caption(t("ov.perf_note"))
-        if ctx.benchmark_price_index:
-            st.caption(t("bench.price_index_note", benchmark=ctx.benchmark_label))
     with mon_col:
         sec(t("ov.monitor_title"))
         summary_color = LOSS if breaches else GAIN_TEXT

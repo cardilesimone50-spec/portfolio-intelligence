@@ -186,11 +186,8 @@ BENCHMARK_OPTIONS = [DEFAULT_BENCHMARK, *(b for b in BENCHMARK_TICKERS if b != D
 
 
 def _benchmark_option(ticker: str) -> str:
-    """Voce del selettore: nome esteso, con la natura della serie se esclude i dividendi."""
-    benchmark = BENCHMARKS[ticker]
-    if benchmark.total_return:
-        return benchmark.name
-    return f"{benchmark.name} · {t('bench.price_index')}"
+    """Voce del selettore: il nome esteso della serie."""
+    return BENCHMARKS[ticker].name
 
 
 def _fingerprint(positions: dict) -> str:

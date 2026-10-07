@@ -722,16 +722,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "The benchmark is saved together with the positions, with Save changes.",
         "Il benchmark si salva insieme alle posizioni, con Salva modifiche.",
     ),
-    "bench.price_index": ("price index", "indice di prezzo"),
-    "bench.price_index_note": (
-        "{benchmark} is a price index: its dividends are not reinvested, while portfolio "
-        "prices are adjusted for dividends. Relative performance and alpha against it are "
-        "overstated by roughly the index dividend yield.",
-        "{benchmark} è un indice di prezzo: i suoi dividendi non sono reinvestiti, mentre "
-        "i prezzi del portafoglio sono rettificati per i dividendi. Rendimento relativo e "
-        "alfa rispetto all'indice risultano sovrastimati di circa il rendimento da "
-        "dividendi dell'indice.",
-    ),
     "adv.recipient": ("Report heading (optional)", "Intestazione del report (facoltativa)"),
     "adv.recipient_placeholder": ("Client's full name", "Nome e cognome del cliente"),
     "adv.recipient_note": (
@@ -2254,6 +2244,17 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "regressione OLS dei rendimenti giornalieri del portafoglio sul benchmark {benchmark}. Tracking "
         "error: deviazione standard annualizzata dei rendimenti attivi giornalieri. Contributo "
         "al rischio: quota della varianza del portafoglio per posizione, covarianze incluse.",
+    ),
+    "rep.n_bench": (
+        "Benchmark: {name}. Total return series: the ETF price includes dividends. Returns are "
+        "net of the fund's costs and of any withholding tax the fund pays on dividends, while "
+        "portfolio prices reinvest gross dividends, so relative performance and alpha against "
+        "the benchmark may be slightly overstated.",
+        "Benchmark: {name}. Serie total return: il prezzo dell'ETF include i dividendi. I "
+        "rendimenti sono al netto dei costi del fondo e delle eventuali ritenute che il fondo "
+        "subisce sui dividendi, mentre i prezzi del portafoglio reinvestono i dividendi lordi: "
+        "rendimento relativo e alfa rispetto al benchmark possono risultare leggermente "
+        "sovrastimati.",
     ),
     "rep.n_weights": (
         "Historical series apply today's weights to the whole window (constant weights): they "

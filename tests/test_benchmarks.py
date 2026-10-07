@@ -18,9 +18,11 @@ from portfolio_intelligence.data.benchmarks import (
     BENCHMARK_TICKERS,
     BENCHMARKS,
     DEFAULT_BENCHMARK,
+    LEGACY_BENCHMARKS,
     benchmark_label,
+    benchmark_name,
     benchmark_or_default,
-    is_price_index,
+    canonical_benchmark,
 )
 from portfolio_intelligence.data.fx import convert_to_eur, is_usd_listing
 from portfolio_intelligence.data.providers import (
@@ -69,14 +71,14 @@ def test_beta_and_alpha_follow_the_benchmark_series_passed_in():
 
 
 def _computed_against(benchmark: str) -> dict:
-    """Pipeline completa: portafoglio = 1,5 × S&P 500 + 0,4 × FTSE MIB (fattori sintetici)."""
+    """Pipeline completa: portafoglio = 1,5 × S&P 500 TR + 0,4 × FTSE MIB TR (fattori sintetici)."""
     a, b = _factors()
     pf = _prices_from(1.5 * a + 0.4 * b)
     prices = pd.DataFrame({"AAA": pf, "BBB": pf})
     bench_prices = pd.DataFrame(
         {
-            "^GSPC": _prices_from(a),
-            "FTSEMIB.MI": _prices_from(b),
+            "SPY": _prices_from(a),
+            "CSMIB.MI": _prices_from(b),
             "QQQ": _prices_from(0.7 * a + 0.7 * b),
         }
     )
@@ -87,7 +89,7 @@ def _computed_against(benchmark: str) -> dict:
 
 
 @pytest.mark.parametrize(
-    ("benchmark", "expected_beta"), [("^GSPC", 1.5), ("FTSEMIB.MI", 0.4), ("QQQ", None)]
+    ("benchmark", "expected_beta"), [("SPY", 1.5), ("CSMIB.MI", 0.4), ("QQQ", None)]
 )
 def test_pipeline_measures_beta_against_the_chosen_benchmark(benchmark, expected_beta):
     computed = _computed_against(benchmark)
@@ -103,7 +105,7 @@ def test_pipeline_measures_beta_against_the_chosen_benchmark(benchmark, expected
 
 
 def test_switching_benchmark_changes_beta_but_not_the_portfolio_metrics():
-    spx, mib = _computed_against("^GSPC"), _computed_against("FTSEMIB.MI")
+    spx, mib = _computed_against("SPY"), _computed_against("CSMIB.MI")
 
     assert spx["beta"] != pytest.approx(mib["beta"], abs=0.5)
     assert spx["alpha"] != pytest.approx(mib["alpha"])
@@ -114,13 +116,13 @@ def test_switching_benchmark_changes_beta_but_not_the_portfolio_metrics():
 def test_pipeline_rejects_a_benchmark_without_prices():
     a, _ = _factors()
     prices = pd.DataFrame({"AAA": _prices_from(a)})
-    with pytest.raises(ValueError, match="FTSEMIB.MI"):
+    with pytest.raises(ValueError, match="CSMIB.MI"):
         analyze_portfolio(
             prices,
             pd.DataFrame({"QQQ": _prices_from(a)}),
             [{"ticker": "AAA", "weight": 1.0}],
             empty_fundamentals(["AAA"]),
-            "FTSEMIB.MI",
+            "CSMIB.MI",
         )
 
 
@@ -160,7 +162,7 @@ def test_rolling_beta_aligns_dates_and_skips_flat_benchmark_windows():
 
 
 def test_report_metrics_beta_follows_the_benchmark():
-    for benchmark in ("^GSPC", "FTSEMIB.MI"):
+    for benchmark in ("SPY", "CSMIB.MI"):
         computed = _computed_against(benchmark)
         metrics = compute_report_metrics(
             computed["pf_daily"],
@@ -177,35 +179,59 @@ def test_report_metrics_beta_follows_the_benchmark():
 
 
 def test_registry_covers_the_required_universes():
-    assert set(BENCHMARK_TICKERS) == {"QQQ", "^GSPC", "FTSEMIB.MI", "^STOXX"}
+    assert set(BENCHMARK_TICKERS) == {"QQQ", "SPY", "CSMIB.MI", "EXSA.DE"}
     assert DEFAULT_BENCHMARK in BENCHMARKS
     assert len({b.label for b in BENCHMARKS.values()}) == len(BENCHMARKS)
     assert {b.currency for b in BENCHMARKS.values()} <= {"USD", "EUR"}
 
 
+def test_registry_holds_only_total_return_series():
+    """Nessun indice di prezzo: i vecchi ticker non sono più selezionabili."""
+    assert not set(LEGACY_BENCHMARKS) & set(BENCHMARK_TICKERS)
+    assert set(LEGACY_BENCHMARKS.values()) <= set(BENCHMARK_TICKERS)
+    # tutte ETF: lo dichiarano nel nome esteso, e la metodologia ne dice costi e ritenute
+    assert all("ETF" in benchmark_name(ticker) for ticker in BENCHMARK_TICKERS)
+    # tutte coperte dal feed con licenza (EODHD), non solo da Yahoo
+    assert all(BENCHMARKS[ticker].eodhd for ticker in BENCHMARK_TICKERS)
+
+
 def test_registry_helpers():
     assert benchmark_or_default(None) == DEFAULT_BENCHMARK  # record storici
     assert benchmark_or_default("^XYZ") == DEFAULT_BENCHMARK
-    assert benchmark_or_default("^STOXX") == "^STOXX"
-    assert benchmark_label("^GSPC") == "S&P 500"
+    assert benchmark_or_default("EXSA.DE") == "EXSA.DE"
+    assert benchmark_label("SPY") == "S&P 500 TR"
     assert benchmark_label("^XYZ") == "^XYZ"  # mai un'etichetta sbagliata
-    assert is_price_index("FTSEMIB.MI")
-    assert not is_price_index("QQQ")  # ETF: dividendi nel prezzo rettificato
-    assert not is_price_index("^XYZ")
+    assert benchmark_name("^XYZ") == "^XYZ"
+
+
+@pytest.mark.parametrize(
+    ("legacy", "total_return"),
+    [("^GSPC", "SPY"), ("FTSEMIB.MI", "CSMIB.MI"), ("^STOXX", "EXSA.DE")],
+)
+def test_price_index_tickers_move_to_the_total_return_series_of_the_same_index(
+    legacy, total_return
+):
+    # un cliente salvato sull'indice di prezzo non finisce sul Nasdaq-100 predefinito
+    assert canonical_benchmark(legacy) == total_return
+    assert benchmark_or_default(legacy) == total_return
+    assert canonical_benchmark("^N225") is None
 
 
 # ---------------------------------------------------------- simbologia dei provider
 
 
-def test_provider_symbols_for_indices_and_stocks():
-    assert stooq_symbol("^GSPC") == "^spx"
+def test_provider_symbols_for_benchmarks_and_stocks():
     assert stooq_symbol("QQQ") == "qqq.us"
     assert stooq_symbol("AAPL") == "aapl.us"
-    assert stooq_symbol("^STOXX") is None  # non coperto: mai un simbolo inventato
+    # serie non verificate su Stooq: saltate, mai un simbolo inventato
+    assert stooq_symbol("SPY") is None
+    assert stooq_symbol("CSMIB.MI") is None
+    assert stooq_symbol("EXSA.DE") is None
     assert stooq_symbol("^VIX") is None
-    assert eodhd_symbol("^GSPC") == "GSPC.INDX"
-    assert eodhd_symbol("FTSEMIB.MI") == "FTSEMIB.INDX"
-    assert eodhd_symbol("^STOXX") == "SXXP.INDX"
+    assert eodhd_symbol("QQQ") == "QQQ.US"
+    assert eodhd_symbol("SPY") == "SPY.US"
+    assert eodhd_symbol("CSMIB.MI") == "CSMIB.MI"  # Borsa Italiana
+    assert eodhd_symbol("EXSA.DE") == "EXSA.XETRA"  # Xetra
     assert eodhd_symbol("AAPL") == "AAPL.US"
     assert eodhd_symbol("^VIX") is None
 
@@ -226,19 +252,19 @@ def test_stooq_queries_mapped_symbols_and_skips_uncovered_indices(monkeypatch):
         return _CsvResp()
 
     monkeypatch.setattr("portfolio_intelligence.data.providers.requests.get", fake_get)
-    data = StooqProvider().fetch(["^GSPC", "^STOXX"], "1y")
+    data = StooqProvider().fetch(["QQQ", "SPY", "EXSA.DE"], "1y")
 
-    assert requested == ["^spx"]
-    assert list(data.columns) == ["^GSPC"]  # colonne sempre in simbologia Yahoo
-    assert data["^GSPC"].tolist() == [5000.0, 5050.0]
+    assert requested == ["qqq.us"]
+    assert list(data.columns) == ["QQQ"]  # colonne sempre in simbologia Yahoo
+    assert data["QQQ"].tolist() == [5000.0, 5050.0]
 
     requested.clear()
     with pytest.raises(ProviderError):
-        StooqProvider().fetch(["^STOXX"], "1y")
+        StooqProvider().fetch(["SPY", "EXSA.DE"], "1y")
     assert requested == []
 
 
-def test_eodhd_queries_the_index_exchange(monkeypatch):
+def test_eodhd_queries_the_listing_exchange(monkeypatch):
     urls: list[str] = []
 
     class FakeResp:
@@ -253,34 +279,36 @@ def test_eodhd_queries_the_index_exchange(monkeypatch):
         return FakeResp()
 
     monkeypatch.setattr("portfolio_intelligence.data.providers.requests.get", fake_get)
-    data = EODHDProvider("key").fetch(["FTSEMIB.MI", "AAPL"], "1y")
+    data = EODHDProvider("key").fetch(["CSMIB.MI", "EXSA.DE", "SPY", "^VIX", "AAPL"], "1y")
 
     assert urls == [
-        "https://eodhd.com/api/eod/FTSEMIB.INDX",
+        "https://eodhd.com/api/eod/CSMIB.MI",
+        "https://eodhd.com/api/eod/EXSA.XETRA",
+        "https://eodhd.com/api/eod/SPY.US",
         "https://eodhd.com/api/eod/AAPL.US",
     ]
-    assert set(data.columns) == {"FTSEMIB.MI", "AAPL"}
+    assert set(data.columns) == {"CSMIB.MI", "EXSA.DE", "SPY", "AAPL"}
 
 
 # ---------------------------------------------------------- valuta
 
 
 def test_benchmark_currency_comes_from_the_registry():
-    assert is_usd_listing("^GSPC") is True
+    assert is_usd_listing("SPY") is True
     assert is_usd_listing("QQQ") is True
-    assert is_usd_listing("FTSEMIB.MI") is False
-    assert is_usd_listing("^STOXX") is False  # nessun suffisso, ma quota in EUR
+    assert is_usd_listing("CSMIB.MI") is False
+    assert is_usd_listing("EXSA.DE") is False
 
 
 def test_eur_benchmarks_are_not_converted():
     index = pd.bdate_range("2026-01-02", periods=3)
     prices = pd.DataFrame(
-        {"^GSPC": [110.0, 121.0, 132.0], "^STOXX": [500.0, 505.0, 510.0]}, index=index
+        {"SPY": [110.0, 121.0, 132.0], "EXSA.DE": [500.0, 505.0, 510.0]}, index=index
     )
     converted = convert_to_eur(prices, pd.Series([1.10, 1.10, 1.20], index=index))
 
-    assert converted["^GSPC"].tolist() == pytest.approx([100.0, 110.0, 110.0])
-    assert converted["^STOXX"].tolist() == pytest.approx([500.0, 505.0, 510.0])
+    assert converted["SPY"].tolist() == pytest.approx([100.0, 110.0, 110.0])
+    assert converted["EXSA.DE"].tolist() == pytest.approx([500.0, 505.0, 510.0])
 
 
 # ---------------------------------------------------------- persistenza
@@ -297,22 +325,108 @@ def test_client_benchmark_is_saved_kept_and_isolated(tmp_path):
 
     engine = _engine(tmp_path)
     create_client(
-        "adv@a", "C-IT", {"ENEL.MI": 1.0}, "Moderate", engine=engine, benchmark="FTSEMIB.MI"
+        "adv@a", "C-IT", {"ENEL.MI": 1.0}, "Moderate", engine=engine, benchmark="CSMIB.MI"
     )
-    save_portfolio("adv@a", "C-US", {"AAPL": 1.0}, engine=engine, benchmark="^GSPC")
+    save_portfolio("adv@a", "C-US", {"AAPL": 1.0}, engine=engine, benchmark="SPY")
     save_portfolio("adv@a", "C-NEW", {"AAPL": 1.0}, engine=engine)
     # salvare solo le posizioni non tocca il benchmark già scelto
     save_portfolio("adv@a", "C-IT", {"ENI.MI": 2.0}, engine=engine)
 
     clients = list_clients("adv@a", engine=engine)
-    assert clients["C-IT"]["benchmark"] == "FTSEMIB.MI"
+    assert clients["C-IT"]["benchmark"] == "CSMIB.MI"
     assert clients["C-IT"]["positions"] == {"ENI.MI": 2.0}
-    assert clients["C-US"]["benchmark"] == "^GSPC"
+    assert clients["C-US"]["benchmark"] == "SPY"
     assert clients["C-NEW"]["benchmark"] == DEFAULT_BENCHMARK
     assert list_clients("adv@b", engine=engine) == {}
 
-    save_portfolio("adv@a", "C-IT", {"ENI.MI": 2.0}, engine=engine, benchmark="^STOXX")
-    assert list_clients("adv@a", engine=engine)["C-IT"]["benchmark"] == "^STOXX"
+    save_portfolio("adv@a", "C-IT", {"ENI.MI": 2.0}, engine=engine, benchmark="EXSA.DE")
+    assert list_clients("adv@a", engine=engine)["C-IT"]["benchmark"] == "EXSA.DE"
+
+
+def test_legacy_price_index_benchmarks_are_saved_and_read_as_total_return(tmp_path):
+    from sqlalchemy import text
+
+    from portfolio_intelligence.data.store import create_client, list_clients, save_portfolio
+
+    engine = _engine(tmp_path)
+    create_client("adv@a", "C-1", {"AAPL": 1.0}, engine=engine, benchmark="^GSPC")
+    save_portfolio("adv@a", "C-2", {"ENEL.MI": 1.0}, engine=engine, benchmark="FTSEMIB.MI")
+    with engine.connect() as conn:  # la scrittura salva già la serie total return
+        raw = dict(conn.execute(text("SELECT name, benchmark FROM portfolios")).all())
+    assert raw == {"C-1": "SPY", "C-2": "CSMIB.MI"}
+    with engine.begin() as conn:  # record scritto prima del passaggio al total return
+        conn.execute(
+            text(
+                "INSERT INTO portfolios (advisor, name, positions, updated, benchmark) "
+                "VALUES ('adv@a', 'C-3', '{\"SAP.DE\": 1.0}', '2025-01-01', '^STOXX')"
+            )
+        )
+
+    clients = list_clients("adv@a", engine=engine)
+    assert clients["C-1"]["benchmark"] == "SPY"
+    assert clients["C-2"]["benchmark"] == "CSMIB.MI"
+    assert clients["C-3"]["benchmark"] == "EXSA.DE"
+
+
+def test_alembic_moves_saved_clients_to_total_return_series(tmp_path, monkeypatch):
+    """Postgres in produzione: la migrazione riscrive i ticker e toglie lo storico vecchio."""
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import create_engine, text
+
+    db = tmp_path / "prod.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db}")
+    # senza file .ini: env.py non riconfigura (e non spegne) i logger degli altri test
+    cfg = Config()
+    cfg.set_main_option("script_location", "migrations")
+    command.upgrade(cfg, "c4e8b2d6f1a3")
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.begin() as conn:
+            for name, bench in (("C-US", "^GSPC"), ("C-IT", "FTSEMIB.MI"), ("C-Q", "QQQ")):
+                conn.execute(
+                    text(
+                        "INSERT INTO portfolios (advisor, name, positions, updated, benchmark) "
+                        "VALUES ('adv@a', :n, '{}', '2025-01-01', :b)"
+                    ),
+                    {"n": name, "b": bench},
+                )
+            # solo lo storico del vecchio indice va via: le altre serie restano la riserva
+            for ticker in ("^GSPC", "QQQ", "SPY"):
+                conn.execute(
+                    text("INSERT INTO benchmark_prices VALUES ('2026-01-02', :t, 100.0)"),
+                    {"t": ticker},
+                )
+
+        command.upgrade(cfg, "head")
+        with engine.connect() as conn:
+            saved = dict(conn.execute(text("SELECT name, benchmark FROM portfolios")).all())
+            stored = {row[0] for row in conn.execute(text("SELECT ticker FROM benchmark_prices"))}
+        assert saved == {"C-US": "SPY", "C-IT": "CSMIB.MI", "C-Q": "QQQ"}
+        assert stored == {"QQQ", "SPY"}
+
+        command.downgrade(cfg, "c4e8b2d6f1a3")
+        with engine.connect() as conn:
+            saved = dict(conn.execute(text("SELECT name, benchmark FROM portfolios")).all())
+        assert saved == {"C-US": "^GSPC", "C-IT": "FTSEMIB.MI", "C-Q": "QQQ"}
+    finally:
+        engine.dispose()
+
+
+def test_offline_migration_script_carries_the_ticker_values(tmp_path, monkeypatch, capsys):
+    """`alembic upgrade --sql` (script consegnato al DBA) non deve produrre `= NULL`."""
+    from alembic import command
+    from alembic.config import Config
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'offline.db'}")
+    cfg = Config()
+    cfg.set_main_option("script_location", "migrations")
+    command.upgrade(cfg, "c4e8b2d6f1a3:e7a3c9b1d5f2", sql=True)
+    script = capsys.readouterr().out
+
+    assert "= NULL" not in script
+    assert "SET benchmark = 'SPY' WHERE benchmark = '^GSPC'" in script
+    assert "DELETE FROM benchmark_prices WHERE ticker = '^STOXX'" in script
 
 
 def test_unknown_benchmark_is_rejected_on_write_and_defaulted_on_read(tmp_path):
@@ -324,7 +438,7 @@ def test_unknown_benchmark_is_rejected_on_write_and_defaulted_on_read(tmp_path):
     with pytest.raises(ValueError, match="benchmark"):
         save_portfolio("adv@a", "C-1", {"AAPL": 1.0}, engine=engine, benchmark="^N225")
     with pytest.raises(ValueError, match="benchmark"):
-        create_client("adv@a", "C-1", {"AAPL": 1.0}, engine=engine, benchmark="SPY")
+        create_client("adv@a", "C-1", {"AAPL": 1.0}, engine=engine, benchmark="IVV")
     with engine.begin() as conn:
         conn.execute(
             text(
@@ -377,20 +491,20 @@ def test_benchmark_history_is_replaced_and_kept_apart_from_stock_prices(tmp_path
     engine = _engine(tmp_path)
     days = pd.bdate_range("2026-01-02", periods=4)
     first = pd.DataFrame(
-        {"^GSPC": [1.0, 2.0, 3.0, 4.0], "^STOXX": [5.0, 6.0, 7.0, 8.0]}, index=days
+        {"SPY": [1.0, 2.0, 3.0, 4.0], "EXSA.DE": [5.0, 6.0, 7.0, 8.0]}, index=days
     )
     assert save_benchmark_prices(first, engine=engine) == 8
 
     # nuovo download di un solo indice: riscrive quello, non tocca l'altro
-    save_benchmark_prices(pd.DataFrame({"^GSPC": [9.0, 10.0]}, index=days[2:]), engine=engine)
+    save_benchmark_prices(pd.DataFrame({"SPY": [9.0, 10.0]}, index=days[2:]), engine=engine)
 
-    spx = load_benchmark_prices("^GSPC", engine=engine)
+    spx = load_benchmark_prices("SPY", engine=engine)
     assert spx is not None
     assert spx.tolist() == [9.0, 10.0]
-    assert load_benchmark_prices("^STOXX", engine=engine).tolist() == [5.0, 6.0, 7.0, 8.0]
-    window = load_benchmark_prices("^STOXX", start="2026-01-06", engine=engine)
+    assert load_benchmark_prices("EXSA.DE", engine=engine).tolist() == [5.0, 6.0, 7.0, 8.0]
+    window = load_benchmark_prices("EXSA.DE", start="2026-01-06", engine=engine)
     assert window.index[0] == pd.Timestamp("2026-01-06")
-    assert load_benchmark_prices("FTSEMIB.MI", engine=engine) is None
+    assert load_benchmark_prices("CSMIB.MI", engine=engine) is None
     # gli indici non entrano nell'universo dei titoli (Mercato, ricerca, backtest)
     assert known_tickers(engine=engine) == []
     assert load_prices(engine=engine) is None
@@ -407,15 +521,15 @@ def test_constituents_are_replaced_per_benchmark(tmp_path):
         index=pd.Index(["AAPL", "NVDA", "AAPL"]),
     )
     assert save_constituents("QQQ", new, as_of="2026-10-07", engine=engine) == 2
-    save_constituents("^GSPC", pd.DataFrame(index=pd.Index(["MSFT"])), engine=engine)
+    save_constituents("SPY", pd.DataFrame(index=pd.Index(["MSFT"])), engine=engine)
 
     saved = load_constituents("QQQ", engine=engine)
     assert list(saved.index) == ["AAPL", "NVDA"]
     assert saved.loc["AAPL", "weight"] == pytest.approx(0.08)  # il primo, non il duplicato
     assert pd.isna(saved.loc["NVDA", "weight"])
     assert set(saved["as_of"]) == {"2026-10-07"}
-    assert list(load_constituents("^GSPC", engine=engine).index) == ["MSFT"]
-    assert load_constituents("FTSEMIB.MI", engine=engine).empty
+    assert list(load_constituents("SPY", engine=engine).index) == ["MSFT"]
+    assert load_constituents("CSMIB.MI", engine=engine).empty
     with pytest.raises(ValueError, match="benchmark"):
         save_constituents("^N225", old, engine=engine)
 
@@ -441,7 +555,7 @@ def test_ingestion_downloads_each_benchmark_with_its_own_fallback(tmp_path, monk
     class FakeChain:
         def fetch(self, tickers, period):
             calls.append((list(tickers), period))
-            if tickers == ["^STOXX"]:
+            if tickers == ["EXSA.DE"]:
                 raise ValueError("No data provider responded")
             return _series_for(tickers[0]), "Stub"
 
@@ -450,10 +564,10 @@ def test_ingestion_downloads_each_benchmark_with_its_own_fallback(tmp_path, monk
 
     assert [tickers for tickers, _ in calls] == [[t] for t in BENCHMARK_TICKERS]
     assert {period for _, period in calls} == {dl.FULL_PERIOD}
-    assert set(saved) == set(BENCHMARK_TICKERS) - {"^STOXX"}  # uno manca, gli altri no
-    assert len(load_benchmark_prices("FTSEMIB.MI")) == 30
-    assert load_benchmark_prices("^STOXX") is None
-    assert "STOXX 600 (^STOXX) non disponibile" in capsys.readouterr().out
+    assert set(saved) == set(BENCHMARK_TICKERS) - {"EXSA.DE"}  # uno manca, gli altri no
+    assert len(load_benchmark_prices("CSMIB.MI")) == 30
+    assert load_benchmark_prices("EXSA.DE") is None
+    assert "STOXX 600 TR (EXSA.DE) non disponibile" in capsys.readouterr().out
 
 
 def test_ingestion_saves_the_nasdaq100_composition(tmp_path, monkeypatch):
@@ -512,11 +626,11 @@ def test_benchmark_market_data_never_creates_tenant_tables(tmp_path, monkeypatch
     db = tmp_path / "market.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db}")
 
-    assert store.load_benchmark_prices("^GSPC") is None
+    assert store.load_benchmark_prices("SPY") is None
     assert store.load_constituents("QQQ").empty
     assert not db.exists()  # leggere non crea il file
 
-    store.save_benchmark_prices(_series_for("^GSPC"))
+    store.save_benchmark_prices(_series_for("SPY"))
     store.save_constituents("QQQ", pd.DataFrame(index=pd.Index(["AAPL"])))
 
     engine = create_engine(f"sqlite:///{db}")
@@ -525,4 +639,4 @@ def test_benchmark_market_data_never_creates_tenant_tables(tmp_path, monkeypatch
     finally:
         engine.dispose()
     assert tables == {"benchmark_prices", "benchmark_constituents"}
-    assert len(store.load_benchmark_prices("^GSPC")) == 30
+    assert len(store.load_benchmark_prices("SPY")) == 30
