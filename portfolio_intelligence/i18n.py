@@ -351,16 +351,16 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "measurable characteristics of the portfolio based on historical data and "
         "do not constitute personalized investment recommendations, investment "
         "research or forecasts. Past performance is not a reliable indicator of "
-        "future results. Figures are gross of costs, fees and taxes; data from "
-        "Yahoo Finance, accuracy not guaranteed. No solicitation to buy or sell "
+        "future results. Figures are gross of costs, fees and taxes; market data "
+        "from third-party providers, accuracy not guaranteed. No solicitation to buy or sell "
         "financial instruments. Decisions remain with the user or their advisor.",
         "Strumento informativo, non consulenza finanziaria. Le analisi descrivono "
         "caratteristiche misurabili del portafoglio sulla base di dati storici e "
         "non costituiscono raccomandazioni personalizzate di investimento, ricerca "
         "in materia di investimenti né previsioni. I rendimenti passati non sono "
         "un indicatore affidabile dei risultati futuri. I valori sono al lordo di "
-        "costi, commissioni e imposte; dati Yahoo Finance, accuratezza non "
-        "garantita. Nessuna sollecitazione all'acquisto o alla vendita di "
+        "costi, commissioni e imposte; dati di mercato da fornitori terzi, "
+        "accuratezza non garantita. Nessuna sollecitazione all'acquisto o alla vendita di "
         "strumenti finanziari. Le decisioni restano all'utente o al suo consulente.",
     ),
     "app.empty_title": ("No portfolio to analyze", "Nessun portafoglio da analizzare"),
@@ -1007,7 +1007,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "chk.top_problems": ("Top problems", "Problemi principali"),
     "chk.profile_problem": (
         "Annualized volatility exceeds the {band} band of the declared **{profile}** profile by **{excess}**.",
-        "La volatilità annualizzata supera di **{excess}** la banda del {band} del profilo dichiarato **{profile}**.",
+        "La volatilità annualizzata supera del **{excess}** la banda del {band} del profilo dichiarato **{profile}**.",
     ),
     "chk.no_problems": (
         "No problems flagged by the monitored rules.",

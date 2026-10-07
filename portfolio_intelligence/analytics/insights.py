@@ -44,7 +44,7 @@ from portfolio_intelligence.config import (
     VOLATILITY_SCALE,
 )
 from portfolio_intelligence.formatting import ui_num, ui_pct
-from portfolio_intelligence.i18n import t
+from portfolio_intelligence.i18n import sector_text, t
 from portfolio_intelligence.portfolio import Portfolio, weights_series
 
 
@@ -381,8 +381,10 @@ def find_opportunities(
     opportunities = []
 
     if "sector" in fundamentals.columns:
-        held_sectors = set(fundamentals["sector"].dropna())
-        missing = [s for s in DEFENSIVE_SECTORS if s not in held_sectors]
+        # nomi confrontati nella lingua dell'interfaccia: i settori arrivano già
+        # tradotti dal caricamento dei fondamentali (o in inglese, dai dati grezzi)
+        held_sectors = {sector_text(s) for s in fundamentals["sector"].dropna() if s}
+        missing = [sector_text(s) for s in DEFENSIVE_SECTORS if sector_text(s) not in held_sectors]
         # senza alcun settore noto non si può dire cosa manca
         if held_sectors and missing:
             opportunities.append(t("opp.defensive_sectors", sectors=", ".join(missing)))

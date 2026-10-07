@@ -262,3 +262,23 @@ def test_dna_and_opportunities_treat_missing_financials_as_unknown_not_zero():
 
     text = " ".join(find_opportunities(pf, fund))
     assert "Healthcare" not in text
+
+
+def test_defensive_sectors_are_recognised_when_already_translated():
+    """In italiano i settori arrivano tradotti ("Sanità"): non vanno segnalati come mancanti."""
+    from portfolio_intelligence.analytics.insights import find_opportunities
+    from portfolio_intelligence.i18n import set_language
+
+    pf = [{"ticker": "JNJ", "weight": 0.5}, {"ticker": "NEE", "weight": 0.5}]
+    fund = pd.DataFrame(
+        {"sector": ["Sanità", "Servizi di pubblica utilità"]}, index=["JNJ", "NEE"]
+    )
+    set_language("it")
+    try:
+        text = " ".join(find_opportunities(pf, fund))
+    finally:
+        set_language("en")
+    assert "Sanità" not in text and "pubblica utilità" not in text
+    assert (
+        "Beni di consumo difensivi" in text
+    )  # l'unico davvero mancante, nella lingua dell'utente
