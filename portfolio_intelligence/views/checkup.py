@@ -45,7 +45,6 @@ from portfolio_intelligence.ui.components import (
 )
 from portfolio_intelligence.ui.identity import DEV_ADVISOR
 from portfolio_intelligence.views.common import (
-    BENCHMARK,
     PROFILE_VOL,
     TRADING_DAYS,
     load_market_db,
@@ -281,7 +280,7 @@ def executive_text(ctx: ViewContext) -> str:
         c["usd_weight"],
         c["drawdown"],
         c["beta"],
-        BENCHMARK,
+        ctx.benchmark_label,
     )
 
 
@@ -418,7 +417,8 @@ def report_input(
         breakdown=c["breakdown"],
         executive=exec_text,
         lang=lang,
-        benchmark=BENCHMARK,
+        benchmark=ctx.benchmark_label,
+        benchmark_price_index=ctx.benchmark_price_index,
         in_eur=ctx.in_eur,
         names=ctx.names,
         sector_of={k: str(v) for k, v in sectors.dropna().items() if str(v)},

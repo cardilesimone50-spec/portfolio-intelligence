@@ -1,7 +1,7 @@
 # Portfolio Intelligence
 
 Motore di analisi di portafogli azionari — rendimento/rischio in euro
-(Sharpe, Sortino, max drawdown, VaR, beta/alpha vs Nasdaq-100), correlazioni,
+(Sharpe, Sortino, max drawdown, VaR, beta/alpha vs benchmark), correlazioni,
 fondamentali, ottimizzazione di Markowitz, backtest di strategie, report PDF
 — condiviso da **due prodotti Streamlit distinti**:
 
@@ -17,6 +17,21 @@ I prezzi arrivano da una **catena di provider dati** con fallback
 (`portfolio_intelligence/data/providers.py`): EODHD — dati con licenza commerciale, attivo con
 `EODHD_API_KEY` — poi Yahoo Finance, poi Stooq. Pensata per sostituire la
 sorgente senza toccare il resto del codice.
+
+### Benchmark di riferimento
+
+Beta, alfa, correlazione e grafici comparativi si misurano contro il benchmark
+scelto per ogni cliente nell'area Advisor (salvato a database insieme al profilo
+di rischio): Nasdaq-100 (ETF QQQ, predefinito e unico per Investor), S&P 500
+(`^GSPC`), FTSE MIB (`FTSEMIB.MI`), STOXX Europe 600 (`^STOXX`). Il registro è
+`portfolio_intelligence/data/benchmarks.py`: simbologia per provider, valuta
+(per la conversione in EUR) e natura della serie. I tre indici sono indici di
+**prezzo**, senza dividendi: interfaccia e PDF lo dichiarano accanto ai
+confronti, perché rendimento relativo e alfa risultano sovrastimati di circa il
+rendimento da dividendi dell'indice. `download_nasdaq100.py` salva anche lo
+storico degli indici (tabella `benchmark_prices`), usato come riserva quando
+nessun provider risponde, e la composizione del Nasdaq-100
+(`benchmark_constituents`).
 
 ## Licenza
 
@@ -35,7 +50,7 @@ APP_MODE=investor streamlit run app.py               # ...o Investor, via env va
 
 python main.py -p AAPL:0.5 -p MSFT:0.5 --period 1y   # report CLI
 python fundamentals_report.py AAPL MSFT NVDA         # fondamentali CLI
-python download_nasdaq100.py                         # scarica/aggiorna il database prezzi
+python download_nasdaq100.py                         # scarica/aggiorna il database prezzi e gli indici
 python -m pytest                                      # test
 ```
 

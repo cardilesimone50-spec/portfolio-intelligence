@@ -4,6 +4,11 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from portfolio_intelligence.data.benchmarks import (
+    DEFAULT_BENCHMARK,
+    benchmark_label,
+    is_price_index,
+)
 from portfolio_intelligence.portfolio import Portfolio
 
 
@@ -14,6 +19,8 @@ class ViewContext:
     `computed` è il dict prodotto da analyze_portfolio (None senza portafoglio).
     `pos` è la tabella posizioni (qty, carico, valore attuale, P&L) e
     `pnl_totals` i suoi totali — vedi portfolio_intelligence/portfolio/positions.py.
+    `benchmark` è il ticker del benchmark contro cui è stato calcolato `computed`
+    (quello salvato per il cliente nell'area Advisor, il predefinito in Investor).
     """
 
     computed: dict | None
@@ -37,3 +44,14 @@ class ViewContext:
     # intestazione del PDF per il cliente (nome e cognome): solo in sessione,
     # mai nel DB né nei log; vuota = nessuna intestazione nominativa
     report_recipient: str = ""
+    benchmark: str = DEFAULT_BENCHMARK
+
+    @property
+    def benchmark_label(self) -> str:
+        """Etichetta breve del benchmark per testi, grafici e report."""
+        return benchmark_label(self.benchmark)
+
+    @property
+    def benchmark_price_index(self) -> bool:
+        """True se il benchmark esclude i dividendi (va dichiarato accanto ai confronti)."""
+        return is_price_index(self.benchmark)

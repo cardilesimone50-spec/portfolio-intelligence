@@ -577,6 +577,7 @@ def notices_block(r: ReportInput):
         T("pdf.notice_costs"),
         T("rep.n_returns", rf=rf),
         T("rep.n_risk", benchmark=r.benchmark),
+        *([T("bench.price_index_note", benchmark=r.benchmark)] if r.benchmark_price_index else []),
         T("rep.n_weights"),
         T("rep.n_scenarios"),
         T("rep.n_score"),

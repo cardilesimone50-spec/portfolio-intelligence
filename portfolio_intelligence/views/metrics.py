@@ -10,14 +10,19 @@ from portfolio_intelligence.analytics.interpret import (
     interpret_sortino,
     interpret_volatility,
 )
-from portfolio_intelligence.analytics.performance import annualized_sharpe, sortino_ratio
+from portfolio_intelligence.analytics.performance import (
+    annualized_sharpe,
+    rolling_beta,
+    sortino_ratio,
+)
+from portfolio_intelligence.data.fx import is_usd_listing
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.returns import (
     compute_daily_returns,
     per_ticker_cumulative_return,
 )
 from portfolio_intelligence.ui.components import eur, num, pct, sec
-from portfolio_intelligence.views.common import BENCHMARK, TRADING_DAYS, load_market_db
+from portfolio_intelligence.views.common import TRADING_DAYS, load_market_db
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import (
     PALETTE,
@@ -40,6 +45,7 @@ def render(ctx: ViewContext) -> None:
     c = ctx.computed
     amounts, total, portfolio = ctx.amounts, ctx.total, ctx.portfolio
     risk_free, in_eur = ctx.risk_free, ctx.in_eur
+    benchmark = ctx.benchmark_label
 
     sharpe = annualized_sharpe(c["returns"], portfolio, risk_free_rate=risk_free)
     sortino = sortino_ratio(c["returns"], portfolio, risk_free_rate=risk_free)
@@ -80,24 +86,28 @@ def render(ctx: ViewContext) -> None:
     r3.metric(t("an.var"), pct(c["var_95"]), delta=eur(total * c["var_95"]), delta_color="off")
     r3.caption(t("an.var_caption"))
     r4.metric(
-        t("an.beta", benchmark=BENCHMARK),
+        t("an.beta", benchmark=benchmark),
         num(c["beta"]),
         delta=t("an.alpha_delta", alpha=pct(c["alpha"], signed=True)),
         delta_color="off",
     )
-    r4.caption(interpret_beta(c["beta"], BENCHMARK))
+    r4.caption(interpret_beta(c["beta"], benchmark))
     st.caption(t("an.estimates"))
 
-    sec(t("an.vs_bench", benchmark=BENCHMARK))
+    sec(t("an.vs_bench", benchmark=benchmark))
     bench_value = (1 + c["bench_daily"]).cumprod()
     show_chart(
-        benchmark_overlay(c["pf_value"], bench_value, BENCHMARK),
+        benchmark_overlay(c["pf_value"], bench_value, benchmark),
         width="stretch",
     )
     excess = c["cum_return"] - float(bench_value.iloc[-1] - 1)
+    # l'effetto cambio c'è solo se portafoglio o benchmark quotano in dollari
+    fx_effect = in_eur and (c["usd_weight"] > 0 or is_usd_listing(ctx.benchmark))
     st.caption(
-        t("an.excess", excess=pct(excess, signed=True)) + (t("an.excess_fx") if in_eur else ".")
+        t("an.excess", excess=pct(excess, signed=True)) + (t("an.excess_fx") if fx_effect else ".")
     )
+    if ctx.benchmark_price_index:
+        st.caption(t("bench.price_index_note", benchmark=benchmark))
 
     col_dd, col_hist = st.columns(2, gap="large")
     with col_dd:
@@ -117,14 +127,10 @@ def render(ctx: ViewContext) -> None:
             show_chart(simple_line(rolling_vol), width="stretch")
             st.caption(t("an.rolling_vol_caption"))
         with col_rbeta:
-            sec(t("an.rolling_beta", benchmark=BENCHMARK))
-            aligned = pd.concat({"pf": c["pf_daily"], "bench": c["bench_daily"]}, axis=1).dropna()
-            rolling_beta = (
-                aligned["pf"].rolling(60).cov(aligned["bench"])
-                / aligned["bench"].rolling(60).var()
-            ).dropna()
+            sec(t("an.rolling_beta", benchmark=benchmark))
+            beta_60d = rolling_beta(c["pf_daily"], c["bench_daily"], window=60)
             show_chart(
-                simple_line(rolling_beta, color=PALETTE[0], y_format=".1f"),
+                simple_line(beta_60d, color=PALETTE[0], y_format=".1f"),
                 width="stretch",
             )
             st.caption(t("an.rolling_beta_caption"))

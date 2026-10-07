@@ -5,14 +5,16 @@ Struttura (diversa da Investor, che è un percorso guidato per un solo portafogl
   sezioni, Mercato, Amministrazione; in basso parametri, privacy e lingua;
 - Clienti (pagina iniziale): il book con indicatori sintetici e una riga per
   cliente, ordinato da chi richiede attenzione per primo;
-- Nuovo cliente: codice, profilo di rischio dichiarato e posizioni;
+- Nuovo cliente: codice, profilo di rischio dichiarato, benchmark di riferimento e posizioni;
 - scheda cliente: intestazione con profilo e stato, sezioni Panoramica,
   Posizioni, Analisi, Strategie. Le viste di analisi sono le stesse di
   Investor, ma lavorano sul cliente e salvano su DB, isolate per consulente.
 
 Stato di sessione: `adv_page`, `adv_client` (codice del cliente attivo),
-`adv_saved` (le posizioni salvate, per riconoscere le modifiche) e
-`positions` (il portafoglio di lavoro, condiviso con le viste).
+`adv_saved` (le posizioni salvate, per riconoscere le modifiche),
+`adv_profile`/`adv_benchmark` (profilo e benchmark di lavoro, con i salvati in
+`adv_saved_profile`/`adv_saved_benchmark`) e `positions` (il portafoglio di
+lavoro, condiviso con le viste).
 """
 
 import html
@@ -27,6 +29,12 @@ from portfolio_intelligence.config import (
     DEFAULT_RISK_PROFILE,
     HEALTH_SCORE_FAIR,
     RISK_PROFILES,
+)
+from portfolio_intelligence.data.benchmarks import (
+    BENCHMARK_TICKERS,
+    BENCHMARKS,
+    DEFAULT_BENCHMARK,
+    benchmark_label,
 )
 from portfolio_intelligence.data.store import (
     REDACTED,
@@ -168,9 +176,21 @@ WORKSPACE_CSS = """
 # ------------------------------------------------------------------ stato
 #
 # Le modifiche non salvate non si perdono navigando: lasciando la scheda di un
-# cliente, posizioni e profilo di lavoro finiscono in `adv_drafts[cliente]` e
+# cliente, posizioni, profilo e benchmark di lavoro finiscono in `adv_drafts[cliente]` e
 # tornano alla riapertura, finché non si salva o si annulla. Le bozze vivono
 # solo nella sessione del browser, mai nel database.
+
+
+# il predefinito per primo: è la scelta iniziale del selettore
+BENCHMARK_OPTIONS = [DEFAULT_BENCHMARK, *(b for b in BENCHMARK_TICKERS if b != DEFAULT_BENCHMARK)]
+
+
+def _benchmark_option(ticker: str) -> str:
+    """Voce del selettore: nome esteso, con la natura della serie se esclude i dividendi."""
+    benchmark = BENCHMARKS[ticker]
+    if benchmark.total_return:
+        return benchmark.name
+    return f"{benchmark.name} · {t('bench.price_index')}"
 
 
 def _fingerprint(positions: dict) -> str:
@@ -182,12 +202,15 @@ def _drafts() -> dict[str, dict]:
 
 
 def is_dirty() -> bool:
-    """Posizioni o profilo del cliente attivo diversi da quelli salvati."""
+    """Posizioni, profilo o benchmark del cliente attivo diversi da quelli salvati."""
     if st.session_state.get("adv_page") != "client" or not st.session_state.get("adv_client"):
         return False
-    return _fingerprint(st.session_state.positions) != st.session_state.get(
-        "adv_saved"
-    ) or st.session_state.get("adv_profile") != st.session_state.get("adv_saved_profile")
+    state = st.session_state
+    return (
+        _fingerprint(state.positions) != state.get("adv_saved")
+        or state.get("adv_profile") != state.get("adv_saved_profile")
+        or state.get("adv_benchmark") != state.get("adv_saved_benchmark")
+    )
 
 
 def _stash() -> None:
@@ -198,6 +221,7 @@ def _stash() -> None:
             _drafts()[name] = {
                 "positions": dict(st.session_state.positions),
                 "profile": st.session_state.get("adv_profile", DEFAULT_RISK_PROFILE),
+                "benchmark": st.session_state.get("adv_benchmark", DEFAULT_BENCHMARK),
             }
         else:
             _drafts().pop(name, None)
@@ -217,7 +241,9 @@ def _new_client() -> None:
     st.session_state.positions = dict(st.session_state.get("adv_new_draft") or {})
 
 
-def _open_client(name: str, positions: dict, profile: str, section: str = "overview") -> None:
+def _open_client(
+    name: str, positions: dict, profile: str, benchmark: str, section: str = "overview"
+) -> None:
     if st.session_state.get("adv_page") != "client" or st.session_state.get("adv_client") != name:
         _stash()
     saved = normalize_portfolio(positions)
@@ -227,8 +253,10 @@ def _open_client(name: str, positions: dict, profile: str, section: str = "overv
     st.session_state.adv_section = section
     st.session_state.adv_saved = _fingerprint(saved)
     st.session_state.adv_saved_profile = profile
+    st.session_state.adv_saved_benchmark = benchmark
     st.session_state.positions = dict(draft["positions"]) if draft else saved
     st.session_state.adv_profile = draft["profile"] if draft else profile
+    st.session_state.adv_benchmark = draft.get("benchmark", benchmark) if draft else benchmark
 
 
 def _goto_section(section: str) -> None:
@@ -236,11 +264,15 @@ def _goto_section(section: str) -> None:
     st.session_state.adv_section = section
 
 
-def _discard_changes(saved_positions: dict, saved_profile: str) -> None:
+def _discard_changes(saved_positions: dict, saved_profile: str, saved_benchmark: str) -> None:
     name = st.session_state.adv_client
     _drafts().pop(name, None)
     st.session_state.positions = normalize_portfolio(saved_positions)
     st.session_state.adv_profile = saved_profile
+    st.session_state.adv_benchmark = saved_benchmark
+    # i selettori ripartono dai valori salvati, non dall'ultima scelta annullata
+    st.session_state.pop(f"adv_profile_sel_{name}", None)
+    st.session_state.pop(f"adv_bench_sel_{name}", None)
 
 
 def _forget(names: list[str]) -> None:
@@ -346,12 +378,13 @@ def _context(
     advisor: str,
     name: str,
     profile: str,
+    benchmark: str,
     period: str,
     in_eur: bool,
     risk_free: float,
 ) -> tuple[ViewContext, str | None, str | None]:
     positions = normalize_portfolio(st.session_state.positions)
-    settings = SidebarSettings(name, period, in_eur, risk_free, profile)
+    settings = SidebarSettings(name, period, in_eur, risk_free, profile, benchmark)
     cp = compute_portfolio(positions, settings)
     ctx = ViewContext(
         computed=cp.computed,
@@ -369,6 +402,7 @@ def _context(
         pnl_totals=cp.pnl_totals,
         irr=cp.irr,
         stateful=True,
+        benchmark=benchmark,
     )
     return ctx, cp.compute_error, cp.notice
 
@@ -379,7 +413,12 @@ def _context(
 def _book_rows(clients: dict, period: str, in_eur: bool) -> list[dict]:
     rows = []
     for name, record in clients.items():
-        row = {"name": name, "profile": record["risk_profile"], "positions": record["positions"]}
+        row = {
+            "name": name,
+            "profile": record["risk_profile"],
+            "benchmark": record["benchmark"],
+            "positions": record["positions"],
+        }
         try:
             row.update(
                 quick_client_analysis(
@@ -426,6 +465,7 @@ def _book_csv(rows: list[dict]) -> bytes:
     columns = [
         "name",
         "profile",
+        "benchmark",
         "value",
         "invested",
         "pnl_pct",
@@ -447,10 +487,15 @@ def _create_demo(advisor: str) -> None:
     try:
         create_client(advisor, DEMO_CLIENT, SAMPLE_PORTFOLIO, risk_profile="Moderate")
     except ClientExistsError:
-        pass  # già creato in precedenza: si apre quello
+        pass  # già creato in precedenza: si apre quello, con i valori salvati
     else:
         log_audit(advisor, "create_client", DEMO_CLIENT)
-    _open_client(DEMO_CLIENT, SAMPLE_PORTFOLIO, "Moderate")
+    record = list_clients(advisor).get(DEMO_CLIENT) or {
+        "positions": SAMPLE_PORTFOLIO,
+        "risk_profile": "Moderate",
+        "benchmark": DEFAULT_BENCHMARK,
+    }
+    _open_client(DEMO_CLIENT, record["positions"], record["risk_profile"], record["benchmark"])
 
 
 def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> None:
@@ -594,30 +639,32 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
                 key=f"adv_open_{i}",
                 width="stretch",
                 on_click=_open_client,
-                args=(row["name"], row["positions"], row["profile"]),
+                args=(row["name"], row["positions"], row["profile"], row["benchmark"]),
             )
 
 
 def _create_client(advisor: str) -> None:
     name = (st.session_state.get("adv_new_name") or "").strip()
     profile = st.session_state.get("adv_new_profile", DEFAULT_RISK_PROFILE)
+    benchmark = st.session_state.get("adv_new_benchmark", DEFAULT_BENCHMARK)
     positions = dict(st.session_state.positions)
     if not name or not positions:
         return
     try:
         # il controllo dei duplicati sta nel database: un doppio clic o un'altra
         # scheda aperta non possono sovrascrivere un cliente esistente
-        create_client(advisor, name, positions, risk_profile=profile)
+        create_client(advisor, name, positions, risk_profile=profile, benchmark=benchmark)
     except ClientExistsError:
         st.session_state.adv_create_error = t("adv.code_exists")
         return
     log_audit(advisor, "create_client", name)
     st.session_state.adv_new_name = ""
     st.session_state.adv_new_profile = DEFAULT_RISK_PROFILE
+    st.session_state.adv_new_benchmark = DEFAULT_BENCHMARK
     st.session_state.adv_new_draft = {}
     st.session_state.pop("adv_create_error", None)
     st.session_state.adv_page = "new_client"  # nessuna bozza da mettere da parte
-    _open_client(name, positions, profile)
+    _open_client(name, positions, profile, benchmark)
     st.toast(t("adv.created", name=name))
 
 
@@ -628,7 +675,7 @@ def _page_new_client(advisor: str, clients: dict) -> None:
     with main:
         with st.container(border=True):
             sec(t("adv.registry"))
-            code_col, profile_col = st.columns([1.4, 1])
+            code_col, profile_col, bench_col = st.columns([1.2, 1, 1.2])
             code_col.text_input(
                 t("adv.client_code"), key="adv_new_name", help=t("adv.client_code_help")
             )
@@ -637,6 +684,13 @@ def _page_new_client(advisor: str, clients: dict) -> None:
                 RISK_PROFILES,
                 key="adv_new_profile",
                 format_func=lambda p: t(f"prof.{p}"),
+            )
+            bench_col.selectbox(
+                t("adv.benchmark"),
+                BENCHMARK_OPTIONS,
+                key="adv_new_benchmark",
+                format_func=_benchmark_option,
+                help=t("adv.benchmark_help"),
             )
             name = (st.session_state.get("adv_new_name") or "").strip()
             error = st.session_state.pop("adv_create_error", None)
@@ -654,9 +708,11 @@ def _page_new_client(advisor: str, clients: dict) -> None:
     with side, st.container(border=True):
         positions = st.session_state.positions
         profile = st.session_state.get("adv_new_profile", DEFAULT_RISK_PROFILE)
+        benchmark = st.session_state.get("adv_new_benchmark", DEFAULT_BENCHMARK)
         rows = [
             (t("adv.client_code"), name or missing(get_language())),
             (t("side.risk_profile"), t(f"prof.{profile}")),
+            (t("adv.benchmark"), html.escape(benchmark_label(benchmark))),
             (t("gate.sum_positions"), str(len(positions))),
             (t("gate.sum_invested"), pe.invested_text(positions)),
         ]
@@ -683,12 +739,16 @@ def _page_new_client(advisor: str, clients: dict) -> None:
 
 
 def _save_changes(advisor: str, name: str) -> None:
-    """Salva insieme posizioni e profilo di lavoro del cliente attivo."""
+    """Salva insieme posizioni, profilo e benchmark di lavoro del cliente attivo."""
     profile = st.session_state.get("adv_profile", DEFAULT_RISK_PROFILE)
-    save_portfolio(advisor, name, st.session_state.positions, risk_profile=profile)
+    benchmark = st.session_state.get("adv_benchmark", DEFAULT_BENCHMARK)
+    save_portfolio(
+        advisor, name, st.session_state.positions, risk_profile=profile, benchmark=benchmark
+    )
     log_audit(advisor, "save_portfolio", name)
     st.session_state.adv_saved = _fingerprint(st.session_state.positions)
     st.session_state.adv_saved_profile = profile
+    st.session_state.adv_saved_benchmark = benchmark
     _drafts().pop(name, None)
     st.toast(t("adv.saved"))
 
@@ -707,6 +767,10 @@ def _set_profile(name: str) -> None:
     st.session_state.adv_profile = st.session_state[f"adv_profile_sel_{name}"]
 
 
+def _set_benchmark(name: str) -> None:
+    st.session_state.adv_benchmark = st.session_state[f"adv_bench_sel_{name}"]
+
+
 def _set_recipient(name: str) -> None:
     recipients = st.session_state.setdefault("adv_recipients", {})
     recipients[name] = st.session_state[f"adv_recipient_in_{name}"].strip()
@@ -716,15 +780,22 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
     name = st.session_state.adv_client
     record = clients[name]
     saved_profile = record["risk_profile"]
+    saved_benchmark = record["benchmark"]
     # sessione senza stato di lavoro per questo cliente (es. dopo un riavvio)
-    if st.session_state.get("adv_saved_profile") is None or "adv_profile" not in st.session_state:
+    if (
+        st.session_state.get("adv_saved_profile") is None
+        or "adv_profile" not in st.session_state
+        or "adv_benchmark" not in st.session_state
+    ):
         _open_client(
             name,
             record["positions"],
             saved_profile,
+            saved_benchmark,
             st.session_state.get("adv_section", "overview"),
         )
     profile = st.session_state.adv_profile
+    benchmark = st.session_state.adv_benchmark
     dirty = is_dirty()
 
     head_col, action_col = st.columns([4, 1], vertical_alignment="bottom")
@@ -735,6 +806,7 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
             meta=t(
                 "adv.meta",
                 profile=t(f"prof.{saved_profile}"),
+                benchmark=benchmark_label(saved_benchmark),
                 n=len(record["positions"]),  # dati salvati, come profilo e data
                 updated=f"{pd.Timestamp(record['updated']):%d/%m/%Y}",
             ),
@@ -757,7 +829,7 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
             key="adv_discard",
             width="stretch",
             on_click=_discard_changes,
-            args=(record["positions"], saved_profile),
+            args=(record["positions"], saved_profile, saved_benchmark),
         )
 
     sections = ["overview", "positions", "analysis", "strategies"]
@@ -776,11 +848,11 @@ def _page_client(advisor: str, clients: dict, period: str, in_eur: bool, risk_fr
         st.rerun()
 
     if current == "positions":
-        _client_positions(advisor, name, profile)
+        _client_positions(advisor, name, profile, benchmark)
     elif not st.session_state.positions:
         st.info(t("adv.no_positions"))
     else:
-        _client_analysis(advisor, name, profile, current, (period, in_eur, risk_free))
+        _client_analysis(advisor, name, profile, benchmark, current, (period, in_eur, risk_free))
     compliance_footer()
 
 
@@ -802,10 +874,11 @@ def _client_analysis(
     advisor: str,
     name: str,
     profile: str,
+    benchmark: str,
     section: str,
     params: tuple[str, bool, float],
 ) -> None:
-    ctx, error, notice = _context(advisor, name, profile, *params)
+    ctx, error, notice = _context(advisor, name, profile, benchmark, *params)
     if error:
         st.error(error)
         return
@@ -841,7 +914,7 @@ def _sub_tabs(ctx: ViewContext, tabs: list[tuple[str, Callable[[ViewContext], No
     dict(tabs)[chosen or labels[0]](ctx)
 
 
-def _client_positions(advisor: str, name: str, profile: str) -> None:
+def _client_positions(advisor: str, name: str, profile: str, benchmark: str) -> None:
     pe.inject_css()
     with st.container(border=True):
         tab_manual, tab_import = st.tabs([t("gate.tab_manual"), t("gate.tab_import")])
@@ -865,6 +938,22 @@ def _client_positions(advisor: str, name: str, profile: str) -> None:
         args=(name,),
     )
     note_col.caption(t("adv.profile_note"))
+
+    sec(t("adv.benchmark"))
+    bench_col, bench_note_col = st.columns([1.4, 3], vertical_alignment="center")
+    # stessa regola del profilo: chiave per cliente, la scelta resta di quel cliente
+    bench_col.selectbox(
+        t("adv.benchmark"),
+        BENCHMARK_OPTIONS,
+        index=BENCHMARK_OPTIONS.index(benchmark) if benchmark in BENCHMARK_OPTIONS else 0,
+        key=f"adv_bench_sel_{name}",
+        format_func=_benchmark_option,
+        help=t("adv.benchmark_help"),
+        label_visibility="collapsed",
+        on_change=_set_benchmark,
+        args=(name,),
+    )
+    bench_note_col.caption(t("adv.benchmark_note"))
 
     sec(t("adv.danger_title"))
     confirm = st.checkbox(t("side.delete_confirm", name=name), key="del_confirm")

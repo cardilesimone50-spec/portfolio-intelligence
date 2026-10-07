@@ -228,7 +228,11 @@ def test_admin_view_renders_for_allowlisted_admin(monkeypatch, tmp_path):
 def _tables(path) -> set[str]:
     from sqlalchemy import create_engine, inspect
 
-    return set(inspect(create_engine(f"sqlite:///{path}")).get_table_names())
+    engine = create_engine(f"sqlite:///{path}")
+    try:
+        return set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()  # niente connessioni SQLite lasciate aperte (ResourceWarning)
 
 
 def test_reading_market_prices_creates_neither_file_nor_tenant_tables(tmp_path, monkeypatch):
