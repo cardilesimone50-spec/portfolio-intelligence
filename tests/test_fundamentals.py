@@ -133,3 +133,75 @@ def test_primary_failure_does_not_block_and_yahoo_can_be_switched_off(monkeypatc
 
     with pytest.raises(ValueError):
         fetch_fundamentals(["EXMP"], primary=broken, use_yahoo=False)
+
+
+# ------------------------------------------------------------ cache per ticker
+
+
+class _Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+def _fetcher(available: dict[str, dict], calls: list):
+    def fetch(tickers):
+        calls.append(list(tickers))
+        rows = {tk: available[tk] for tk in tickers if tk in available}
+        if not rows:
+            raise ValueError("no data")
+        return pd.DataFrame.from_dict(rows, orient="index")
+
+    return fetch
+
+
+def test_cache_fetches_only_new_tickers():
+    from portfolio_intelligence.fundamentals.valuation import FundamentalsCache
+
+    calls: list = []
+    cache = FundamentalsCache(clock=_Clock())
+    data = {"AAA": {"pe": 10.0, "sector": "Technology"}, "BBB": {"pe": 20.0}, "CCC": {"pe": 30.0}}
+    fetch = _fetcher(data, calls)
+    cache.get(["AAA", "BBB"], fetch)
+    frame = cache.get(["AAA", "BBB", "CCC"], fetch)
+    assert calls == [["AAA", "BBB"], ["CCC"]]  # aggiungere un titolo non riscarica gli altri
+    assert list(frame.index) == ["AAA", "BBB", "CCC"]
+    assert frame.loc["CCC", "pe"] == 30.0
+    assert frame["pe"].dtype.kind == "f"
+
+
+def test_cache_remembers_tickers_without_data():
+    from portfolio_intelligence.fundamentals.valuation import FundamentalsCache
+
+    calls: list = []
+    clock = _Clock()
+    cache = FundamentalsCache(clock=clock, negative_ttl=600)
+    fetch = _fetcher({}, calls)
+    for _ in range(3):  # portafoglio di soli ETF: una sola richiesta, non una per interazione
+        with pytest.raises(ValueError):
+            cache.get(["QQQ", "SPY"], fetch)
+    assert calls == [["QQQ", "SPY"]]
+    clock.now = 601  # il "nessun dato" scade prima: una fonte tornata disponibile viene riletta
+    with pytest.raises(ValueError):
+        cache.get(["QQQ", "SPY"], fetch)
+    assert len(calls) == 2
+
+
+def test_cache_expires_and_stays_bounded():
+    from portfolio_intelligence.fundamentals.valuation import FundamentalsCache
+
+    calls: list = []
+    clock = _Clock()
+    cache = FundamentalsCache(clock=clock, ttl=3600, max_entries=2)
+    fetch = _fetcher({"AAA": {"pe": 1.0}, "BBB": {"pe": 2.0}, "CCC": {"pe": 3.0}}, calls)
+    cache.get(["AAA"], fetch)
+    clock.now = 3601
+    cache.get(["AAA"], fetch)
+    assert calls == [["AAA"], ["AAA"]]
+    clock.now = 3602
+    cache.get(["BBB"], fetch)
+    clock.now = 3603
+    cache.get(["CCC"], fetch)
+    assert len(cache._entries) == 2 and "AAA" not in cache._entries

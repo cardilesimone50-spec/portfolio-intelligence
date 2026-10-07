@@ -220,3 +220,52 @@ def test_admin_view_renders_for_allowlisted_admin(monkeypatch, tmp_path):
 
     # non deve sollevare: l'admin passa il gate e la vista renderizza
     admin_view.render(_ctx(ADVISOR_A))
+
+
+# ------------------------------------------- area Investor: nessuna tabella per advisor
+
+
+def _tables(path) -> set[str]:
+    from sqlalchemy import create_engine, inspect
+
+    return set(inspect(create_engine(f"sqlite:///{path}")).get_table_names())
+
+
+def test_reading_market_prices_creates_neither_file_nor_tenant_tables(tmp_path, monkeypatch):
+    from portfolio_intelligence.data import store
+
+    db = tmp_path / "investor.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db}")
+    assert store.load_prices() is None
+    assert store.last_date() is None
+    assert store.known_tickers() == []
+    assert not db.exists()  # una lettura non crea il database
+
+
+def test_saving_market_prices_creates_only_the_prices_table(tmp_path, monkeypatch):
+    from portfolio_intelligence.data import store
+
+    db = tmp_path / "market.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db}")
+    prices = pd.DataFrame({"AAPL": [100.0, 101.0]}, index=pd.bdate_range("2026-01-05", periods=2))
+    store.save_prices(prices)
+    assert _tables(db) == {"prices"}
+    assert store.known_tickers() == ["AAPL"]
+    # l'area Advisor aggiunge le sue tabelle solo quando le usa
+    store.get_engine()
+    assert {"portfolios", "analyses", "audit_log"} <= _tables(db)
+
+
+def test_investor_market_loader_never_creates_tenant_tables(tmp_path, monkeypatch):
+    from portfolio_intelligence.data import store
+    from portfolio_intelligence.views import common
+
+    db = tmp_path / "shared.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db}")
+    store.save_prices(
+        pd.DataFrame({"MSFT": [400.0]}, index=pd.bdate_range("2026-01-05", periods=1))
+    )
+    common._cached_market_db.clear()
+    loaded = common.load_market_db()
+    assert loaded is not None and list(loaded.columns) == ["MSFT"]
+    assert _tables(db) == {"prices"}

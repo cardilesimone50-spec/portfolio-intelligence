@@ -15,6 +15,7 @@ su Postgres usare `alembic upgrade head` (DB nuovo) o `alembic stamp head`
 import json
 import os
 import secrets
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -96,6 +97,10 @@ audit_log_table = Table(
 )
 
 _ENGINES: dict[str, Engine] = {}
+# URL su cui lo schema completo (anche le tabelle per advisor) è già garantito
+_TENANT_SCHEMA_READY: set[str] = set()
+# le sessioni Streamlit sono thread: creazione dell'engine e schema una volta sola
+_ENGINE_LOCK = threading.RLock()
 
 
 def _resolve_url(url: str | None) -> str:
@@ -106,6 +111,15 @@ def _resolve_url(url: str | None) -> str:
     if env:
         return env
     return f"sqlite:///{DB_PATH}"
+
+
+def sqlite_file(url: str | None = None) -> Path | None:
+    """Il file del database se l'URL è SQLite su file, altrimenti None (es. Postgres)."""
+    resolved = _resolve_url(url)
+    if not resolved.startswith("sqlite:///"):
+        return None
+    path = resolved.removeprefix("sqlite:///")
+    return None if path in ("", ":memory:") else Path(path)
 
 
 def _ensure_schema(engine: Engine) -> None:
@@ -125,8 +139,8 @@ def _ensure_schema(engine: Engine) -> None:
             conn.execute(text("ALTER TABLE portfolios ADD COLUMN risk_profile VARCHAR"))
 
 
-def get_engine(url: str | None = None) -> Engine:
-    """Engine SQLAlchemy (cache per URL), con schema garantito al primo uso.
+def _engine_for(resolved: str) -> Engine:
+    """Engine in cache per URL, senza toccare lo schema (né creare il file SQLite).
 
     Pooling esplicito solo per Postgres (produzione, più connessioni
     concorrenti): `pool_pre_ping` evita errori su connessioni scadute dal lato
@@ -134,23 +148,57 @@ def get_engine(url: str | None = None) -> Engine:
     istanza. SQLite resta sui default di SQLAlchemy (single-writer, il
     pooling non aiuta).
     """
+    with _ENGINE_LOCK:
+        engine = _ENGINES.get(resolved)
+        if engine is None:
+            if resolved.startswith("sqlite:///"):
+                engine = create_engine(resolved, future=True)
+            else:
+                engine = create_engine(
+                    resolved,
+                    future=True,
+                    pool_pre_ping=True,
+                    pool_size=5,
+                    max_overflow=10,
+                )
+            _ENGINES[resolved] = engine
+        return engine
+
+
+def _prepare_sqlite_dir(resolved: str) -> None:
+    path = sqlite_file(resolved)
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def get_engine(url: str | None = None) -> Engine:
+    """Engine con lo schema completo (prezzi e tabelle per advisor) garantito al primo uso.
+
+    Solo per l'area Advisor e la persistenza per consulente. I dati di mercato
+    passano da `market_engine`, che non crea le tabelle dei consulenti: l'area
+    Investor legge i prezzi senza toccare portafogli, analisi o audit log.
+    """
     resolved = _resolve_url(url)
-    engine = _ENGINES.get(resolved)
-    if engine is None:
-        if resolved.startswith("sqlite:///"):
-            DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-            engine = create_engine(resolved, future=True)
-        else:
-            engine = create_engine(
-                resolved,
-                future=True,
-                pool_pre_ping=True,
-                pool_size=5,
-                max_overflow=10,
-            )
-        _ensure_schema(engine)
-        _ENGINES[resolved] = engine
+    _prepare_sqlite_dir(resolved)
+    engine = _engine_for(resolved)
+    with _ENGINE_LOCK:
+        if resolved not in _TENANT_SCHEMA_READY:
+            _ensure_schema(engine)
+            _TENANT_SCHEMA_READY.add(resolved)
     return engine
+
+
+def market_engine(url: str | None = None) -> Engine:
+    """Engine per i soli prezzi di mercato: nessuna tabella per advisor, nessuno schema."""
+    return _engine_for(_resolve_url(url))
+
+
+def _has_prices(engine: Engine) -> bool:
+    """True se la tabella prezzi esiste; un SQLite su file assente non viene creato."""
+    path = sqlite_file(engine.url.render_as_string(hide_password=False))
+    if path is not None and not path.exists():
+        return False
+    return inspect(engine).has_table(prices_table.name)
 
 
 # ---------------------------------------------------------------- prezzi (globali)
@@ -159,7 +207,12 @@ def get_engine(url: str | None = None) -> Engine:
 def save_prices(prices: pd.DataFrame, engine: Engine | None = None) -> int:
     """Salva un DataFrame wide (index date, colonne ticker). Upsert per
     (date, ticker). Restituisce il numero di righe scritte."""
-    engine = engine or get_engine()
+    if engine is None:
+        resolved = _resolve_url(None)
+        _prepare_sqlite_dir(resolved)
+        engine = _engine_for(resolved)
+    # solo la tabella prezzi: scaricare i dati di mercato non crea quelle per advisor
+    prices_table.create(engine, checkfirst=True)
     long = (
         prices.rename_axis("date")
         .reset_index()
@@ -189,7 +242,9 @@ def load_prices(engine: Engine | None = None) -> pd.DataFrame | None:
     Le righe non valide (data/prezzo corrotti) vengono scartate con un
     warning in log invece di far crashare il pivot — vedi `validate_price_rows`.
     """
-    engine = engine or get_engine()
+    engine = engine or market_engine()
+    if not _has_prices(engine):
+        return None
     with engine.connect() as conn:
         long = pd.read_sql_query(select(prices_table), conn)
     long = validate_price_rows(long)
@@ -201,7 +256,9 @@ def load_prices(engine: Engine | None = None) -> pd.DataFrame | None:
 
 
 def last_date(engine: Engine | None = None) -> pd.Timestamp | None:
-    engine = engine or get_engine()
+    engine = engine or market_engine()
+    if not _has_prices(engine):
+        return None
     with engine.connect() as conn:
         row = conn.execute(
             select(prices_table.c.date).order_by(prices_table.c.date.desc())
@@ -210,7 +267,9 @@ def last_date(engine: Engine | None = None) -> pd.Timestamp | None:
 
 
 def known_tickers(engine: Engine | None = None) -> list[str]:
-    engine = engine or get_engine()
+    engine = engine or market_engine()
+    if not _has_prices(engine):
+        return []
     with engine.connect() as conn:
         rows = conn.execute(
             select(prices_table.c.ticker).distinct().order_by(prices_table.c.ticker)

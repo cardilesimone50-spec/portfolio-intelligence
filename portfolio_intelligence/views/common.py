@@ -14,7 +14,11 @@ from portfolio_intelligence.data.fx import fetch_eurusd
 from portfolio_intelligence.data.rates import fetch_risk_free_rate
 from portfolio_intelligence.data.sec_edgar import fetch_sec_fundamentals
 from portfolio_intelligence.data.store import load_prices as load_stored_prices
-from portfolio_intelligence.fundamentals.valuation import empty_fundamentals, fetch_fundamentals
+from portfolio_intelligence.fundamentals.valuation import (
+    FundamentalsCache,
+    empty_fundamentals,
+    fetch_fundamentals,
+)
 from portfolio_intelligence.i18n import LANGUAGES, sector_text, set_language, t
 from portfolio_intelligence.ui.components import empty_state
 
@@ -88,15 +92,23 @@ def _last_prices(tickers: tuple[str, ...]) -> dict[str, float]:
     return last
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+# per ticker: si scaricano solo i titoli nuovi e anche "nessun dato" (ETF) resta in cache
+_FUNDAMENTALS = FundamentalsCache()
+
+
 def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
     """Fondamentali: SEC EDGAR (dati pubblici) → Yahoo → snapshot spedito col deploy."""
-    prices = _last_prices(tickers)
-    return fetch_fundamentals(
-        list(tickers),
-        fallback=_fundamentals_snapshot(),
-        primary=lambda tks: fetch_sec_fundamentals(tks, prices),
-    )
+
+    def fetch(missing: list[str]) -> pd.DataFrame:
+        # ultimo prezzo per i multipli SEC: sulla tupla intera, già in cache dall'analisi
+        prices = _last_prices(tickers)
+        return fetch_fundamentals(
+            missing,
+            fallback=_fundamentals_snapshot(),
+            primary=lambda tks: fetch_sec_fundamentals(tks, prices),
+        )
+
+    return _FUNDAMENTALS.get(list(tickers), fetch)
 
 
 def analysis_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
@@ -167,9 +179,11 @@ def _cached_market_db(mtime: float | None) -> pd.DataFrame | None:
 
 
 def load_market_db() -> pd.DataFrame | None:
-    from portfolio_intelligence.data.store import DB_PATH
+    from portfolio_intelligence.data.store import sqlite_file
 
-    mtime = DB_PATH.stat().st_mtime if DB_PATH.exists() else None
+    # il file del database configurato (DATABASE_URL o default): cambia → cache nuova
+    path = sqlite_file()
+    mtime = path.stat().st_mtime if path is not None and path.exists() else None
     return _cached_market_db(mtime)
 
 
