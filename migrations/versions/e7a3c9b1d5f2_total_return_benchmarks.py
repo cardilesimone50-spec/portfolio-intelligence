@@ -17,18 +17,19 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 # indice di prezzo → serie total return dello stesso indice (data/benchmarks.py)
-_TOTAL_RETURN = {"^GSPC": "^SP500TR", "FTSEMIB.MI": "CSMIB.MI", "^STOXX": "MEUD.PA"}
+_TOTAL_RETURN = {"^GSPC": "SPY", "FTSEMIB.MI": "CSMIB.MI", "^STOXX": "EXSA.DE"}
 
 
 def _remap(mapping: dict[str, str]) -> None:
-    conn = op.get_bind()
+    # op.execute con bindparams: valori resi anche in modalità offline (alembic --sql)
     for old, new in mapping.items():
-        conn.execute(
-            sa.text("UPDATE portfolios SET benchmark = :new WHERE benchmark = :old"),
-            {"old": old, "new": new},
+        op.execute(
+            sa.text("UPDATE portfolios SET benchmark = :new WHERE benchmark = :old").bindparams(
+                old=old, new=new
+            )
         )
         # lo storico salvato del vecchio indice non serve più: l'ingestion scarica il nuovo
-        conn.execute(sa.text("DELETE FROM benchmark_prices WHERE ticker = :old"), {"old": old})
+        op.execute(sa.text("DELETE FROM benchmark_prices WHERE ticker = :old").bindparams(old=old))
 
 
 def upgrade() -> None:

@@ -89,27 +89,27 @@ def _settings(benchmark: str, in_eur: bool = True) -> SidebarSettings:
 
 
 def test_compute_portfolio_uses_the_benchmark_in_the_settings(market):
-    result = router_mod.compute_portfolio(POSITIONS, _settings("^SP500TR"))
+    result = router_mod.compute_portfolio(POSITIONS, _settings("SPY"))
 
     assert result.compute_error is None
-    assert ("^SP500TR",) in market
+    assert ("SPY",) in market
     assert (DEFAULT_BENCHMARK,) not in market  # nessun benchmark fisso dietro le quinte
-    assert result.computed["benchmark"] == "^SP500TR"
+    assert result.computed["benchmark"] == "SPY"
 
 
 def test_eur_benchmark_is_left_in_euro_while_usd_benchmark_is_converted(market):
-    raw = {t: _prices_for([t])[t].pct_change().dropna() for t in ("CSMIB.MI", "^SP500TR")}
+    raw = {t: _prices_for([t])[t].pct_change().dropna() for t in ("CSMIB.MI", "SPY")}
 
     mib = router_mod.compute_portfolio(POSITIONS, _settings("CSMIB.MI")).computed
-    spx = router_mod.compute_portfolio(POSITIONS, _settings("^SP500TR")).computed
+    spx = router_mod.compute_portfolio(POSITIONS, _settings("SPY")).computed
 
     assert mib["bench_daily"].to_numpy() == pytest.approx(raw["CSMIB.MI"].to_numpy())
-    assert not np.allclose(spx["bench_daily"].to_numpy(), raw["^SP500TR"].to_numpy())
+    assert not np.allclose(spx["bench_daily"].to_numpy(), raw["SPY"].to_numpy())
 
 
 def test_beta_differs_between_benchmarks_for_the_same_client(market):
-    spx = router_mod.compute_portfolio(POSITIONS, _settings("^SP500TR")).computed
-    stoxx = router_mod.compute_portfolio(POSITIONS, _settings("MEUD.PA")).computed
+    spx = router_mod.compute_portfolio(POSITIONS, _settings("SPY")).computed
+    stoxx = router_mod.compute_portfolio(POSITIONS, _settings("EXSA.DE")).computed
 
     assert spx["beta"] != pytest.approx(stoxx["beta"])
     assert spx["annual_vol"] == pytest.approx(stoxx["annual_vol"])  # il portafoglio è lo stesso
@@ -135,14 +135,14 @@ def test_stored_history_backs_up_the_benchmark_when_providers_fail(market, monke
 
 def test_without_live_or_stored_history_the_analysis_reports_the_error(market, monkeypatch):
     def prices_without_benchmark(tickers, period):
-        if tickers == ("MEUD.PA",):
+        if tickers == ("EXSA.DE",):
             raise ValueError("No data provider responded")
         return _prices_for(tickers)
 
     monkeypatch.setattr(router_mod, "cached_prices", prices_without_benchmark)
     monkeypatch.setattr(router_mod, "stored_benchmark", lambda ticker, period: None)
 
-    result = router_mod.compute_portfolio(POSITIONS, _settings("MEUD.PA"))
+    result = router_mod.compute_portfolio(POSITIONS, _settings("EXSA.DE"))
 
     assert result.computed is None
     assert "No data provider responded" in result.compute_error
@@ -176,7 +176,7 @@ def _ctx(benchmark: str) -> ViewContext:
 
 
 def test_view_context_describes_the_client_benchmark():
-    assert _ctx("^SP500TR").benchmark_label == "S&P 500 TR"
+    assert _ctx("SPY").benchmark_label == "S&P 500 TR"
     assert _ctx("CSMIB.MI").benchmark_name == "FTSE MIB Net Total Return (ETF iShares CSMIB)"
     default = ViewContext(None, {}, 0.0, [], "", "1y", True, 0.0, "Not set", ADVISOR)
     assert default.benchmark == DEFAULT_BENCHMARK  # Investor e viste senza cliente
@@ -191,10 +191,10 @@ def test_overview_key_figures_compare_with_the_client_benchmark():
 
 
 def test_report_input_carries_the_client_benchmark():
-    report = checkup.report_input(_ctx("MEUD.PA"), "Summary.", [], [])
+    report = checkup.report_input(_ctx("EXSA.DE"), "Summary.", [], [])
 
     assert report.benchmark == "STOXX 600 TR"
-    assert report.benchmark_name == "STOXX Europe 600 Net Total Return (ETF Amundi MEUD)"
+    assert report.benchmark_name == "STOXX Europe 600 Total Return (ETF iShares EXSA)"
 
 
 def _pdf_text(data: bytes) -> str:
@@ -216,7 +216,9 @@ def test_pdf_methodology_names_the_total_return_series(make_report):
     for build in (build_investor_report, build_advisor_report):
         text = _pdf_text(build(report))
         assert "Benchmark: FTSE MIB Net Total Return (ETF iShares CSMIB)" in text
-        assert "net of the fund's costs" in text  # l'ETF al posto dell'indice è dichiarato
+        # l'ETF al posto dell'indice è dichiarato: costi e ritenute del fondo
+        assert "net of the fund's costs and of any withholding tax" in text
+        assert "may be slightly overstated" in text
         assert "QQQ" not in text  # nessun residuo del vecchio benchmark fisso
 
     default = _pdf_text(build_investor_report(make_report()))
@@ -227,9 +229,12 @@ def test_pdf_methodology_names_the_total_return_series(make_report):
 def test_pdf_methodology_is_translated(make_report):
     from portfolio_intelligence.visualization.pdf_report import build_investor_report
 
-    report = make_report(benchmark="S&P 500 TR", benchmark_name="S&P 500 Total Return", lang="it")
+    report = make_report(
+        benchmark="S&P 500 TR", benchmark_name="S&P 500 Total Return (ETF SPY)", lang="it"
+    )
     text = _pdf_text(build_investor_report(report))
-    assert "Benchmark: S&P 500 Total Return. Serie total return" in text
+    assert "Benchmark: S&P 500 Total Return (ETF SPY). Serie total return" in text
+    assert "ritenute che il fondo subisce sui dividendi" in text
 
 
 # ---------------------------------------------------------- spazio di lavoro (AppTest)
@@ -311,14 +316,14 @@ def test_benchmark_change_is_pending_until_saved_then_reaches_the_database(offli
     at.button(key="adv_open_0").click().run()
     assert at.session_state["adv_benchmark"] == DEFAULT_BENCHMARK  # record senza scelta
     _section(at, "positions")
-    at.selectbox(key="adv_bench_sel_C-A").select("^SP500TR").run()
+    at.selectbox(key="adv_bench_sel_C-A").select("SPY").run()
 
     assert _unsaved(at)
     assert list_clients(ADVISOR)["C-A"]["benchmark"] == DEFAULT_BENCHMARK
 
     _button(at, t_in("en", "adv.save")).click().run()
     client = list_clients(ADVISOR)["C-A"]
-    assert client["benchmark"] == "^SP500TR"
+    assert client["benchmark"] == "SPY"
     assert client["risk_profile"] == "Moderate"  # salvato insieme, senza perdere il profilo
     assert not _unsaved(at)
 
@@ -329,7 +334,7 @@ def test_discard_restores_the_saved_benchmark_and_its_selector(offline):
     at = AppTest.from_function(_workspace_app).run()
     at.button(key="adv_open_0").click().run()
     _section(at, "positions")
-    at.selectbox(key="adv_bench_sel_C-A").select("MEUD.PA").run()
+    at.selectbox(key="adv_bench_sel_C-A").select("EXSA.DE").run()
     assert _unsaved(at)
 
     at.button(key="adv_discard").click().run()
@@ -340,14 +345,14 @@ def test_discard_restores_the_saved_benchmark_and_its_selector(offline):
 
 
 def test_benchmark_belongs_to_one_client_only(offline):
-    save_portfolio(ADVISOR, "C-A", _lots("AAPL"), benchmark="^SP500TR")
+    save_portfolio(ADVISOR, "C-A", _lots("AAPL"), benchmark="SPY")
     save_portfolio(ADVISOR, "C-B", _lots("ENEL.MI"), benchmark="CSMIB.MI")
 
     at = AppTest.from_function(_workspace_app).run()
     at.button(key="adv_open_0").click().run()
     assert at.session_state["adv_client"] == "C-A"
     _section(at, "positions")
-    at.selectbox(key="adv_bench_sel_C-A").select("MEUD.PA").run()
+    at.selectbox(key="adv_bench_sel_C-A").select("EXSA.DE").run()
 
     at.button(key="advnav_clients").click().run()
     at.button(key="adv_open_1").click().run()
@@ -358,8 +363,8 @@ def test_benchmark_belongs_to_one_client_only(offline):
 
     at.button(key="advnav_clients").click().run()
     at.button(key="adv_open_0").click().run()
-    assert at.session_state["adv_benchmark"] == "MEUD.PA"  # la bozza di C-A è rimasta sua
-    assert list_clients(ADVISOR)["C-A"]["benchmark"] == "^SP500TR"
+    assert at.session_state["adv_benchmark"] == "EXSA.DE"  # la bozza di C-A è rimasta sua
+    assert list_clients(ADVISOR)["C-A"]["benchmark"] == "SPY"
 
 
 def test_client_analysis_runs_against_the_saved_benchmark(offline, monkeypatch):
@@ -431,7 +436,7 @@ def test_analysis_views_render_against_the_client_benchmark():
 
         from portfolio_intelligence.views import advisor_overview, metrics, visual
 
-        ctx = _ctx("^SP500TR")
+        ctx = _ctx("SPY")
         advisor_overview.render(ctx, lambda: "")
         metrics.render(ctx)
         visual.render(ctx)

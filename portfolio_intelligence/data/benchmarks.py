@@ -9,10 +9,11 @@ invece di interrogare un simbolo inventato.
 Solo serie TOTAL RETURN: i prezzi del portafoglio sono chiusure rettificate
 (dividendi inclusi), quindi anche il benchmark deve reinvestire i dividendi,
 altrimenti rendimento relativo e alfa risultano gonfiati del rendimento da
-dividendi dell'indice. Dove Yahoo non pubblica un indice total return
-affidabile si usa un ETF ad accumulazione a replica fisica sullo stesso indice
-(rendimento al netto dei costi del fondo): il nome esteso lo dichiara e i
-report lo riportano nella metodologia.
+dividendi dell'indice. Tutte le serie sono ETF a replica fisica con storico
+giornaliero lungo su Yahoo e coperti dal feed con licenza (EODHD): prezzo
+rettificato per i dividendi (QQQ, SPY, EXSA) o ETF ad accumulazione (CSMIB). Il
+rendimento è al netto dei costi del fondo e delle ritenute che il fondo subisce
+sui dividendi: i report lo dichiarano nella metodologia.
 """
 
 from dataclasses import dataclass
@@ -31,8 +32,9 @@ class Benchmark:
 _REGISTRY = (
     # storico predefinito: l'ETF sul Nasdaq-100, total return tramite il prezzo rettificato
     Benchmark("QQQ", "QQQ", "Nasdaq-100 (ETF QQQ)", "USD", stooq="qqq.us", eodhd="QQQ.US"),
-    # indice total return ufficiale di S&P Dow Jones Indices (lordo, dividendi reinvestiti)
-    Benchmark("^SP500TR", "S&P 500 TR", "S&P 500 Total Return", "USD"),
+    # come QQQ: ETF USA, total return tramite il prezzo rettificato, dal 1993. L'indice
+    # ^SP500TR esiste solo su Yahoo: nessuna fonte con licenza né riserva
+    Benchmark("SPY", "S&P 500 TR", "S&P 500 Total Return (ETF SPY)", "USD", eodhd="SPY.US"),
     # su Yahoo FTSEMIBN.MI ("Net Total Return") riporta i valori dell'indice di prezzo:
     # si usa l'ETF iShares ad accumulazione (IE00B53L4X51), che replica il FTSE MIB Net TR
     Benchmark(
@@ -42,14 +44,15 @@ _REGISTRY = (
         "EUR",
         eodhd="CSMIB.MI",
     ),
-    # lo STOXX Europe 600 NR su Yahoo (SXXR.Z) ha storico breve e valori incoerenti: ETF
-    # Amundi Core ad accumulazione (LU0908500753), su Euronext Paris dal 2013, TER 0,07%
+    # lo STOXX Europe 600 NR su Yahoo (SXXR.Z) ha storico breve e valori incoerenti, e gli
+    # ETF ad accumulazione (MEUD.PA, XSX6.DE) hanno storico giornaliero solo dal 2023-2024:
+    # ETF iShares (DE0002635307, Xetra, dal 2004), total return tramite il prezzo rettificato
     Benchmark(
-        "MEUD.PA",
+        "EXSA.DE",
         "STOXX 600 TR",
-        "STOXX Europe 600 Net Total Return (ETF Amundi MEUD)",
+        "STOXX Europe 600 Total Return (ETF iShares EXSA)",
         "EUR",
-        eodhd="MEUD.PA",
+        eodhd="EXSA.XETRA",
     ),
 )
 
@@ -59,7 +62,7 @@ BENCHMARK_TICKERS = tuple(BENCHMARKS)
 DEFAULT_BENCHMARK = "QQQ"
 # indici di prezzo usati prima del passaggio al total return: un cliente salvato con
 # uno di questi passa alla serie total return dello stesso indice, non al predefinito
-LEGACY_BENCHMARKS = {"^GSPC": "^SP500TR", "FTSEMIB.MI": "CSMIB.MI", "^STOXX": "MEUD.PA"}
+LEGACY_BENCHMARKS = {"^GSPC": "SPY", "FTSEMIB.MI": "CSMIB.MI", "^STOXX": "EXSA.DE"}
 
 
 def canonical_benchmark(ticker: str | None) -> str | None:

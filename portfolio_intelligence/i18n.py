@@ -2246,11 +2246,15 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "al rischio: quota della varianza del portafoglio per posizione, covarianze incluse.",
     ),
     "rep.n_bench": (
-        "Benchmark: {name}. Total return series, with dividends reinvested like the adjusted "
-        "portfolio prices; where the series is an ETF, returns are net of the fund's costs.",
-        "Benchmark: {name}. Serie total return, con i dividendi reinvestiti come nei prezzi "
-        "rettificati del portafoglio; dove la serie è un ETF, i rendimenti sono al netto dei "
-        "costi del fondo.",
+        "Benchmark: {name}. Total return series: the ETF price includes dividends. Returns are "
+        "net of the fund's costs and of any withholding tax the fund pays on dividends, while "
+        "portfolio prices reinvest gross dividends, so relative performance and alpha against "
+        "the benchmark may be slightly overstated.",
+        "Benchmark: {name}. Serie total return: il prezzo dell'ETF include i dividendi. I "
+        "rendimenti sono al netto dei costi del fondo e delle eventuali ritenute che il fondo "
+        "subisce sui dividendi, mentre i prezzi del portafoglio reinvestono i dividendi lordi: "
+        "rendimento relativo e alfa rispetto al benchmark possono risultare leggermente "
+        "sovrastimati.",
     ),
     "rep.n_weights": (
         "Historical series apply today's weights to the whole window (constant weights): they "

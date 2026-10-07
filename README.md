@@ -29,20 +29,24 @@ rendimento da dividendi.
 | Benchmark | Serie | Nota |
 |-----------|-------|------|
 | Nasdaq-100 | `QQQ` | ETF, prezzo rettificato; predefinito e unico per Investor |
-| S&P 500 TR | `^SP500TR` | indice total return ufficiale (lordo), USD |
-| FTSE MIB TR | `CSMIB.MI` | ETF iShares ad accumulazione sul FTSE MIB Net TR, EUR |
-| STOXX 600 TR | `MEUD.PA` | ETF Amundi ad accumulazione sullo STOXX Europe 600 NR, EUR |
+| S&P 500 TR | `SPY` | ETF, prezzo rettificato, USD, dal 1993 |
+| FTSE MIB TR | `CSMIB.MI` | ETF iShares ad accumulazione sul FTSE MIB Net TR, EUR, dal 2010 |
+| STOXX 600 TR | `EXSA.DE` | ETF iShares (Xetra), prezzo rettificato, EUR, dal 2004 |
 
-Per FTSE MIB e STOXX 600 Yahoo non pubblica un indice total return affidabile
-(`FTSEMIBN.MI` riporta i valori dell'indice di prezzo), quindi si usa un ETF ad
-accumulazione: rendimento al netto dei costi del fondo, dichiarato nella
-metodologia dei PDF. Il registro è `portfolio_intelligence/data/benchmarks.py`
-(simbologia per provider, valuta per la conversione in EUR). I clienti salvati
-sui vecchi indici di prezzo (`^GSPC`, `FTSEMIB.MI`, `^STOXX`) passano alla serie
-total return dello stesso indice: in lettura e, su Postgres, con
-`alembic upgrade head`. `download_nasdaq100.py` salva anche lo storico dei
-benchmark (tabella `benchmark_prices`), usato come riserva quando nessun
-provider risponde, e la composizione del Nasdaq-100 (`benchmark_constituents`).
+Tutte ETF con storico giornaliero lungo su Yahoo e coperti dal feed con licenza
+(EODHD). Gli indici total return veri non bastano: `^SP500TR` esiste solo su
+Yahoo, `FTSEMIBN.MI` riporta i valori dell'indice di prezzo, `SXXR.Z` ha storico
+breve e incoerente, e gli ETF STOXX 600 ad accumulazione (`MEUD.PA`, `XSX6.DE`)
+su Yahoo partono solo dal 2023-2024. Il rendimento di un ETF è al netto dei
+costi del fondo e delle ritenute che subisce sui dividendi, mentre il
+portafoglio reinveste i dividendi lordi: la metodologia dei PDF lo dichiara.
+Il registro è `portfolio_intelligence/data/benchmarks.py` (simbologia per
+provider, valuta per la conversione in EUR). I clienti salvati sui vecchi
+indici di prezzo (`^GSPC`, `FTSEMIB.MI`, `^STOXX`) passano alla serie total
+return dello stesso indice: in lettura e, su Postgres, con `alembic upgrade
+head`. `download_nasdaq100.py` salva anche lo storico dei benchmark (tabella
+`benchmark_prices`), usato come riserva quando nessun provider risponde, e la
+composizione del Nasdaq-100 (`benchmark_constituents`).
 
 ## Licenza
 
