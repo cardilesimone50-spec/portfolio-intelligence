@@ -131,8 +131,8 @@ audit_log_table = Table(
 _ENGINES: dict[str, Engine] = {}
 # URL su cui lo schema completo (anche le tabelle per advisor) è già garantito
 _TENANT_SCHEMA_READY: set[str] = set()
-# URL su cui la tabella prezzi è già garantita (download dei dati di mercato)
-_PRICES_READY: set[str] = set()
+# (URL, tabella) dei dati di mercato già garantiti (download di prezzi e indici)
+_MARKET_TABLES_READY: set[tuple[str, str]] = set()
 # le sessioni Streamlit sono thread: creazione dell'engine e DDL una volta sola
 _ENGINE_LOCK = threading.RLock()
 
@@ -233,13 +233,34 @@ def market_engine(url: str | None = None) -> Engine:
     return _engine_for(_resolve_url(url))
 
 
-def _has_prices(engine: Engine) -> bool:
-    """True se la tabella prezzi esiste; un SQLite su file assente non viene creato."""
+def _has_table(engine: Engine, table: Table) -> bool:
+    """True se la tabella esiste; un SQLite su file assente non viene creato."""
     url = engine.url
     database = url.database if url.get_backend_name() == "sqlite" else None
     if database not in (None, "", ":memory:") and not Path(str(database)).exists():
         return False
-    return inspect(engine).has_table(prices_table.name)
+    return inspect(engine).has_table(table.name)
+
+
+def _has_prices(engine: Engine) -> bool:
+    return _has_table(engine, prices_table)
+
+
+def _market_writer(table: Table, engine: Engine | None) -> Engine:
+    """Engine per scrivere un dato di mercato: crea solo `table`, mai le tabelle per advisor.
+
+    Sotto lo stesso lock dello schema: due prime scritture non la creano due volte.
+    """
+    if engine is None:
+        resolved = _resolve_url(None)
+        _prepare_sqlite_dir(resolved)
+        engine = _engine_for(resolved)
+    key = engine.url.render_as_string(hide_password=False)
+    with _ENGINE_LOCK:
+        if (key, table.name) not in _MARKET_TABLES_READY and key not in _TENANT_SCHEMA_READY:
+            table.create(engine, checkfirst=True)
+            _MARKET_TABLES_READY.add((key, table.name))
+    return engine
 
 
 # ---------------------------------------------------------------- prezzi (globali)
@@ -248,17 +269,8 @@ def _has_prices(engine: Engine) -> bool:
 def save_prices(prices: pd.DataFrame, engine: Engine | None = None) -> int:
     """Salva un DataFrame wide (index date, colonne ticker). Upsert per
     (date, ticker). Restituisce il numero di righe scritte."""
-    if engine is None:
-        resolved = _resolve_url(None)
-        _prepare_sqlite_dir(resolved)
-        engine = _engine_for(resolved)
-    # solo la tabella prezzi: scaricare i dati di mercato non crea quelle per advisor.
-    # Sotto lo stesso lock dello schema: due prime scritture non la creano due volte.
-    key = engine.url.render_as_string(hide_password=False)
-    with _ENGINE_LOCK:
-        if key not in _PRICES_READY and key not in _TENANT_SCHEMA_READY:
-            prices_table.create(engine, checkfirst=True)
-            _PRICES_READY.add(key)
+    # solo la tabella prezzi: scaricare i dati di mercato non crea quelle per advisor
+    engine = _market_writer(prices_table, engine)
     long = (
         prices.rename_axis("date")
         .reset_index()
@@ -332,9 +344,10 @@ def save_benchmark_prices(prices: pd.DataFrame, engine: Engine | None = None) ->
     `prices` è wide (index date, colonne ticker). Sostituzione, non upsert: le
     chiusure rettificate di un ETF cambiano all'indietro a ogni stacco di
     dividendo, quindi lo storico di un benchmark viene sempre da un solo
-    download coerente. Restituisce il numero di righe scritte.
+    download coerente. Restituisce il numero di righe scritte. Come `save_prices`,
+    crea solo la propria tabella.
     """
-    engine = engine or get_engine()
+    engine = _market_writer(benchmark_prices_table, engine)
     long = (
         prices.rename_axis("date")
         .reset_index()
@@ -359,8 +372,13 @@ def save_benchmark_prices(prices: pd.DataFrame, engine: Engine | None = None) ->
 def load_benchmark_prices(
     ticker: str, start: str | None = None, engine: Engine | None = None
 ) -> pd.Series | None:
-    """Storico salvato di un benchmark (dalla data ISO `start`, se data), o None se assente."""
-    engine = engine or get_engine()
+    """Storico salvato di un benchmark (dalla data ISO `start`, se data), o None se assente.
+
+    Lettura dal `market_engine`: anche dall'area Investor non crea file né tabelle.
+    """
+    engine = engine or market_engine()
+    if not _has_table(engine, benchmark_prices_table):
+        return None
     query = select(benchmark_prices_table).where(benchmark_prices_table.c.ticker == ticker)
     if start:
         query = query.where(benchmark_prices_table.c.date >= start)
@@ -388,7 +406,7 @@ def save_constituents(
     """
     if benchmark not in BENCHMARKS:
         raise ValueError(f"Unknown benchmark: {benchmark}")
-    engine = engine or get_engine()
+    engine = _market_writer(benchmark_constituents_table, engine)
     as_of = as_of or datetime.now().date().isoformat()
     frame = constituents[~constituents.index.duplicated(keep="first")]
 
@@ -421,7 +439,10 @@ def save_constituents(
 
 def load_constituents(benchmark: str, engine: Engine | None = None) -> pd.DataFrame:
     """Composizione salvata (index ticker; colonne name, weight, as_of), vuota se assente."""
-    engine = engine or get_engine()
+    engine = engine or market_engine()
+    columns = ["name", "weight", "as_of"]
+    if not _has_table(engine, benchmark_constituents_table):
+        return pd.DataFrame(columns=columns, index=pd.Index([], name="ticker"))
     query = (
         select(
             benchmark_constituents_table.c.ticker,

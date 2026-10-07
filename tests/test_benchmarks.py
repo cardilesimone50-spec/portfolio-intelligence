@@ -501,3 +501,28 @@ def test_nasdaq100_constituents_carry_names_and_weights(monkeypatch):
     assert list(frame.index) == ["EXMP", "SMPL"]
     assert frame["name"].tolist() == ["Example Corp", "Sample Inc"]
     assert frame["weight"].tolist() == pytest.approx([0.105, 0.05])
+
+
+def test_benchmark_market_data_never_creates_tenant_tables(tmp_path, monkeypatch):
+    """Come i prezzi: il fallback dell'area Investor legge senza creare file né tabelle."""
+    from sqlalchemy import create_engine, inspect
+
+    from portfolio_intelligence.data import store
+
+    db = tmp_path / "market.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db}")
+
+    assert store.load_benchmark_prices("^GSPC") is None
+    assert store.load_constituents("QQQ").empty
+    assert not db.exists()  # leggere non crea il file
+
+    store.save_benchmark_prices(_series_for("^GSPC"))
+    store.save_constituents("QQQ", pd.DataFrame(index=pd.Index(["AAPL"])))
+
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        tables = set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+    assert tables == {"benchmark_prices", "benchmark_constituents"}
+    assert len(store.load_benchmark_prices("^GSPC")) == 30
