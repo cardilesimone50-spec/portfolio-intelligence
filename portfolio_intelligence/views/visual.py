@@ -9,7 +9,6 @@ from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.returns import per_ticker_cumulative_return
 from portfolio_intelligence.portfolio.risk import correlation_matrix
 from portfolio_intelligence.ui.components import eur, pct, sec
-from portfolio_intelligence.views.common import BENCHMARK
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import (
     galaxy_chart,
@@ -38,7 +37,7 @@ def render(ctx: ViewContext) -> None:
             c["avg_corr"],
             c["drawdown"],
             c["beta"],
-            BENCHMARK,
+            ctx.benchmark_label,
         )
         for insight in insights:
             st.markdown(insight)

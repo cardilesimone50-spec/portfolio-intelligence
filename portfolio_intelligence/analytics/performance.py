@@ -146,3 +146,19 @@ def beta_alpha(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -> tu
     beta = float(aligned["pf"].cov(aligned["bench"])) / bench_var
     alpha = (float(aligned["pf"].mean()) - beta * float(aligned["bench"].mean())) * TRADING_DAYS
     return beta, alpha
+
+
+def rolling_beta(
+    portfolio_returns: pd.Series, benchmark_returns: pd.Series, window: int = 60
+) -> pd.Series:
+    """Beta su finestra mobile di `window` giorni verso il benchmark passato.
+
+    Stessa definizione di `beta_alpha` (covarianza / varianza del benchmark) sulle
+    sole date comuni; le finestre con varianza del benchmark nulla restano escluse.
+    """
+    aligned = pd.concat(
+        {"pf": portfolio_returns, "bench": benchmark_returns}, axis=1, sort=True
+    ).dropna()
+    bench_var = aligned["bench"].rolling(window).var()
+    beta = aligned["pf"].rolling(window).cov(aligned["bench"]) / bench_var.where(bench_var > 0)
+    return beta.dropna()

@@ -236,10 +236,13 @@ def equity_area(values: pd.Series, baseline: float) -> alt.Chart:
     return (area + rule).properties(height=190)
 
 
-def benchmark_overlay(
-    pf_value: pd.Series, bench_value: pd.Series, bench_name: str = "QQQ"
-) -> alt.Chart:
-    """Portafoglio vs benchmark, entrambi a base 100."""
+def benchmark_overlay(pf_value: pd.Series, bench_value: pd.Series, bench_name: str) -> alt.Chart:
+    """Portafoglio vs benchmark, entrambi a base 100.
+
+    Le due serie possono avere calendari diversi (un indice europeo contro titoli
+    USA): i giorni in cui una sola quota vengono scartati per quella serie, così
+    le linee restano continue invece di interrompersi a ogni festività.
+    """
     pf_label = t("chk.hist_portfolio")
     df = (
         pd.DataFrame(
@@ -251,6 +254,7 @@ def benchmark_overlay(
         .rename_axis("data")
         .reset_index()
         .melt("data", var_name="serie", value_name="valore")
+        .dropna(subset=["valore"])
     )
     return (
         alt.Chart(df)

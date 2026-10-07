@@ -20,6 +20,7 @@ from reportlab.platypus import Paragraph, Table, TableStyle
 
 from portfolio_intelligence.analytics.report_metrics import ReportMetrics
 from portfolio_intelligence.config import HEALTH_SCORE_FAIR, HEALTH_SCORE_GOOD
+from portfolio_intelligence.data.benchmarks import DEFAULT_BENCHMARK, benchmark_label
 from portfolio_intelligence.formatting import fmt_date, fmt_eur, fmt_pct
 from portfolio_intelligence.i18n import t_in
 
@@ -63,7 +64,7 @@ class ReportInput:
     breakdown: dict[str, float]
     executive: str
     lang: str = "en"
-    benchmark: str = "QQQ"
+    benchmark: str = benchmark_label(DEFAULT_BENCHMARK)  # etichetta del benchmark del cliente
     in_eur: bool = True
     names: dict[str, str] = field(default_factory=dict)
     sector_of: dict[str, str] = field(default_factory=dict)
@@ -94,6 +95,8 @@ class ReportInput:
     bench_daily: pd.Series | None = None
     returns: pd.DataFrame | None = None  # rendimenti giornalieri dei titoli
     fund: pd.DataFrame | None = None  # fondamentali per titolo
+    # benchmark senza dividendi (indice di prezzo): la metodologia lo dichiara
+    benchmark_price_index: bool = False
 
     @property
     def total(self) -> float:

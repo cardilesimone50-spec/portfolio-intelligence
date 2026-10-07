@@ -9,8 +9,10 @@ from portfolio_intelligence.data.cache import (
     load_nasdaq100_prices,
 )
 from portfolio_intelligence.data.fx import fetch_eurusd
+from portfolio_intelligence.data.providers import _start_date
 from portfolio_intelligence.data.rates import fetch_risk_free_rate
 from portfolio_intelligence.data.sec_edgar import fetch_sec_fundamentals
+from portfolio_intelligence.data.store import load_benchmark_prices
 from portfolio_intelligence.data.store import load_prices as load_stored_prices
 from portfolio_intelligence.data.yahoo_client import fetch_price_history
 from portfolio_intelligence.fundamentals.valuation import empty_fundamentals, fetch_fundamentals
@@ -19,7 +21,6 @@ from portfolio_intelligence.ui.components import empty_state
 
 __all__ = ["TRADING_DAYS"]  # ruff F401: re-esportata per le viste che la importano da qui
 
-BENCHMARK = "QQQ"  # ETF sul Nasdaq-100
 PERIOD_DAYS = {"1 mese": 30, "6 mesi": 182, "1 anno": 365, "2 anni": 730, "5 anni": 1826}
 # annual volatility thresholds per risk profile (declared in the UI)
 PROFILE_VOL = {"Conservative": 0.10, "Moderate": 0.18, "Aggressive": 0.30}
@@ -52,6 +53,17 @@ _FALLBACK_TICKERS = [
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_prices(tickers: tuple[str, ...], period: str) -> pd.DataFrame:
     return fetch_price_history(list(tickers), period=period)
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def stored_benchmark(ticker: str, period: str) -> pd.DataFrame | None:
+    """Storico del benchmark salvato da download_nasdaq100.py, sulla finestra `period`.
+
+    Riserva per quando nessun provider risponde: dati di mercato globali, sola
+    lettura (nessuno stato per utente). None se l'ingestion non l'ha mai salvato.
+    """
+    stored = load_benchmark_prices(ticker, start=_start_date(period).isoformat())
+    return stored.to_frame() if stored is not None else None
 
 
 @st.cache_data(show_spinner=False)
@@ -156,10 +168,10 @@ def market_db_required(view_key: str) -> pd.DataFrame | None:
     if prices is None:
         empty_state(t("db.missing_title"), t("db.missing_hint"))
         if st.button(t("db.download_btn"), key=f"dl_{view_key}", type="primary"):
-            from download_nasdaq100 import update_nasdaq100
+            from download_nasdaq100 import update_market_data
 
             with st.spinner(t("db.downloading")):
-                update_nasdaq100()
+                update_market_data()
             st.rerun()
     return prices
 

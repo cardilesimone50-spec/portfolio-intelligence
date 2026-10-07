@@ -12,6 +12,11 @@ Ordine di preferenza (il primo che risponde vince):
 Ogni provider espone `fetch(tickers, period) -> DataFrame` (colonne = ticker,
 indice = date) e alza `ProviderError` se non riesce a servire la richiesta.
 La catena prova i provider in ordine e restituisce il primo risultato utile.
+
+I ticker in ingresso e le colonne in uscita sono sempre in simbologia Yahoo;
+Stooq ed EODHD ne usano una propria, tradotta da `stooq_symbol`/`eodhd_symbol`
+(per gli indici di riferimento, dal registro `benchmarks.py`). Un ticker che un
+provider non copre viene saltato, non interrogato con un simbolo inventato.
 """
 
 import io
@@ -23,6 +28,7 @@ from typing import Protocol
 import pandas as pd
 import requests
 
+from portfolio_intelligence.data.benchmarks import BENCHMARKS
 from portfolio_intelligence.logging_config import get_logger
 
 log = get_logger(__name__)
@@ -46,6 +52,31 @@ class ProviderError(Exception):
 
 def _start_date(period: str) -> date:
     return date.today() - timedelta(days=_PERIOD_DAYS.get(period, 372))
+
+
+def stooq_symbol(ticker: str) -> str | None:
+    """Simbolo Stooq di un ticker Yahoo: `<ticker>.us` per i titoli USA.
+
+    Gli indici (prefisso ^ in Yahoo) hanno simboli propri: solo quelli del
+    registro benchmark sono noti, gli altri non sono coperti (None).
+    """
+    benchmark = BENCHMARKS.get(ticker)
+    if benchmark is not None:
+        return benchmark.stooq
+    if ticker.startswith("^"):
+        return None
+    return f"{ticker.lower()}.us"
+
+
+def eodhd_symbol(ticker: str) -> str | None:
+    """Simbolo EODHD di un ticker Yahoo: `<TICKER>.US` per i titoli USA,
+    `<CODICE>.INDX` per gli indici del registro benchmark, None per gli altri indici."""
+    benchmark = BENCHMARKS.get(ticker)
+    if benchmark is not None:
+        return benchmark.eodhd
+    if ticker.startswith("^"):
+        return None
+    return f"{ticker.upper()}.US"
 
 
 class PriceProvider(Protocol):
@@ -142,14 +173,14 @@ class YahooChartProvider:
 
 
 class StooqProvider:
-    """Stooq: CSV pubblico gratuito. Simbologia US = `<ticker>.us`."""
+    """Stooq: CSV pubblico gratuito. Simbologia propria, vedi `stooq_symbol`."""
 
     name = "Stooq"
     _URL = "https://stooq.com/q/d/l/"
 
-    def _fetch_one(self, ticker: str, start: date) -> pd.Series:
+    def _fetch_one(self, ticker: str, symbol: str, start: date) -> pd.Series:
         params = {
-            "s": f"{ticker.lower()}.us",
+            "s": symbol,
             "i": "d",
             "d1": start.strftime("%Y%m%d"),
             "d2": date.today().strftime("%Y%m%d"),
@@ -170,8 +201,11 @@ class StooqProvider:
         start = _start_date(period)
         columns = {}
         for ticker in tickers:
+            symbol = stooq_symbol(ticker)
+            if symbol is None:
+                continue  # serie non coperta da Stooq
             try:
-                columns[ticker] = self._fetch_one(ticker, start)
+                columns[ticker] = self._fetch_one(ticker, symbol, start)
             except (requests.RequestException, ProviderError, ValueError):
                 continue
         if not columns:
@@ -183,14 +217,14 @@ class EODHDProvider:
     """EOD Historical Data: dati con licenza commerciale (richiede API key)."""
 
     name = "EODHD"
-    _URL = "https://eodhd.com/api/eod/{symbol}.US"
+    _URL = "https://eodhd.com/api/eod/{symbol}"
 
     def __init__(self, api_key: str):
         self._api_key = api_key
 
-    def _fetch_one(self, ticker: str, start: date) -> pd.Series:
+    def _fetch_one(self, ticker: str, symbol: str, start: date) -> pd.Series:
         resp = requests.get(
-            self._URL.format(symbol=ticker.upper()),
+            self._URL.format(symbol=symbol),
             params={
                 "api_token": self._api_key,
                 "fmt": "json",
@@ -217,8 +251,11 @@ class EODHDProvider:
         start = _start_date(period)
         columns = {}
         for ticker in tickers:
+            symbol = eodhd_symbol(ticker)
+            if symbol is None:
+                continue  # serie non coperta da EODHD
             try:
-                columns[ticker] = self._fetch_one(ticker, start)
+                columns[ticker] = self._fetch_one(ticker, symbol, start)
             except (requests.RequestException, ProviderError, ValueError, KeyError):
                 continue
         if not columns:

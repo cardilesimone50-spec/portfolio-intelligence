@@ -40,8 +40,8 @@ def get_ticker_info(ticker: str) -> dict:
     return yf.Ticker(ticker).info
 
 
-def get_nasdaq100_tickers() -> list[str]:
-    """Scarica la lista aggiornata dei ticker che compongono il Nasdaq-100."""
+def get_nasdaq100_constituents() -> pd.DataFrame:
+    """Componenti attuali del Nasdaq-100: indice = ticker, colonne `name` e `weight` (frazione)."""
     try:
         response = requests.get(_NASDAQ100_URL, headers=_HEADERS, timeout=10)
         response.raise_for_status()
@@ -50,4 +50,15 @@ def get_nasdaq100_tickers() -> list[str]:
 
     tables = pd.read_html(io.StringIO(response.text))
     components = tables[0]
-    return components["Symbol"].tolist()
+    frame = pd.DataFrame(index=pd.Index(components["Symbol"].astype(str), name="ticker"))
+    if "Company" in components.columns:
+        frame["name"] = components["Company"].to_numpy()
+    if "Weight" in components.columns:
+        weight = components["Weight"].astype(str).str.rstrip("%")
+        frame["weight"] = (pd.to_numeric(weight, errors="coerce") / 100).to_numpy()
+    return frame
+
+
+def get_nasdaq100_tickers() -> list[str]:
+    """Scarica la lista aggiornata dei ticker che compongono il Nasdaq-100."""
+    return get_nasdaq100_constituents().index.tolist()

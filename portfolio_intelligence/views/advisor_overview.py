@@ -32,7 +32,7 @@ from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.returns import per_ticker_cumulative_return
 from portfolio_intelligence.ui.components import eur, num, pct, sec, signed_eur
 from portfolio_intelligence.views import checkup
-from portfolio_intelligence.views.common import BENCHMARK, PROFILE_VOL
+from portfolio_intelligence.views.common import PROFILE_VOL
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.visualization.charts import (
     GAIN_TEXT,
@@ -217,6 +217,7 @@ def key_figures(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
     totals = ctx.pnl_totals or {}
     bench_value = (1 + c["bench_daily"]).cumprod()
     bench_cum = float(bench_value.iloc[-1] - 1)
+    benchmark = ctx.benchmark_label
     sharpe = annualized_sharpe(c["returns"], ctx.portfolio, risk_free_rate=ctx.risk_free)
     band = PROFILE_VOL.get(ctx.risk_profile)
 
@@ -253,7 +254,7 @@ def key_figures(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
         (
             t("ov.kf_return", period=ctx.period),
             pct(c["cum_return"], signed=True),
-            t("ov.kf_bench", benchmark=BENCHMARK, value=pct(bench_cum, signed=True)),
+            t("ov.kf_bench", benchmark=benchmark, value=pct(bench_cum, signed=True)),
             tone(c["cum_return"]),
         ),
         (
@@ -267,7 +268,7 @@ def key_figures(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
             pct(c["drawdown"]),
             t(
                 "ov.kf_bench",
-                benchmark=BENCHMARK,
+                benchmark=benchmark,
                 value=pct(max_drawdown(bench_value)),
             ),
             "",
@@ -281,7 +282,7 @@ def key_figures(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
         (
             t("ov.kf_sharpe"),
             num(sharpe),
-            t("ov.kf_sharpe_sub", beta=num(c["beta"]), benchmark=BENCHMARK),
+            t("ov.kf_sharpe_sub", beta=num(c["beta"]), benchmark=benchmark),
             "",
         ),
     ]
@@ -456,7 +457,7 @@ def render(ctx: ViewContext, recipient_field) -> None:
                 t("ov.asof", date=f"<b>{price_date:%d/%m/%Y}</b>"),
                 t("ov.ccy", ccy="<b>EUR</b>" if ctx.in_eur else f"<b>{t('ov.native_ccy')}</b>"),
                 t("ov.window", period=f"<b>{ctx.period}</b>"),
-                t("ov.benchmark", benchmark=f"<b>{BENCHMARK}</b>"),
+                t("ov.benchmark", benchmark=f"<b>{html.escape(ctx.benchmark_label)}</b>"),
             ]
         )
         + "</div>",
@@ -468,12 +469,16 @@ def render(ctx: ViewContext, recipient_field) -> None:
     breaches = sum(chk["status"] == BREACH for chk in checks)
     perf_col, mon_col = st.columns([1.35, 1], gap="large")
     with perf_col:
-        sec(t("ov.perf_title", benchmark=BENCHMARK))
+        sec(t("ov.perf_title", benchmark=ctx.benchmark_label))
         st.altair_chart(
-            benchmark_overlay(c["pf_value"], (1 + c["bench_daily"]).cumprod(), BENCHMARK),
+            benchmark_overlay(
+                c["pf_value"], (1 + c["bench_daily"]).cumprod(), ctx.benchmark_label
+            ),
             width="stretch",
         )
         st.caption(t("ov.perf_note"))
+        if ctx.benchmark_price_index:
+            st.caption(t("bench.price_index_note", benchmark=ctx.benchmark_label))
     with mon_col:
         sec(t("ov.monitor_title"))
         summary_color = LOSS if breaches else GAIN_TEXT

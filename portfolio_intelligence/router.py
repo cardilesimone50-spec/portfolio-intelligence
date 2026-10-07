@@ -17,8 +17,10 @@ import pandas as pd
 import streamlit as st
 
 from portfolio_intelligence.analytics.pipeline import analyze_portfolio
+from portfolio_intelligence.data.benchmarks import benchmark_label
 from portfolio_intelligence.data.fx import convert_to_eur
 from portfolio_intelligence.i18n import t
+from portfolio_intelligence.logging_config import get_logger
 from portfolio_intelligence.portfolio import Portfolio
 from portfolio_intelligence.portfolio.positions import portfolio_xirr, position_table, totals
 from portfolio_intelligence.ui.brand import page_icon
@@ -27,13 +29,15 @@ from portfolio_intelligence.ui.identity import auth_required_but_missing, resolv
 from portfolio_intelligence.ui.legal import render_legal_page_if_requested, sync_document_language
 from portfolio_intelligence.ui.theme import inject_theme
 from portfolio_intelligence.views.common import (
-    BENCHMARK,
     analysis_fundamentals,
     cached_eurusd,
     cached_prices,
+    stored_benchmark,
 )
 from portfolio_intelligence.views.context import ViewContext
 from portfolio_intelligence.views.sidebar import SidebarSettings
+
+log = get_logger(__name__)
 
 
 def bootstrap_page(page_title: str, require_auth_default: bool) -> None:
@@ -103,6 +107,28 @@ class ComputedPortfolio:
     notice: str | None = None  # avviso non bloccante (es. bilanci non disponibili)
 
 
+def benchmark_prices(ticker: str, period: str) -> tuple[pd.DataFrame, str | None]:
+    """Prezzi del benchmark scelto: (prezzi, avviso o None).
+
+    Prima la serie live (catena di provider, in cache); se nessun provider
+    risponde, lo storico salvato dall'ingestion, con un avviso che dichiara fino
+    a che data arriva. Senza né l'una né l'altro solleva l'errore della catena.
+    """
+    try:
+        return cached_prices((ticker,), period), None
+    except ValueError:
+        stored = stored_benchmark(ticker, period)
+        if stored is None or stored.empty:
+            raise
+    log.warning("Live prices unavailable for benchmark %s, using the stored history", ticker)
+    notice = t(
+        "app.bench_stored",
+        benchmark=benchmark_label(ticker),
+        date=f"{stored.index[-1]:%d/%m/%Y}",
+    )
+    return stored, notice
+
+
 def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPortfolio:
     """Pipeline condivisa: posizioni → prezzi → P&L → pesi → analyze_portfolio.
 
@@ -119,7 +145,7 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
     pnl_totals = None
     irr: float | None = None
     names: dict[str, str] = dict(st.session_state.get("names", {}))
-    notice: str | None = None
+    notices: list[str] = []
 
     if not positions:
         return ComputedPortfolio(
@@ -130,7 +156,7 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
         tickers = tuple(sorted(positions))
         with st.spinner(t("app.loading_data")):
             prices_native = cached_prices(tickers, settings.period)
-            bench_prices = cached_prices((BENCHMARK,), settings.period)
+            bench_prices, bench_notice = benchmark_prices(settings.benchmark, settings.period)
             eurusd = cached_eurusd(settings.period) if settings.in_eur else None
         if settings.in_eur:
             prices = convert_to_eur(prices_native, eurusd)
@@ -157,9 +183,11 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
             else []
         )
         fund = analysis_fundamentals(tickers)
-        computed = analyze_portfolio(prices, bench_prices, portfolio, fund, BENCHMARK)
+        computed = analyze_portfolio(prices, bench_prices, portfolio, fund, settings.benchmark)
+        if bench_notice:
+            notices.append(bench_notice)
         if fund.isna().all().all():
-            notice = t("app.fund_unavailable")
+            notices.append(t("app.fund_unavailable"))
         if "name" in fund.columns:
             names = {**names, **fund["name"].dropna().to_dict()}
             st.session_state["names"] = names
@@ -176,7 +204,7 @@ def compute_portfolio(positions: dict, settings: SidebarSettings) -> ComputedPor
         pnl_totals,
         irr,
         names,
-        notice,
+        " ".join(notices) or None,
     )
 
 

@@ -9,13 +9,13 @@ from contextlib import suppress
 import streamlit as st
 
 from portfolio_intelligence.config import INVESTOR_HISTORY_PERIOD
+from portfolio_intelligence.data.benchmarks import DEFAULT_BENCHMARK
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.ui.area_switch import area_switch
 from portfolio_intelligence.ui.components import render_landing
 from portfolio_intelligence.ui.legal import legal_footer
 from portfolio_intelligence.views import portfolio_editor as pe
 from portfolio_intelligence.views.common import (
-    BENCHMARK,
     SAMPLE_PORTFOLIO,
     analysis_fundamentals,
     cached_eurusd,
@@ -298,7 +298,7 @@ def _render_loading() -> None:
             t("gate.load_prices"),
             lambda: (
                 cached_prices(tickers, _DEFAULT_PERIOD),
-                cached_prices((BENCHMARK,), _DEFAULT_PERIOD),
+                cached_prices((DEFAULT_BENCHMARK,), _DEFAULT_PERIOD),
             ),
         ),
         (t("gate.load_fx"), lambda: cached_eurusd(_DEFAULT_PERIOD)),

@@ -23,6 +23,7 @@ from portfolio_intelligence.analytics.performance import (
     value_at_risk,
 )
 from portfolio_intelligence.config import TRADING_DAYS, rolling_min_periods
+from portfolio_intelligence.data.benchmarks import DEFAULT_BENCHMARK
 from portfolio_intelligence.portfolio import Portfolio
 from portfolio_intelligence.portfolio.returns import compute_daily_returns, portfolio_daily_returns
 from portfolio_intelligence.portfolio.risk import (
@@ -36,14 +37,18 @@ def analyze_portfolio(
     bench_prices: pd.DataFrame,
     portfolio: Portfolio,
     fund: pd.DataFrame,
-    benchmark: str = "QQQ",
+    benchmark: str = DEFAULT_BENCHMARK,
 ) -> dict:
     """Tutte le metriche del check-up a partire da prezzi già scaricati.
 
     `prices` e `bench_prices` sono listini giornalieri (già convertiti in EUR
-    se richiesto); `fund` è la tabella fondamentali (può avere colonne NaN).
+    se richiesto); `benchmark` è il ticker del benchmark scelto, la colonna di
+    `bench_prices` contro cui si misurano beta, alfa e confronti di mercato;
+    `fund` è la tabella fondamentali (può avere colonne NaN).
     Restituisce il dict `computed` usato da tutte le viste.
     """
+    if benchmark not in bench_prices.columns:
+        raise ValueError(f"No price history for the benchmark {benchmark}")
     returns = compute_daily_returns(prices)
 
     pf_daily = portfolio_daily_returns(returns, portfolio)
@@ -74,6 +79,7 @@ def analyze_portfolio(
         "prices": prices,
         "pf_daily": pf_daily,
         "pf_value": pf_value,
+        "benchmark": benchmark,
         "bench_daily": bench_daily,
         "annual_ret": annual_ret,
         "annual_vol": annual_vol,

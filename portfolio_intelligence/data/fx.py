@@ -3,7 +3,9 @@ che un investitore europeo corre davvero (mercato + cambio).
 
 Limiti dichiarati (MVP): la valuta è dedotta dal suffisso del ticker.
 Senza suffisso o con suffisso USA = USD; suffissi dell'eurozona = già EUR;
-altri mercati (es. .L Londra, .SW Zurigo) restano non convertiti.
+altri mercati (es. .L Londra, .SW Zurigo) restano non convertiti. Gli indici
+di riferimento fanno eccezione: la loro valuta è nel registro `benchmarks.py`
+(^STOXX non ha suffisso ma quota in EUR).
 """
 
 import io
@@ -12,6 +14,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 
+from portfolio_intelligence.data.benchmarks import BENCHMARKS
 from portfolio_intelligence.data.providers import _start_date
 from portfolio_intelligence.logging_config import get_logger
 
@@ -28,6 +31,9 @@ _EUR_SUFFIXES = (".MI", ".PA", ".DE", ".AS", ".BR", ".MC", ".F", ".VI", ".LS", "
 def is_usd_listing(ticker: str) -> bool:
     """True se il ticker quota in USD (nessun suffisso o suffisso USA)."""
     ticker = ticker.upper()
+    benchmark = BENCHMARKS.get(ticker)
+    if benchmark is not None:
+        return benchmark.currency == "USD"
     if "." not in ticker:
         return True
     return not ticker.endswith(_EUR_SUFFIXES)

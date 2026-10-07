@@ -11,6 +11,7 @@ from datetime import date
 import streamlit as st
 
 from portfolio_intelligence.config import HISTORY_PERIODS, INVESTOR_HISTORY_PERIOD, RISK_PROFILES
+from portfolio_intelligence.data.benchmarks import DEFAULT_BENCHMARK
 from portfolio_intelligence.data.importers import parse_positions
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
@@ -39,6 +40,8 @@ class SidebarSettings:
     in_eur: bool
     risk_free: float
     risk_profile: str
+    # Investor usa sempre il predefinito; l'area Advisor passa quello del cliente
+    benchmark: str = DEFAULT_BENCHMARK
 
 
 def _add_holding() -> None:

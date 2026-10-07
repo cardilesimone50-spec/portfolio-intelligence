@@ -457,6 +457,12 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Continue without authentication (dev) →",
         "Continua senza autenticazione (dev) →",
     ),
+    "app.bench_stored": (
+        "Live prices for {benchmark} are unavailable: the comparison uses the stored history, "
+        "up to {date}.",
+        "Prezzi aggiornati di {benchmark} non disponibili: il confronto usa lo storico "
+        "salvato, fino al {date}.",
+    ),
     "app.fund_unavailable": (
         "Company financials are temporarily unavailable: risk, return and "
         "diversification are complete, valuation and quality indicators are not.",
@@ -628,10 +634,11 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "adv.analysis_failed": ("Analysis not available: {err}", "Analisi non disponibile: {err}"),
     "adv.new_title": ("New client", "Nuovo cliente"),
     "adv.new_sub": (
-        "Enter a client code, the declared risk profile and the positions held. "
-        "Prefer an internal code to the client's full name.",
-        "Inserisci un codice cliente, il profilo di rischio dichiarato e le posizioni "
-        "detenute. Preferisci un codice interno al nome e cognome del cliente.",
+        "Enter a client code, the declared risk profile, the reference benchmark and the "
+        "positions held. Prefer an internal code to the client's full name.",
+        "Inserisci un codice cliente, il profilo di rischio dichiarato, il benchmark di "
+        "riferimento e le posizioni detenute. Preferisci un codice interno al nome e "
+        "cognome del cliente.",
     ),
     "adv.registry": ("Client details", "Anagrafica"),
     "adv.client_code": ("Client code", "Codice cliente"),
@@ -650,17 +657,18 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "adv.created": ("Client {name} created", "Cliente {name} creato"),
     "adv.meta": (
-        "Risk profile: {profile} · Positions: {n} · Updated {updated}",
-        "Profilo di rischio: {profile} · Posizioni: {n} · Aggiornato il {updated}",
+        "Risk profile: {profile} · Benchmark: {benchmark} · Positions: {n} · Updated {updated}",
+        "Profilo di rischio: {profile} · Benchmark: {benchmark} · Posizioni: {n} · "
+        "Aggiornato il {updated}",
     ),
     "adv.save": ("Save changes", "Salva modifiche"),
     "adv.saved": ("Changes saved", "Modifiche salvate"),
     "adv.unsaved": (
-        "You have unsaved changes to this client's positions or risk profile. They are "
-        "kept while you move around the workspace, until you save or discard them.",
-        "Hai modifiche non salvate alle posizioni o al profilo di rischio di questo cliente. "
-        "Restano in sospeso mentre ti sposti nello spazio di lavoro, finché non le salvi "
-        "o le annulli.",
+        "You have unsaved changes to this client's positions, risk profile or benchmark. "
+        "They are kept while you move around the workspace, until you save or discard them.",
+        "Hai modifiche non salvate alle posizioni, al profilo di rischio o al benchmark di "
+        "questo cliente. Restano in sospeso mentre ti sposti nello spazio di lavoro, finché "
+        "non le salvi o le annulli.",
     ),
     "adv.unsaved_short": ("unsaved changes", "modifiche non salvate"),
     "adv.pending_book": (
@@ -671,6 +679,31 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "adv.profile_note": (
         "The profile is saved together with the positions, with Save changes.",
         "Il profilo si salva insieme alle posizioni, con Salva modifiche.",
+    ),
+    "adv.benchmark": ("Reference benchmark", "Benchmark di riferimento"),
+    "adv.benchmark_help": (
+        "Market index for beta, alpha, correlation and the comparison charts, in the "
+        "analysis and in the PDF reports. Choose the one that matches the client's "
+        "investment universe: a portfolio of Italian stocks is measured against the "
+        "FTSE MIB, not the Nasdaq-100.",
+        "Indice di mercato per beta, alfa, correlazione e grafici di confronto, "
+        "nell'analisi e nei report PDF. Scegli quello coerente con l'universo "
+        "d'investimento del cliente: un portafoglio di titoli italiani si misura contro "
+        "il FTSE MIB, non contro il Nasdaq-100.",
+    ),
+    "adv.benchmark_note": (
+        "The benchmark is saved together with the positions, with Save changes.",
+        "Il benchmark si salva insieme alle posizioni, con Salva modifiche.",
+    ),
+    "bench.price_index": ("price index", "indice di prezzo"),
+    "bench.price_index_note": (
+        "{benchmark} is a price index: its dividends are not reinvested, while portfolio "
+        "prices are adjusted for dividends. Relative performance and alpha against it are "
+        "overstated by roughly the index dividend yield.",
+        "{benchmark} è un indice di prezzo: i suoi dividendi non sono reinvestiti, mentre "
+        "i prezzi del portafoglio sono rettificati per i dividendi. Rendimento relativo e "
+        "alfa rispetto all'indice risultano sovrastimati di circa il rendimento da "
+        "dividendi dell'indice.",
     ),
     "adv.recipient": ("Report heading (optional)", "Intestazione del report (facoltativa)"),
     "adv.recipient_placeholder": ("Client's full name", "Nome e cognome del cliente"),

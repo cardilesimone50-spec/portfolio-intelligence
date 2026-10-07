@@ -1,5 +1,10 @@
 """Persistenza: prezzi storici (globali) + portafogli e analisi per-consulente.
 
+Dati di mercato globali: `prices` (componenti del Nasdaq-100, per le viste di
+mercato), `benchmark_prices` (storico degli indici di riferimento, separato
+così gli indici non finiscono nell'universo dei titoli) e
+`benchmark_constituents` (composizione degli universi, per lo stock-picking).
+
 Backend agnostico via SQLAlchemy: SQLite in locale/test, Postgres in produzione
 B2B. Il motore è scelto da `DATABASE_URL` (es. `postgresql+psycopg://user:pw@host/db`);
 default `sqlite:///data/market.db`. Portafogli e analisi sono **isolati per
@@ -39,6 +44,11 @@ from sqlalchemy.dialects.sqlite import insert as _sqlite_insert
 from sqlalchemy.engine import Engine
 
 from portfolio_intelligence.config import DEFAULT_RISK_PROFILE, RISK_PROFILES
+from portfolio_intelligence.data.benchmarks import (
+    BENCHMARKS,
+    DEFAULT_BENCHMARK,
+    benchmark_or_default,
+)
 from portfolio_intelligence.data.validators import (
     is_valid_client_code,
     safe_load_positions,
@@ -68,6 +78,28 @@ portfolios_table = Table(
     Column("updated", String, nullable=False),
     # profilo di rischio dichiarato del cliente (Conservative/Moderate/Aggressive)
     Column("risk_profile", String, nullable=True),
+    # benchmark di riferimento del cliente (ticker di data/benchmarks.py); NULL = predefinito
+    Column("benchmark", String, nullable=True),
+)
+
+# storico degli indici di riferimento, nella valuta di quotazione (come `prices`)
+benchmark_prices_table = Table(
+    "benchmark_prices",
+    _metadata,
+    Column("date", String, primary_key=True),
+    Column("ticker", String, primary_key=True),
+    Column("close", Float, nullable=False),
+)
+
+# composizione di un universo di riferimento: base per lo stock-picking futuro
+benchmark_constituents_table = Table(
+    "benchmark_constituents",
+    _metadata,
+    Column("benchmark", String, primary_key=True),
+    Column("ticker", String, primary_key=True),
+    Column("name", String, nullable=True),
+    Column("weight", Float, nullable=True),  # peso nell'indice, frazione (0.08 = 8%)
+    Column("as_of", String, nullable=False),
 )
 
 analyses_table = Table(
@@ -119,10 +151,12 @@ def _ensure_schema(engine: Engine) -> None:
                 conn.execute(
                     text(f"ALTER TABLE {table_name} ADD COLUMN advisor VARCHAR DEFAULT 'legacy'")
                 )
-    # stessa migrazione dolce per il profilo di rischio per cliente
-    if "risk_profile" not in {col["name"] for col in inspector.get_columns("portfolios")}:
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE portfolios ADD COLUMN risk_profile VARCHAR"))
+    # stessa migrazione dolce per profilo di rischio e benchmark per cliente
+    portfolio_columns = {col["name"] for col in inspector.get_columns("portfolios")}
+    for column in ("risk_profile", "benchmark"):
+        if column not in portfolio_columns:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE portfolios ADD COLUMN {column} VARCHAR"))
 
 
 def get_engine(url: str | None = None) -> Engine:
@@ -218,6 +252,119 @@ def known_tickers(engine: Engine | None = None) -> list[str]:
     return [row[0] for row in rows]
 
 
+# ---------------------------------------------------------------- benchmark (globali)
+
+
+def save_benchmark_prices(prices: pd.DataFrame, engine: Engine | None = None) -> int:
+    """Sostituisce lo storico salvato di ogni benchmark presente in `prices`.
+
+    `prices` è wide (index date, colonne ticker). Sostituzione, non upsert: le
+    chiusure rettificate di un ETF cambiano all'indietro a ogni stacco di
+    dividendo, quindi lo storico di un benchmark viene sempre da un solo
+    download coerente. Restituisce il numero di righe scritte.
+    """
+    engine = engine or get_engine()
+    long = (
+        prices.rename_axis("date")
+        .reset_index()
+        .melt(id_vars="date", var_name="ticker", value_name="close")
+        .dropna(subset=["close"])
+    )
+    long["date"] = pd.to_datetime(long["date"]).dt.strftime("%Y-%m-%d")
+    rows = [
+        {"date": d, "ticker": t, "close": float(c)}
+        for d, t, c in long.itertuples(index=False, name=None)
+    ]
+    tickers = sorted({row["ticker"] for row in rows})
+    with engine.begin() as conn:
+        conn.execute(
+            delete(benchmark_prices_table).where(benchmark_prices_table.c.ticker.in_(tickers))
+        )
+        for start in range(0, len(rows), 5000):
+            conn.execute(benchmark_prices_table.insert().values(rows[start : start + 5000]))
+    return len(rows)
+
+
+def load_benchmark_prices(
+    ticker: str, start: str | None = None, engine: Engine | None = None
+) -> pd.Series | None:
+    """Storico salvato di un benchmark (dalla data ISO `start`, se data), o None se assente."""
+    engine = engine or get_engine()
+    query = select(benchmark_prices_table).where(benchmark_prices_table.c.ticker == ticker)
+    if start:
+        query = query.where(benchmark_prices_table.c.date >= start)
+    with engine.connect() as conn:
+        long = pd.read_sql_query(query, conn)
+    long = validate_price_rows(long)
+    if long.empty:
+        return None
+    return pd.Series(
+        long["close"].to_numpy(), index=pd.DatetimeIndex(long["date"]), name=ticker
+    ).sort_index()
+
+
+def save_constituents(
+    benchmark: str,
+    constituents: pd.DataFrame,
+    as_of: str | None = None,
+    engine: Engine | None = None,
+) -> int:
+    """Sostituisce la composizione salvata di un universo di riferimento.
+
+    `constituents` ha i ticker come indice e, facoltative, le colonne `name`
+    e `weight` (frazione). `as_of` è la data ISO della composizione (default
+    oggi). Restituisce il numero di componenti salvati.
+    """
+    if benchmark not in BENCHMARKS:
+        raise ValueError(f"Unknown benchmark: {benchmark}")
+    engine = engine or get_engine()
+    as_of = as_of or datetime.now().date().isoformat()
+    frame = constituents[~constituents.index.duplicated(keep="first")]
+
+    def cell(column: str, ticker: str) -> object:
+        if column not in frame.columns or pd.isna(frame.at[ticker, column]):
+            return None
+        value = frame.at[ticker, column]
+        return float(value) if column == "weight" else str(value)
+
+    rows = [
+        {
+            "benchmark": benchmark,
+            "ticker": str(ticker),
+            "name": cell("name", ticker),
+            "weight": cell("weight", ticker),
+            "as_of": as_of,
+        }
+        for ticker in frame.index
+    ]
+    with engine.begin() as conn:
+        conn.execute(
+            delete(benchmark_constituents_table).where(
+                benchmark_constituents_table.c.benchmark == benchmark
+            )
+        )
+        if rows:
+            conn.execute(benchmark_constituents_table.insert().values(rows))
+    return len(rows)
+
+
+def load_constituents(benchmark: str, engine: Engine | None = None) -> pd.DataFrame:
+    """Composizione salvata (index ticker; colonne name, weight, as_of), vuota se assente."""
+    engine = engine or get_engine()
+    query = (
+        select(
+            benchmark_constituents_table.c.ticker,
+            benchmark_constituents_table.c.name,
+            benchmark_constituents_table.c.weight,
+            benchmark_constituents_table.c.as_of,
+        )
+        .where(benchmark_constituents_table.c.benchmark == benchmark)
+        .order_by(benchmark_constituents_table.c.ticker)
+    )
+    with engine.connect() as conn:
+        return pd.read_sql_query(query, conn).set_index("ticker")
+
+
 # ---------------------------------------------------------------- portafogli (per advisor)
 
 
@@ -227,24 +374,30 @@ def save_portfolio(
     positions: dict,
     engine: Engine | None = None,
     risk_profile: str | None = None,
+    benchmark: str | None = None,
 ) -> None:
     """Salva (o sovrascrive) un portafoglio del consulente.
 
     `positions` è {ticker: {"qty": q, "price": p}} (formato con prezzo di
     carico) oppure il legacy {ticker: importo}: il JSON li conserva entrambi.
-    `risk_profile` None mantiene il profilo già salvato per quel cliente.
+    `risk_profile` e `benchmark` None mantengono i valori già salvati per quel cliente.
     """
     if not name.strip():
         raise ValueError("The portfolio name cannot be empty")
     if risk_profile is not None and risk_profile not in RISK_PROFILES:
         raise ValueError(f"Unknown risk profile: {risk_profile}")
+    if benchmark is not None and benchmark not in BENCHMARKS:
+        raise ValueError(f"Unknown benchmark: {benchmark}")
     engine = engine or get_engine()
     where = (portfolios_table.c.advisor == advisor, portfolios_table.c.name == name.strip())
     with engine.begin() as conn:
-        if risk_profile is None:
-            risk_profile = conn.execute(
-                select(portfolios_table.c.risk_profile).where(*where)
-            ).scalar()
+        saved = conn.execute(
+            select(portfolios_table.c.risk_profile, portfolios_table.c.benchmark).where(*where)
+        ).first()
+        if risk_profile is None and saved is not None:
+            risk_profile = saved.risk_profile
+        if benchmark is None and saved is not None:
+            benchmark = saved.benchmark
         # delete+insert: idempotente e indipendente dal dialetto/vincoli
         conn.execute(delete(portfolios_table).where(*where))
         conn.execute(
@@ -254,6 +407,7 @@ def save_portfolio(
                 positions=json.dumps(positions),
                 updated=datetime.now().isoformat(timespec="seconds"),
                 risk_profile=risk_profile,
+                benchmark=benchmark,
             )
         )
 
@@ -268,6 +422,7 @@ def create_client(
     positions: dict,
     risk_profile: str = DEFAULT_RISK_PROFILE,
     engine: Engine | None = None,
+    benchmark: str = DEFAULT_BENCHMARK,
 ) -> None:
     """Crea un cliente nuovo; a differenza di `save_portfolio` non sovrascrive mai.
 
@@ -281,6 +436,8 @@ def create_client(
         raise ValueError("Client code: letters, digits, spaces and - _ . / only")
     if risk_profile not in RISK_PROFILES:
         raise ValueError(f"Unknown risk profile: {risk_profile}")
+    if benchmark not in BENCHMARKS:
+        raise ValueError(f"Unknown benchmark: {benchmark}")
     engine = engine or get_engine()
     with engine.begin() as conn:
         exists = conn.execute(
@@ -297,6 +454,7 @@ def create_client(
                 positions=json.dumps(positions),
                 updated=datetime.now().isoformat(timespec="seconds"),
                 risk_profile=risk_profile,
+                benchmark=benchmark,
             )
         )
 
@@ -307,9 +465,10 @@ def _profile_or_default(value: str | None) -> str:
 
 
 def list_clients(advisor: str, engine: Engine | None = None) -> dict[str, dict]:
-    """Il book del consulente: {nome: {"positions", "risk_profile", "updated"}}.
+    """Il book del consulente: {nome: {"positions", "risk_profile", "benchmark", "updated"}}.
 
-    Stessa tolleranza di `list_portfolios` verso JSON corrotti.
+    Stessa tolleranza di `list_portfolios` verso JSON corrotti; i clienti
+    salvati prima della scelta del benchmark ricevono quello predefinito.
     """
     engine = engine or get_engine()
     with engine.connect() as conn:
@@ -318,18 +477,20 @@ def list_clients(advisor: str, engine: Engine | None = None) -> dict[str, dict]:
                 portfolios_table.c.name,
                 portfolios_table.c.positions,
                 portfolios_table.c.risk_profile,
+                portfolios_table.c.benchmark,
                 portfolios_table.c.updated,
             )
             .where(portfolios_table.c.advisor == advisor)
             .order_by(portfolios_table.c.name)
         ).all()
     clients = {}
-    for name, positions, profile, updated in rows:
+    for name, positions, profile, benchmark, updated in rows:
         parsed = safe_load_positions(advisor, name, positions)
         if parsed is not None:
             clients[name] = {
                 "positions": parsed,
                 "risk_profile": _profile_or_default(profile),
+                "benchmark": benchmark_or_default(benchmark),
                 "updated": updated,
             }
     return clients
