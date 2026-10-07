@@ -37,7 +37,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert as _pg_insert
 from sqlalchemy.dialects.sqlite import insert as _sqlite_insert
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 
 from portfolio_intelligence.config import DEFAULT_RISK_PROFILE, RISK_PROFILES
 from portfolio_intelligence.data.validators import (
@@ -99,7 +99,9 @@ audit_log_table = Table(
 _ENGINES: dict[str, Engine] = {}
 # URL su cui lo schema completo (anche le tabelle per advisor) è già garantito
 _TENANT_SCHEMA_READY: set[str] = set()
-# le sessioni Streamlit sono thread: creazione dell'engine e schema una volta sola
+# URL su cui la tabella prezzi è già garantita (download dei dati di mercato)
+_PRICES_READY: set[str] = set()
+# le sessioni Streamlit sono thread: creazione dell'engine e DDL una volta sola
 _ENGINE_LOCK = threading.RLock()
 
 
@@ -114,12 +116,16 @@ def _resolve_url(url: str | None) -> str:
 
 
 def sqlite_file(url: str | None = None) -> Path | None:
-    """Il file del database se l'URL è SQLite su file, altrimenti None (es. Postgres)."""
-    resolved = _resolve_url(url)
-    if not resolved.startswith("sqlite:///"):
+    """Il file del database se l'URL è SQLite su file, altrimenti None (es. Postgres).
+
+    L'URL è interpretato da SQLAlchemy: parametri come `?timeout=30` e driver
+    espliciti (`sqlite+pysqlite:///`) non finiscono nel percorso.
+    """
+    parsed = make_url(_resolve_url(url))
+    if parsed.get_backend_name() != "sqlite" or parsed.query.get("uri"):
         return None
-    path = resolved.removeprefix("sqlite:///")
-    return None if path in ("", ":memory:") else Path(path)
+    database = parsed.database
+    return None if database in (None, "", ":memory:") else Path(database)
 
 
 def _ensure_schema(engine: Engine) -> None:
@@ -195,8 +201,9 @@ def market_engine(url: str | None = None) -> Engine:
 
 def _has_prices(engine: Engine) -> bool:
     """True se la tabella prezzi esiste; un SQLite su file assente non viene creato."""
-    path = sqlite_file(engine.url.render_as_string(hide_password=False))
-    if path is not None and not path.exists():
+    url = engine.url
+    database = url.database if url.get_backend_name() == "sqlite" else None
+    if database not in (None, "", ":memory:") and not Path(str(database)).exists():
         return False
     return inspect(engine).has_table(prices_table.name)
 
@@ -211,8 +218,13 @@ def save_prices(prices: pd.DataFrame, engine: Engine | None = None) -> int:
         resolved = _resolve_url(None)
         _prepare_sqlite_dir(resolved)
         engine = _engine_for(resolved)
-    # solo la tabella prezzi: scaricare i dati di mercato non crea quelle per advisor
-    prices_table.create(engine, checkfirst=True)
+    # solo la tabella prezzi: scaricare i dati di mercato non crea quelle per advisor.
+    # Sotto lo stesso lock dello schema: due prime scritture non la creano due volte.
+    key = engine.url.render_as_string(hide_password=False)
+    with _ENGINE_LOCK:
+        if key not in _PRICES_READY and key not in _TENANT_SCHEMA_READY:
+            prices_table.create(engine, checkfirst=True)
+            _PRICES_READY.add(key)
     long = (
         prices.rename_axis("date")
         .reset_index()

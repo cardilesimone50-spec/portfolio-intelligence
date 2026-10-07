@@ -101,72 +101,110 @@ def empty_fundamentals(tickers: list[str]) -> pd.DataFrame:
     return pd.DataFrame(index=pd.Index(tickers), columns=FUNDAMENTAL_COLUMNS, dtype=object)
 
 
+# Esito di uno scaricamento per la cache: righe trovate e ticker "provvisori",
+# cioè con una riga incompleta (es. multipli SEC senza prezzo) da tenere poco.
+FetchResult = tuple[pd.DataFrame, set[str]]
+
+
 class FundamentalsCache:
     """Cache per ticker dei fondamentali, condivisa tra le sessioni (dati pubblici).
 
     Una cache sulla tupla intera di ticker riscaricava tutto a ogni combinazione
     nuova (aggiungere un titolo = rifare tutti) e non ricordava i ticker senza
     dati (ETF): l'eccezione non resta in cache, quindi ogni interazione
-    ripeteva le richieste. Qui si scaricano solo i ticker mancanti e anche il
-    "nessun dato" resta in memoria, per un tempo più breve (`negative_ttl`):
-    un'interruzione temporanea della fonte non nasconde i dati per un'ora.
+    ripeteva le richieste. Qui si scaricano solo i ticker mancanti; "nessun
+    dato" e le righe provvisorie restano per un tempo breve (`short_ttl`), così
+    un'interruzione temporanea o un prezzo mancante non degradano per un'ora i
+    dati di tutti. Richieste simultanee dello stesso ticker fanno un solo
+    scaricamento: le altre aspettano quello in corso.
     """
 
     def __init__(
         self,
         ttl: float = 3600.0,
-        negative_ttl: float = 600.0,
+        short_ttl: float = 600.0,
         clock: Callable[[], float] = time.monotonic,
         max_entries: int = 2048,
+        wait_timeout: float = 120.0,
     ):
         self._ttl = ttl
-        self._negative_ttl = negative_ttl
+        self._short_ttl = short_ttl
         self._max_entries = max_entries
+        self._wait_timeout = wait_timeout
         self._clock = clock
-        self._entries: dict[str, tuple[float, dict | None]] = {}
+        # ticker -> (istante, riga o None, durata)
+        self._entries: dict[str, tuple[float, dict | None, float]] = {}
+        self._inflight: dict[str, threading.Event] = {}
         self._lock = threading.Lock()
 
-    def _fresh(self, ticker: str, now: float) -> tuple[bool, dict | None]:
+    def _lookup(self, ticker: str, now: float) -> tuple[bool, dict | None]:
         entry = self._entries.get(ticker)
         if entry is None:
             return False, None
-        stored_at, row = entry
-        limit = self._ttl if row is not None else self._negative_ttl
-        return (now - stored_at < limit), row
+        stored_at, row, lifetime = entry
+        return (now - stored_at < lifetime), row
 
-    def get(self, tickers: list[str], fetch: Callable[[list[str]], pd.DataFrame]) -> pd.DataFrame:
-        """Righe per `tickers`; `fetch` riceve solo i ticker non in cache.
+    def _store(self, fetched: dict[str, dict | None], provisional: set[str]) -> None:
+        stamp = self._clock()
+        for ticker, row in fetched.items():
+            short = row is None or ticker in provisional
+            self._entries[ticker] = (stamp, row, self._short_ttl if short else self._ttl)
+        # ticker liberi nella vista Fondamentali: la memoria resta limitata
+        overflow = len(self._entries) - self._max_entries
+        if overflow > 0:
+            oldest = sorted(self._entries, key=lambda tk: self._entries[tk][0])
+            for ticker in oldest[:overflow]:
+                del self._entries[ticker]
+
+    def get(self, tickers: list[str], fetch: Callable[[list[str]], FetchResult]) -> pd.DataFrame:
+        """Righe per `tickers`; `fetch` riceve solo i ticker non in cache né in corso.
 
         Solleva ValueError se nessun ticker ha dati, come `fetch_fundamentals`.
         """
-        now = self._clock()
+        tickers = list(dict.fromkeys(tickers))  # duplicati: una riga sola
         rows: dict[str, dict | None] = {}
+        own: list[str] = []
+        waiting: dict[str, threading.Event] = {}
         with self._lock:
+            now = self._clock()
             for ticker in tickers:
-                hit, row = self._fresh(ticker, now)
+                hit, row = self._lookup(ticker, now)
                 if hit:
                     rows[ticker] = row
-        missing = [ticker for ticker in tickers if ticker not in rows]
-        if missing:
+                elif ticker in self._inflight:
+                    waiting[ticker] = self._inflight[ticker]
+                else:
+                    self._inflight[ticker] = threading.Event()
+                    own.append(ticker)
+
+        if own:
+            fetched: dict[str, dict | None] = {}
             try:
-                frame = fetch(missing)
-            except ValueError:  # nessun dato per nessuno dei mancanti
-                frame = pd.DataFrame()
-            fetched = {
-                ticker: (frame.loc[ticker].to_dict() if ticker in frame.index else None)
-                for ticker in missing
-            }
-            with self._lock:
-                stamp = self._clock()
-                for ticker, row in fetched.items():
-                    self._entries[ticker] = (stamp, row)
-                # ticker liberi nella vista Fondamentali: la memoria resta limitata
-                overflow = len(self._entries) - self._max_entries
-                if overflow > 0:
-                    oldest = sorted(self._entries, key=lambda tk: self._entries[tk][0])
-                    for ticker in oldest[:overflow]:
-                        del self._entries[ticker]
+                try:
+                    frame, provisional = fetch(own)
+                except ValueError:  # nessun dato per nessuno dei mancanti
+                    frame, provisional = pd.DataFrame(), set()
+                fetched = {
+                    ticker: (frame.loc[ticker].to_dict() if ticker in frame.index else None)
+                    for ticker in own
+                }
+                with self._lock:
+                    self._store(fetched, provisional)
+            finally:
+                # anche se fetch solleva altro: chi aspetta non resta bloccato
+                with self._lock:
+                    for ticker in own:
+                        event = self._inflight.pop(ticker, None)
+                        if event is not None:
+                            event.set()
             rows.update(fetched)
+
+        for ticker, event in waiting.items():
+            event.wait(self._wait_timeout)
+            with self._lock:
+                entry = self._entries.get(ticker)
+            rows[ticker] = entry[1] if entry is not None else None
+
         found = {ticker: rows[ticker] for ticker in tickers if rows.get(ticker) is not None}
         if not found:
             raise ValueError(f"No fundamental data found for: {', '.join(tickers)}")

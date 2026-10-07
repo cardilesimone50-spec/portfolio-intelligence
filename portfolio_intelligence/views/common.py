@@ -75,20 +75,30 @@ def _fundamentals_snapshot() -> pd.DataFrame | None:
     return load_nasdaq100_fundamentals()
 
 
-def _last_prices(tickers: tuple[str, ...]) -> dict[str, float]:
-    """Ultimo prezzo per i multipli SEC: serie live (in cache), poi il DB locale."""
+def _last_prices(tickers: tuple[str, ...], also_for: tuple[str, ...] = ()) -> dict[str, float]:
+    """Ultimo prezzo per i multipli SEC dei ticker `also_for` (default: tutti).
+
+    Ordine: serie live della tupla intera (in genere già in cache dall'analisi),
+    poi il DB locale, poi una serie live per ticker: un solo ticker senza
+    prezzi (es. un simbolo sbagliato) non lascia gli altri senza prezzo.
+    """
+    wanted = also_for or tickers
     last: dict[str, float] = {}
-    try:
+    with contextlib.suppress(Exception):  # si ripiega sul database locale
         live = cached_prices(tickers, "1y").ffill().iloc[-1]
-        last.update({t: float(v) for t, v in live.items() if v == v})
-    except Exception:  # noqa: BLE001 — si ripiega sul database locale
-        pass
+        last.update({t: float(v) for t, v in live.items() if t in wanted and v == v})
     db = load_market_db()
     if db is not None:
         stored = db.ffill().iloc[-1]
-        for t in tickers:
+        for t in wanted:
             if t not in last and t in stored.index and stored[t] == stored[t]:
                 last[t] = float(stored[t])
+    for t in wanted:
+        if t not in last:
+            with contextlib.suppress(Exception):
+                value = float(cached_prices((t,), "1y")[t].dropna().iloc[-1])
+                if value == value:
+                    last[t] = value
     return last
 
 
@@ -99,14 +109,15 @@ _FUNDAMENTALS = FundamentalsCache()
 def cached_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
     """Fondamentali: SEC EDGAR (dati pubblici) → Yahoo → snapshot spedito col deploy."""
 
-    def fetch(missing: list[str]) -> pd.DataFrame:
-        # ultimo prezzo per i multipli SEC: sulla tupla intera, già in cache dall'analisi
-        prices = _last_prices(tickers)
-        return fetch_fundamentals(
+    def fetch(missing: list[str]) -> tuple[pd.DataFrame, set[str]]:
+        prices = _last_prices(tickers, tuple(missing))
+        frame = fetch_fundamentals(
             missing,
             fallback=_fundamentals_snapshot(),
             primary=lambda tks: fetch_sec_fundamentals(tks, prices),
         )
+        # senza prezzo i multipli SEC restano vuoti: riga provvisoria, ritentata presto
+        return frame, {t for t in missing if t not in prices}
 
     return _FUNDAMENTALS.get(list(tickers), fetch)
 

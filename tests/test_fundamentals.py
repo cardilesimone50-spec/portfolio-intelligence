@@ -146,13 +146,13 @@ class _Clock:
         return self.now
 
 
-def _fetcher(available: dict[str, dict], calls: list):
+def _fetcher(available: dict[str, dict], calls: list, provisional=frozenset()):
     def fetch(tickers):
         calls.append(list(tickers))
         rows = {tk: available[tk] for tk in tickers if tk in available}
         if not rows:
             raise ValueError("no data")
-        return pd.DataFrame.from_dict(rows, orient="index")
+        return pd.DataFrame.from_dict(rows, orient="index"), set(provisional) & set(tickers)
 
     return fetch
 
@@ -165,19 +165,19 @@ def test_cache_fetches_only_new_tickers():
     data = {"AAA": {"pe": 10.0, "sector": "Technology"}, "BBB": {"pe": 20.0}, "CCC": {"pe": 30.0}}
     fetch = _fetcher(data, calls)
     cache.get(["AAA", "BBB"], fetch)
-    frame = cache.get(["AAA", "BBB", "CCC"], fetch)
+    frame = cache.get(["AAA", "BBB", "CCC", "CCC"], fetch)
     assert calls == [["AAA", "BBB"], ["CCC"]]  # aggiungere un titolo non riscarica gli altri
-    assert list(frame.index) == ["AAA", "BBB", "CCC"]
+    assert list(frame.index) == ["AAA", "BBB", "CCC"]  # duplicati: una riga sola
     assert frame.loc["CCC", "pe"] == 30.0
     assert frame["pe"].dtype.kind == "f"
 
 
-def test_cache_remembers_tickers_without_data():
+def test_cache_remembers_tickers_without_data_briefly():
     from portfolio_intelligence.fundamentals.valuation import FundamentalsCache
 
     calls: list = []
     clock = _Clock()
-    cache = FundamentalsCache(clock=clock, negative_ttl=600)
+    cache = FundamentalsCache(clock=clock, short_ttl=600)
     fetch = _fetcher({}, calls)
     for _ in range(3):  # portafoglio di soli ETF: una sola richiesta, non una per interazione
         with pytest.raises(ValueError):
@@ -187,6 +187,20 @@ def test_cache_remembers_tickers_without_data():
     with pytest.raises(ValueError):
         cache.get(["QQQ", "SPY"], fetch)
     assert len(calls) == 2
+
+
+def test_provisional_rows_expire_early():
+    """Una riga senza prezzo (multipli vuoti) non resta un'ora per tutti gli utenti."""
+    from portfolio_intelligence.fundamentals.valuation import FundamentalsCache
+
+    calls: list = []
+    clock = _Clock()
+    cache = FundamentalsCache(clock=clock, ttl=3600, short_ttl=600)
+    fetch = _fetcher({"JPM": {"pe": None}, "AAA": {"pe": 5.0}}, calls, provisional={"JPM"})
+    cache.get(["JPM", "AAA"], fetch)
+    clock.now = 601
+    cache.get(["JPM", "AAA"], fetch)
+    assert calls == [["JPM", "AAA"], ["JPM"]]  # solo la riga provvisoria viene riletta
 
 
 def test_cache_expires_and_stays_bounded():
@@ -205,3 +219,49 @@ def test_cache_expires_and_stays_bounded():
     clock.now = 3603
     cache.get(["CCC"], fetch)
     assert len(cache._entries) == 2 and "AAA" not in cache._entries
+
+
+def test_simultaneous_requests_share_one_fetch():
+    import threading
+
+    from portfolio_intelligence.fundamentals.valuation import FundamentalsCache
+
+    calls: list = []
+    started, release = threading.Event(), threading.Event()
+
+    def slow_fetch(tickers):
+        calls.append(list(tickers))
+        started.set()
+        release.wait(5)
+        return pd.DataFrame({"pe": [12.0]}, index=["AAA"]), set()
+
+    cache = FundamentalsCache()
+    results: list = []
+    first = threading.Thread(target=lambda: results.append(cache.get(["AAA"], slow_fetch)))
+    first.start()
+    started.wait(5)
+    second = threading.Thread(target=lambda: results.append(cache.get(["AAA"], slow_fetch)))
+    second.start()
+    release.set()
+    first.join(5)
+    second.join(5)
+    assert calls == [["AAA"]]  # la seconda sessione aspetta lo scaricamento in corso
+    assert [r.loc["AAA", "pe"] for r in results] == [12.0, 12.0]
+
+
+def test_failed_fetch_releases_waiters_and_is_not_cached():
+    from portfolio_intelligence.fundamentals.valuation import FundamentalsCache
+
+    calls: list = []
+
+    def broken(tickers):
+        calls.append(list(tickers))
+        raise RuntimeError("network")
+
+    cache = FundamentalsCache()
+    with pytest.raises(RuntimeError):
+        cache.get(["AAA"], broken)
+    assert cache._inflight == {}
+    with pytest.raises(RuntimeError):
+        cache.get(["AAA"], broken)  # un errore inatteso non resta in cache
+    assert len(calls) == 2

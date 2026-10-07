@@ -269,3 +269,54 @@ def test_investor_market_loader_never_creates_tenant_tables(tmp_path, monkeypatc
     loaded = common.load_market_db()
     assert loaded is not None and list(loaded.columns) == ["MSFT"]
     assert _tables(db) == {"prices"}
+
+
+def test_sqlite_urls_with_parameters_and_drivers(tmp_path):
+    from portfolio_intelligence.data import store
+
+    db = tmp_path / "params.db"
+    assert store.sqlite_file(f"sqlite:///{db}?timeout=30") == db
+    assert store.sqlite_file(f"sqlite+pysqlite:///{db}") == db
+    assert store.sqlite_file("sqlite:///:memory:") is None
+    assert store.sqlite_file("postgresql+psycopg://u:p@host/db") is None
+    engine = store.market_engine(f"sqlite:///{db}?timeout=30")
+    store.save_prices(
+        pd.DataFrame({"AAPL": [1.0]}, index=pd.bdate_range("2026-01-05", periods=1)), engine
+    )
+    assert store.known_tickers(engine) == ["AAPL"]  # i parametri non nascondono i dati
+
+
+def _first_writes_race(url: str) -> list:
+    """Due prime scritture dei prezzi e un primo accesso Advisor, nello stesso istante."""
+    import threading
+
+    from portfolio_intelligence.data import store
+
+    barrier = threading.Barrier(3)
+    errors: list = []
+    frame = pd.DataFrame({"AAPL": [1.0]}, index=pd.bdate_range("2026-01-05", periods=1))
+    engine = store.market_engine(url)
+
+    def run(job):
+        barrier.wait()
+        try:
+            job()
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    jobs = [
+        lambda: store.save_prices(frame, engine),
+        lambda: store.save_prices(frame, engine),
+        lambda: store.get_engine(url),
+    ]
+    threads = [threading.Thread(target=run, args=(job,)) for job in jobs]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(10)
+    return errors
+
+
+def test_concurrent_first_writes_do_not_collide(tmp_path):
+    for trial in range(15):
+        assert _first_writes_race(f"sqlite:///{tmp_path / f'race{trial}.db'}") == []
