@@ -3,9 +3,8 @@ che un investitore europeo corre davvero (mercato + cambio).
 
 Limiti dichiarati (MVP): la valuta è dedotta dal suffisso del ticker.
 Senza suffisso o con suffisso USA = USD; suffissi dell'eurozona = già EUR;
-altri mercati (es. .L Londra, .SW Zurigo) restano non convertiti. Gli indici
-di riferimento fanno eccezione: la loro valuta è nel registro `benchmarks.py`
-(^STOXX non ha suffisso ma quota in EUR).
+altri mercati (es. .L Londra, .SW Zurigo) restano non convertiti. I benchmark
+fanno eccezione: la loro valuta è nel registro `benchmarks.py`, non dedotta.
 """
 
 import io

@@ -107,7 +107,7 @@ identità consulente multi-tenant (B2B).
 | # | Problema | Dettaglio | Stato |
 |---|----------|-----------|-------|
 | 17 | **Solo italiano, stringhe hardcoded** | Per un progetto open-source internazionale serve i18n (EN default, IT) con catalogo messaggi. | ✅ Risolto — i18n EN/IT (`portfolio_intelligence/i18n.py`) |
-| 18 | **Universo solo Nasdaq-100** | S&P 500, STOXX 600, FTSE MIB, watchlist custom. | 🟡 Parziale — benchmark per cliente (QQQ, S&P 500, FTSE MIB, STOXX 600) con storico nel DB e tabella dei componenti (`portfolio_intelligence/data/benchmarks.py`); restano gli universi di titoli per Mercato/backtest e le watchlist |
+| 18 | **Universo solo Nasdaq-100** | S&P 500, STOXX 600, FTSE MIB, watchlist custom. | 🟡 Parziale — benchmark total return per cliente (QQQ, S&P 500 TR, FTSE MIB e STOXX 600 tramite ETF ad accumulazione) con storico nel DB e tabella dei componenti (`portfolio_intelligence/data/benchmarks.py`); restano gli universi di titoli per Mercato/backtest e le watchlist |
 | 19 | **PDF senza grafici** | Il report è solo testo/tabelle: aggiungere chart (matplotlib → immagine embedded). | ✅ Risolto — grafici vettoriali nel report (`portfolio_intelligence/visualization/pdf_report.py`) |
 | 20 | **Nessuna storia di deploy** | Niente Dockerfile, niente guida Streamlit Cloud, secrets non gestiti. | ✅ Risolto — Dockerfile + guida Streamlit Cloud in README, bridge `DATABASE_URL` da secrets |
 
@@ -155,7 +155,7 @@ identità consulente multi-tenant (B2B).
 
 | Priorità | Feature | Note |
 |----------|---------|------|
-| Media | **Universi aggiuntivi** | Benchmark per cliente fatto (S&P 500, FTSE MIB, STOXX 600). Resta: componenti di S&P 500/FTSE MIB in `benchmark_constituents` (lista Wikipedia stabile) per Mercato e backtest, serie a rendimento totale al posto degli indici di prezzo, watchlist custom salvate nel DB. |
+| Media | **Universi aggiuntivi** | Benchmark total return per cliente fatto (S&P 500 TR, FTSE MIB e STOXX 600 tramite ETF ad accumulazione). Resta: componenti di S&P 500/FTSE MIB in `benchmark_constituents` (lista Wikipedia stabile) per Mercato e backtest, indici total return veri per FTSE MIB e STOXX 600 se arriva un fornitore che li pubblica (EODHD), watchlist custom salvate nel DB. |
 | Media | **Factor analysis reale** | `portfolio_intelligence/analytics/factors.py` oggi calcola solo i fattori per lo stock-picking del backtest (momentum, low-vol, trend); manca la regressione dei rendimenti del portafoglio su fattori di mercato. |
 | Media | **Export Excel** | Il gemello del PDF per chi lavora in spreadsheet. |
 | Bassa | **API REST (FastAPI)** | Separa engine e UI; abilita app mobile/terze parti. Solo dopo aver chiuso il packaging (P2-13, ancora parziale). |

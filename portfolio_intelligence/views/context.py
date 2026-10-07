@@ -7,7 +7,7 @@ import pandas as pd
 from portfolio_intelligence.data.benchmarks import (
     DEFAULT_BENCHMARK,
     benchmark_label,
-    is_price_index,
+    benchmark_name,
 )
 from portfolio_intelligence.portfolio import Portfolio
 
@@ -52,6 +52,6 @@ class ViewContext:
         return benchmark_label(self.benchmark)
 
     @property
-    def benchmark_price_index(self) -> bool:
-        """True se il benchmark esclude i dividendi (va dichiarato accanto ai confronti)."""
-        return is_price_index(self.benchmark)
+    def benchmark_name(self) -> str:
+        """Nome esteso della serie (per gli ETF anche il fondo): metodologia dei report."""
+        return benchmark_name(self.benchmark)

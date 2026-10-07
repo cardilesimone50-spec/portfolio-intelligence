@@ -722,16 +722,6 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "The benchmark is saved together with the positions, with Save changes.",
         "Il benchmark si salva insieme alle posizioni, con Salva modifiche.",
     ),
-    "bench.price_index": ("price index", "indice di prezzo"),
-    "bench.price_index_note": (
-        "{benchmark} is a price index: its dividends are not reinvested, while portfolio "
-        "prices are adjusted for dividends. Relative performance and alpha against it are "
-        "overstated by roughly the index dividend yield.",
-        "{benchmark} è un indice di prezzo: i suoi dividendi non sono reinvestiti, mentre "
-        "i prezzi del portafoglio sono rettificati per i dividendi. Rendimento relativo e "
-        "alfa rispetto all'indice risultano sovrastimati di circa il rendimento da "
-        "dividendi dell'indice.",
-    ),
     "adv.recipient": ("Report heading (optional)", "Intestazione del report (facoltativa)"),
     "adv.recipient_placeholder": ("Client's full name", "Nome e cognome del cliente"),
     "adv.recipient_note": (
@@ -2254,6 +2244,13 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "regressione OLS dei rendimenti giornalieri del portafoglio sul benchmark {benchmark}. Tracking "
         "error: deviazione standard annualizzata dei rendimenti attivi giornalieri. Contributo "
         "al rischio: quota della varianza del portafoglio per posizione, covarianze incluse.",
+    ),
+    "rep.n_bench": (
+        "Benchmark: {name}. Total return series, with dividends reinvested like the adjusted "
+        "portfolio prices; where the series is an ETF, returns are net of the fund's costs.",
+        "Benchmark: {name}. Serie total return, con i dividendi reinvestiti come nei prezzi "
+        "rettificati del portafoglio; dove la serie è un ETF, i rendimenti sono al netto dei "
+        "costi del fondo.",
     ),
     "rep.n_weights": (
         "Historical series apply today's weights to the whole window (constant weights): they "

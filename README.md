@@ -22,16 +22,27 @@ sorgente senza toccare il resto del codice.
 
 Beta, alfa, correlazione e grafici comparativi si misurano contro il benchmark
 scelto per ogni cliente nell'area Advisor (salvato a database insieme al profilo
-di rischio): Nasdaq-100 (ETF QQQ, predefinito e unico per Investor), S&P 500
-(`^GSPC`), FTSE MIB (`FTSEMIB.MI`), STOXX Europe 600 (`^STOXX`). Il registro è
-`portfolio_intelligence/data/benchmarks.py`: simbologia per provider, valuta
-(per la conversione in EUR) e natura della serie. I tre indici sono indici di
-**prezzo**, senza dividendi: interfaccia e PDF lo dichiarano accanto ai
-confronti, perché rendimento relativo e alfa risultano sovrastimati di circa il
-rendimento da dividendi dell'indice. `download_nasdaq100.py` salva anche lo
-storico degli indici (tabella `benchmark_prices`), usato come riserva quando
-nessun provider risponde, e la composizione del Nasdaq-100
-(`benchmark_constituents`).
+di rischio). Sono tutte serie **total return**, come i prezzi rettificati del
+portafoglio: un indice di prezzo gonfierebbe rendimento relativo e alfa del
+rendimento da dividendi.
+
+| Benchmark | Serie | Nota |
+|-----------|-------|------|
+| Nasdaq-100 | `QQQ` | ETF, prezzo rettificato; predefinito e unico per Investor |
+| S&P 500 TR | `^SP500TR` | indice total return ufficiale (lordo), USD |
+| FTSE MIB TR | `CSMIB.MI` | ETF iShares ad accumulazione sul FTSE MIB Net TR, EUR |
+| STOXX 600 TR | `MEUD.PA` | ETF Amundi ad accumulazione sullo STOXX Europe 600 NR, EUR |
+
+Per FTSE MIB e STOXX 600 Yahoo non pubblica un indice total return affidabile
+(`FTSEMIBN.MI` riporta i valori dell'indice di prezzo), quindi si usa un ETF ad
+accumulazione: rendimento al netto dei costi del fondo, dichiarato nella
+metodologia dei PDF. Il registro è `portfolio_intelligence/data/benchmarks.py`
+(simbologia per provider, valuta per la conversione in EUR). I clienti salvati
+sui vecchi indici di prezzo (`^GSPC`, `FTSEMIB.MI`, `^STOXX`) passano alla serie
+total return dello stesso indice: in lettura e, su Postgres, con
+`alembic upgrade head`. `download_nasdaq100.py` salva anche lo storico dei
+benchmark (tabella `benchmark_prices`), usato come riserva quando nessun
+provider risponde, e la composizione del Nasdaq-100 (`benchmark_constituents`).
 
 ## Licenza
 

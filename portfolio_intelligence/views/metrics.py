@@ -106,8 +106,6 @@ def render(ctx: ViewContext) -> None:
     st.caption(
         t("an.excess", excess=pct(excess, signed=True)) + (t("an.excess_fx") if fx_effect else ".")
     )
-    if ctx.benchmark_price_index:
-        st.caption(t("bench.price_index_note", benchmark=benchmark))
 
     col_dd, col_hist = st.columns(2, gap="large")
     with col_dd:

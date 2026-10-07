@@ -49,6 +49,7 @@ from portfolio_intelligence.data.benchmarks import (
     BENCHMARKS,
     DEFAULT_BENCHMARK,
     benchmark_or_default,
+    canonical_benchmark,
 )
 from portfolio_intelligence.data.validators import (
     is_valid_client_code,
@@ -460,6 +461,14 @@ def load_constituents(benchmark: str, engine: Engine | None = None) -> pd.DataFr
 # ---------------------------------------------------------------- portafogli (per advisor)
 
 
+def _registered_benchmark(benchmark: str) -> str:
+    """Il ticker del registro da salvare: i ticker storici passano alla serie total return."""
+    canonical = canonical_benchmark(benchmark)
+    if canonical is None:
+        raise ValueError(f"Unknown benchmark: {benchmark}")
+    return canonical
+
+
 def save_portfolio(
     advisor: str,
     name: str,
@@ -478,8 +487,8 @@ def save_portfolio(
         raise ValueError("The portfolio name cannot be empty")
     if risk_profile is not None and risk_profile not in RISK_PROFILES:
         raise ValueError(f"Unknown risk profile: {risk_profile}")
-    if benchmark is not None and benchmark not in BENCHMARKS:
-        raise ValueError(f"Unknown benchmark: {benchmark}")
+    if benchmark is not None:
+        benchmark = _registered_benchmark(benchmark)
     engine = engine or get_engine()
     where = (portfolios_table.c.advisor == advisor, portfolios_table.c.name == name.strip())
     with engine.begin() as conn:
@@ -528,8 +537,7 @@ def create_client(
         raise ValueError("Client code: letters, digits, spaces and - _ . / only")
     if risk_profile not in RISK_PROFILES:
         raise ValueError(f"Unknown risk profile: {risk_profile}")
-    if benchmark not in BENCHMARKS:
-        raise ValueError(f"Unknown benchmark: {benchmark}")
+    benchmark = _registered_benchmark(benchmark)
     engine = engine or get_engine()
     with engine.begin() as conn:
         exists = conn.execute(
