@@ -36,17 +36,6 @@ N_DAYS = 400
 INDEX = pd.bdate_range("2024-01-02", periods=N_DAYS + 1)
 
 
-@pytest.fixture(autouse=True)
-def _dispose_engines():
-    """Chiude i motori SQLite aperti dal test sui DB temporanei (nessuna connessione orfana)."""
-    from portfolio_intelligence.data import store
-
-    before = set(store._ENGINES)
-    yield
-    for url in set(store._ENGINES) - before:
-        store._ENGINES.pop(url).dispose()
-
-
 def _factors(seed: int = 3) -> tuple[pd.Series, pd.Series]:
     """Due fattori di mercato con covarianza campionaria nulla: i beta attesi sono esatti."""
     rng = np.random.default_rng(seed)

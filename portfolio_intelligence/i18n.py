@@ -109,15 +109,15 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "beta.defensive": (
         "More defensive than {benchmark}: benchmark moves are dampened.",
-        "Più difensivo del {benchmark}: i movimenti di mercato vengono attutiti.",
+        "Più difensivo del benchmark {benchmark}: i movimenti di mercato vengono attutiti.",
     ),
     "beta.inline": (
         "Broadly in line with {benchmark}.",
-        "Il portafoglio si muove sostanzialmente in linea col {benchmark}.",
+        "Il portafoglio si muove sostanzialmente in linea col benchmark {benchmark}.",
     ),
     "beta.amplify": (
         "Amplifies {benchmark} moves: steeper rises and falls.",
-        "I movimenti del {benchmark} vengono amplificati: salite e discese più ripide.",
+        "I movimenti del benchmark {benchmark} vengono amplificati: salite e discese più ripide.",
     ),
     "corr.identical": (
         "The holdings move almost identically: diversification is only apparent.",
@@ -478,10 +478,11 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Database prezzi non ancora presente",
     ),
     "db.missing_hint": (
-        "Five years of daily prices for the 103 Nasdaq-100 stocks are needed: "
-        "downloaded once, then refreshed incrementally.",
-        "Servono cinque anni di prezzi giornalieri dei 103 titoli del Nasdaq-100: "
-        "si scaricano una volta, poi si aggiornano solo i giorni mancanti.",
+        "Five years of daily prices for the 103 Nasdaq-100 stocks and the reference indices "
+        "(S&P 500, FTSE MIB, STOXX Europe 600) are needed: downloaded once, then refreshed.",
+        "Servono cinque anni di prezzi giornalieri dei 103 titoli del Nasdaq-100 e degli indici "
+        "di riferimento (S&P 500, FTSE MIB, STOXX Europe 600): si scaricano una volta, poi si "
+        "aggiornano.",
     ),
     "db.download_btn": ("Download data (about one minute)", "Scarica i dati (circa un minuto)"),
     "db.downloading": (
@@ -1866,11 +1867,17 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "Downside-adjusted return in line",
         "Rendimento corretto per il ribasso in linea",
     ),
-    "rpt.beta_amplifies": ("Amplifies {benchmark} moves", "Amplifica i movimenti del {benchmark}"),
-    "rpt.beta_dampens": ("Dampens {benchmark} moves", "Attenua i movimenti del {benchmark}"),
+    "rpt.beta_amplifies": (
+        "Amplifies {benchmark} moves",
+        "Amplifica i movimenti del benchmark {benchmark}",
+    ),
+    "rpt.beta_dampens": (
+        "Dampens {benchmark} moves",
+        "Attenua i movimenti del benchmark {benchmark}",
+    ),
     "rpt.beta_inline": (
         "Broadly in line with {benchmark}",
-        "Sostanzialmente in linea con il {benchmark}",
+        "Sostanzialmente in linea con il benchmark {benchmark}",
     ),
     "rpt.a_alpha": (
         "Regression intercept on daily data; historical, not evidence of skill",
@@ -1991,12 +1998,12 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "rpt.v_regime": (
         "Annualized volatility {vol} ({level}) against {bench_vol} for {benchmark}; beta "
         "{beta}; maximum drawdown {dd} over the window.",
-        "Volatilità annualizzata {vol} ({level}) contro {bench_vol} del {benchmark}; beta "
+        "Volatilità annualizzata {vol} ({level}) contro {bench_vol} del benchmark {benchmark}; beta "
         "{beta}; massimo drawdown {dd} nella finestra.",
     ),
     "rpt.v_performance": (
         "Applying today's weights from {start} to {end}, the portfolio would have returned {ret} against {bench} for {benchmark} ({excess}); CAGR {cagr} versus {bench_cagr}; Sharpe {sharpe} versus {bench_sharpe}.",
-        "Applicando i pesi di oggi dal {start} al {end}, il portafoglio avrebbe reso {ret} contro {bench} del {benchmark} ({excess}); CAGR {cagr} contro {bench_cagr}; Sharpe {sharpe} contro {bench_sharpe}.",
+        "Applicando i pesi di oggi dal {start} al {end}, il portafoglio avrebbe reso {ret} contro {bench} del benchmark {benchmark} ({excess}); CAGR {cagr} contro {bench_cagr}; Sharpe {sharpe} contro {bench_sharpe}.",
     ),
     "rpt.v_concentration": (
         "{ticker} represents {weight} of capital and {risk} of total risk; the three largest "
@@ -2010,7 +2017,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "rpt.v_source_market": (
         "Market factor: {r2} of daily variance explained by {benchmark}.",
-        "Fattore di mercato: il {r2} della varianza giornaliera è spiegato dal {benchmark}.",
+        "Fattore di mercato: il {r2} della varianza giornaliera è spiegato dal benchmark {benchmark}.",
     ),
     "rpt.v_vuln_risk_weight": (
         "{ticker} contributes {risk} of risk on a {weight} capital weight.",
@@ -2060,7 +2067,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "rpt.v_str_low_corr": (
         "Correlation {corr} with {benchmark}: return drivers differ from the benchmark.",
-        "Correlazione {corr} con il {benchmark}: i fattori di rendimento differiscono dal benchmark.",
+        "Correlazione {corr} con il benchmark {benchmark}: i fattori di rendimento differiscono dai suoi.",
     ),
     "rpt.v_impl_driver": (
         "Portfolio outcomes depend primarily on {ticker}, which explains {risk} of total risk.",
@@ -2068,7 +2075,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "rpt.v_impl_market": (
         "On the historical beta, a 20% decline in {benchmark} corresponds to about {impact} for the portfolio.",
-        "Sul beta storico, un calo del 20% del {benchmark} corrisponde a circa {impact} per il portafoglio.",
+        "Sul beta storico, un calo del 20% del benchmark {benchmark} corrisponde a circa {impact} per il portafoglio.",
     ),
     "rpt.v_impl_profile_out": (
         "Consistency with the declared {profile} profile ({band} volatility band) requires review.",
@@ -2200,7 +2207,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
         "covariances included.",
         "VaR 95%: 5° percentile storico dei rendimenti giornalieri, nessuna ipotesi di "
         "normalità; Expected Shortfall: media dei rendimenti oltre la soglia. Beta e alfa: "
-        "regressione OLS dei rendimenti giornalieri del portafoglio sul {benchmark}. Tracking "
+        "regressione OLS dei rendimenti giornalieri del portafoglio sul benchmark {benchmark}. Tracking "
         "error: deviazione standard annualizzata dei rendimenti attivi giornalieri. Contributo "
         "al rischio: quota della varianza del portafoglio per posizione, covarianze incluse.",
     ),
@@ -2232,7 +2239,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "stress.market": (
         "{benchmark} declines 20% (beta-implied)",
-        "Il {benchmark} perde il 20% (stima tramite beta)",
+        "Il benchmark {benchmark} perde il 20% (stima tramite beta)",
     ),
     "stress.usd": (
         "USD depreciates 10% versus EUR ({share} of capital in USD)",
@@ -2277,7 +2284,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "inv.k_relative": ("Relative performance", "Performance relativa"),
     "inv.k_relative_note": (
         "Versus {benchmark}, percentage points",
-        "Rispetto al {benchmark}, punti percentuali",
+        "Rispetto al benchmark {benchmark}, punti percentuali",
     ),
     "inv.score_line": (
         "<b>PORTFOLIO HEALTH SCORE: {score}/100</b>",
@@ -2298,7 +2305,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "inv.s_summary": ("Executive summary", "Sintesi"),
     "inv.s_growth": (
         "Growth of 100 versus {benchmark}",
-        "Crescita di 100 rispetto al {benchmark}",
+        "Crescita di 100 rispetto al benchmark {benchmark}",
     ),
     "inv.growth_caption": (
         "Both series rebased to 100 at the start of the window. The portfolio line applies "
@@ -2703,7 +2710,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     ),
     "adr.growth_title": (
         "Growth of 100 versus {benchmark}",
-        "Crescita di 100 rispetto al {benchmark}",
+        "Crescita di 100 rispetto al benchmark {benchmark}",
     ),
     "adr.calendar_title": (
         "Calendar-year returns",

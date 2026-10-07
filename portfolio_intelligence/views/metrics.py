@@ -15,6 +15,7 @@ from portfolio_intelligence.analytics.performance import (
     rolling_beta,
     sortino_ratio,
 )
+from portfolio_intelligence.data.fx import is_usd_listing
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.returns import (
     compute_daily_returns,
@@ -99,8 +100,10 @@ def render(ctx: ViewContext) -> None:
         width="stretch",
     )
     excess = c["cum_return"] - float(bench_value.iloc[-1] - 1)
+    # l'effetto cambio c'è solo se portafoglio o benchmark quotano in dollari
+    fx_effect = in_eur and (c["usd_weight"] > 0 or is_usd_listing(ctx.benchmark))
     st.caption(
-        t("an.excess", excess=pct(excess, signed=True)) + (t("an.excess_fx") if in_eur else ".")
+        t("an.excess", excess=pct(excess, signed=True)) + (t("an.excess_fx") if fx_effect else ".")
     )
     if ctx.benchmark_price_index:
         st.caption(t("bench.price_index_note", benchmark=benchmark))

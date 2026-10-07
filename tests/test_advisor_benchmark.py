@@ -39,17 +39,6 @@ def _english():
     set_language("en")
 
 
-@pytest.fixture(autouse=True)
-def _dispose_engines():
-    """Chiude i motori SQLite aperti dal test sui DB temporanei (nessuna connessione orfana)."""
-    from portfolio_intelligence.data import store
-
-    before = set(store._ENGINES)
-    yield
-    for url in set(store._ENGINES) - before:
-        store._ENGINES.pop(url).dispose()
-
-
 def _prices_for(tickers) -> pd.DataFrame:
     """Prezzi sintetici deterministici per ticker (stesso ticker, stessa serie)."""
     return pd.DataFrame(
@@ -275,6 +264,9 @@ def offline(tmp_path, monkeypatch):
     monkeypatch.setattr(sidebar, "cached_risk_free", lambda: 0.03)
     monkeypatch.setattr(ws, "_client_analysis", lambda *a, **k: None)
     monkeypatch.setattr(ws, "quick_client_analysis", _fake_analysis)
+    # l'editor delle posizioni mostra nome e prezzo dei titoli: anche quelli senza rete
+    monkeypatch.setattr(ws.pe, "ticker_preview", lambda _ticker: None)
+    monkeypatch.setattr(ws.pe, "cached_price_on", lambda _ticker, _iso: None)
 
 
 def _button(at, label):

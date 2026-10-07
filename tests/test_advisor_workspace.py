@@ -54,6 +54,9 @@ def offline(tmp_path, monkeypatch):
     monkeypatch.setattr(sidebar, "cached_risk_free", lambda: 0.03)
     monkeypatch.setattr(ws, "_client_analysis", lambda *a, **k: None)
     monkeypatch.setattr(ws, "quick_client_analysis", _fake_analysis({}))
+    # l'editor delle posizioni mostra nome e prezzo dei titoli: anche quelli senza rete
+    monkeypatch.setattr(ws.pe, "ticker_preview", lambda _ticker: None)
+    monkeypatch.setattr(ws.pe, "cached_price_on", lambda _ticker, _iso: None)
 
 
 def _button(at, label):
