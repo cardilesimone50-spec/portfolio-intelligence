@@ -351,6 +351,9 @@ def test_legacy_price_index_benchmarks_are_saved_and_read_as_total_return(tmp_pa
     engine = _engine(tmp_path)
     create_client("adv@a", "C-1", {"AAPL": 1.0}, engine=engine, benchmark="^GSPC")
     save_portfolio("adv@a", "C-2", {"ENEL.MI": 1.0}, engine=engine, benchmark="FTSEMIB.MI")
+    with engine.connect() as conn:  # la scrittura salva già la serie total return
+        raw = dict(conn.execute(text("SELECT name, benchmark FROM portfolios")).all())
+    assert raw == {"C-1": "SPY", "C-2": "CSMIB.MI"}
     with engine.begin() as conn:  # record scritto prima del passaggio al total return
         conn.execute(
             text(
@@ -388,16 +391,19 @@ def test_alembic_moves_saved_clients_to_total_return_series(tmp_path, monkeypatc
                     ),
                     {"n": name, "b": bench},
                 )
-            conn.execute(
-                text("INSERT INTO benchmark_prices VALUES ('2026-01-02', '^GSPC', 5000.0)")
-            )
+            # solo lo storico del vecchio indice va via: le altre serie restano la riserva
+            for ticker in ("^GSPC", "QQQ", "SPY"):
+                conn.execute(
+                    text("INSERT INTO benchmark_prices VALUES ('2026-01-02', :t, 100.0)"),
+                    {"t": ticker},
+                )
 
         command.upgrade(cfg, "head")
         with engine.connect() as conn:
             saved = dict(conn.execute(text("SELECT name, benchmark FROM portfolios")).all())
-            old_rows = conn.execute(text("SELECT COUNT(*) FROM benchmark_prices")).scalar()
+            stored = {row[0] for row in conn.execute(text("SELECT ticker FROM benchmark_prices"))}
         assert saved == {"C-US": "SPY", "C-IT": "CSMIB.MI", "C-Q": "QQQ"}
-        assert old_rows == 0
+        assert stored == {"QQQ", "SPY"}
 
         command.downgrade(cfg, "c4e8b2d6f1a3")
         with engine.connect() as conn:
