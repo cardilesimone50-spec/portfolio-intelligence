@@ -48,6 +48,8 @@ def rolling_min_periods(n_observations: int) -> int:
 VOLATILITY_SCALE = (0.10, 0.60)  # 10% annuo = 0 (tranquillo), 60% = 100 (estremo)
 DRAWDOWN_SCALE = (0.0, 0.50)  # 0% = 0, -50% di drawdown = 100
 CORRELATION_SCALE = (0.0, 1.0)
+# HHI dei pesi: 0,05 (20 posizioni effettive) = 0, 0,50 (2 effettive) = 100; coerente con RISK_LEVEL_HHI
+CONCENTRATION_HHI_SCALE = (0.05, 0.50)
 CURRENCY_USD_SCALE = (0.5, 1.0)  # sotto il 50% USD: score pieno; 100% USD: zero
 USD_EXPOSURE_HIGH = 0.7  # executive_summary: soglia per menzionare il rischio cambio
 

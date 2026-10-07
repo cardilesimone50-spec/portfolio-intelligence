@@ -12,6 +12,7 @@ import streamlit as st
 
 from portfolio_intelligence.data.importers import parse_positions
 from portfolio_intelligence.data.validators import is_valid_ticker
+from portfolio_intelligence.formatting import ui_num, ui_pct
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from portfolio_intelligence.views.common import (
@@ -153,7 +154,7 @@ def manual_entry(prefix: str) -> None:
             disabled=not key,
             help=t(
                 "pos.price_auto_help",
-                current=f"{current_price:,.2f}" if current_price else "—",
+                current=ui_num(current_price, 2) if current_price else "—",
             ),
         )
     with c_add:
@@ -176,11 +177,11 @@ def manual_entry(prefix: str) -> None:
             parts.append(html.escape(str(preview["sector"])))
         if current_price is not None:
             sym = "$" if preview.get("currency") == "USD" else preview.get("currency", "")
-            price = f"{sym}{current_price:,.2f}"
+            price = f"{sym}{ui_num(current_price, 2)}"
             chg = preview.get("change")
             if chg is not None:
                 css = "up" if chg >= 0 else "down"
-                price += f' <span class="{css}">{chg:+.2f}%</span>'
+                price += f' <span class="{css}">{ui_num(chg, 2, signed=True)}%</span>'
             parts.append(price)
         meta = " · ".join(parts)
     else:
@@ -227,6 +228,17 @@ def cost_basis(positions: dict) -> dict[str, tuple[float | None, float | None, f
         else:
             rows[ticker] = (None, None, float(pos.get("amount", 0.0)))
     return rows
+
+
+def invested_text(positions: dict, decimals: int = 2) -> str:
+    """Totale di carico nella valuta di quotazione: con la sigla se tutti i titoli sono in USD."""
+    from portfolio_intelligence.data.fx import is_usd_listing
+
+    total = sum(cost for _, _, cost in cost_basis(positions).values())
+    if not total:
+        return "—"
+    text = ui_num(total, decimals)
+    return f"{text} USD" if all(is_usd_listing(tk) for tk in positions) else text
 
 
 def company_name(ticker: str) -> str:
@@ -279,10 +291,10 @@ def positions_table(prefix: str, title: str | None = None, empty_hint: str | Non
         cells = [
             ("sym", ticker),
             ("name", company_name(ticker) or "—"),
-            ("r", f"{qty:,.4g}" if qty is not None else "—"),
-            ("r", f"{avg:,.2f}" if avg is not None else "—"),
-            ("r", f"{cost:,.2f}"),
-            ("r", f"{cost / total:.1%}" if total else "—"),
+            ("r", ui_num(qty, 4).rstrip("0").rstrip(",.") if qty is not None else "—"),
+            ("r", ui_num(avg, 2) if avg is not None else "—"),
+            ("r", ui_num(cost, 2)),
+            ("r", ui_pct(cost / total, 1) if total else "—"),
         ]
         with st.container(key=f"{prefix}_pe_row_{ticker}"):
             data_col, action_col = st.columns(widths, gap="small", vertical_alignment="center")

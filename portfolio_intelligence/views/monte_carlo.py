@@ -14,6 +14,7 @@ from portfolio_intelligence.analytics.monte_carlo import (
     simulate,
 )
 from portfolio_intelligence.config import TRADING_DAYS
+from portfolio_intelligence.formatting import ui_pct
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.ui.components import eur, notice, sec
 from portfolio_intelligence.views.context import ViewContext
@@ -123,8 +124,8 @@ def render(ctx: ViewContext) -> None:
             eur(p50),
             t(
                 "mc.kpi_vs_today",
-                pct=f"{p50 / result.initial_value - 1:+.1%}",
-                cagr=f"{result.cagr(50):+.1%}",
+                pct=ui_pct(p50 / result.initial_value - 1, 1, signed=True),
+                cagr=ui_pct(result.cagr(50), 1, signed=True),
             ),
         )
         + _kpi(
@@ -132,13 +133,13 @@ def render(ctx: ViewContext) -> None:
             eur(p10),
             t(
                 "mc.kpi_vs_today",
-                pct=f"{p10 / result.initial_value - 1:+.1%}",
-                cagr=f"{result.cagr(10):+.1%}",
+                pct=ui_pct(p10 / result.initial_value - 1, 1, signed=True),
+                cagr=ui_pct(result.cagr(10), 1, signed=True),
             ),
         )
         + _kpi(
             t("mc.kpi_positive"),
-            f"{result.prob_gain:.0%}",
+            ui_pct(result.prob_gain, 0),
             t("mc.kpi_positive_sub", p5=eur(result.final(5))),
         )
         + "</div>",

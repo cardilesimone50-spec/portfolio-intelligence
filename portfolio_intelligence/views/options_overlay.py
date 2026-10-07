@@ -15,6 +15,7 @@ from portfolio_intelligence.analytics.options import (
     zero_cost_collar,
 )
 from portfolio_intelligence.data.options_chain import mid_price, nearest_strike_row
+from portfolio_intelligence.formatting import ui_num, ui_pct
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.ui.components import eur, sec, styled
 from portfolio_intelligence.views.common import TRADING_DAYS, cached_option_chain
@@ -37,11 +38,13 @@ def _market_check(
     iv = float(row.get("impliedVolatility") or float("nan"))
 
     m1, m2, m3 = st.columns(3)
-    m1.metric(t("opt.mkt_estimate"), f"{estimate:,.2f}")
-    m2.metric(t("opt.mkt_market"), f"{mid:,.2f}", delta=f"{diff:+.1%}", delta_color="off")
+    m1.metric(t("opt.mkt_estimate"), ui_num(estimate, 2))
+    m2.metric(
+        t("opt.mkt_market"), ui_num(mid, 2), delta=ui_pct(diff, 1, signed=True), delta_color="off"
+    )
     m3.metric(
         t("opt.mkt_iv"),
-        f"{iv:.0%}" if iv == iv else "—",
+        ui_pct(iv, 0) if iv == iv else "—",
         delta=f"RV {sigma:.0%}",
         delta_color="off",
     )
@@ -49,12 +52,12 @@ def _market_check(
     st.caption(
         t(
             "opt.mkt_details",
-            strike=f"{float(row['strike']):,.2f}",
+            strike=ui_num(float(row["strike"]), 2),
             expiry=chain["expiry"],
             days=market_days,
-            bid=f"{float(row.get('bid') or 0):,.2f}",
-            ask=f"{float(row.get('ask') or 0):,.2f}",
-            last=f"{float(row.get('lastPrice') or 0):,.2f}",
+            bid=ui_num(float(row.get("bid") or 0), 2),
+            ask=ui_num(float(row.get("ask") or 0), 2),
+            last=ui_num(float(row.get("lastPrice") or 0), 2),
             oi=f"{int(oi):,}" if oi == oi and oi is not None else "—",
         )
     )
@@ -65,7 +68,7 @@ def _market_check(
             verdict = t("opt.iv_lower")
         else:
             verdict = t("opt.iv_inline")
-        st.caption(t("opt.iv_note", iv=f"{iv:.0%}", rv=f"{sigma:.0%}", verdict=verdict))
+        st.caption(t("opt.iv_note", iv=ui_pct(iv, 0), rv=ui_pct(sigma, 0), verdict=verdict))
 
 
 # tabelle di confronto dei contratti: numeri nella convenzione della lingua
@@ -129,7 +132,7 @@ def render(ctx: ViewContext) -> None:
         st.info(t("opt.no_positions"))
         return
 
-    st.caption(t("opt.vol_used", vol=f"{sigma:.0%}", rf=f"{rate:.2%}", spot=f"{spot:,.2f}"))
+    st.caption(t("opt.vol_used", vol=ui_pct(sigma, 0), rf=ui_pct(rate, 2), spot=ui_num(spot, 2)))
 
     put = protective_put(spot, sigma, rate, strike_pct=put_pct, days=days, cost_basis=cost)
     call = covered_call(spot, sigma, rate, strike_pct=call_pct, days=days)
@@ -142,22 +145,22 @@ def render(ctx: ViewContext) -> None:
     # ---- put protettiva --------------------------------------------------
     sec(t("opt.protect_title"))
     p1, p2, p3 = st.columns(3)
-    p1.metric(t("pos.buy_price"), f"{cost:,.2f}")
+    p1.metric(t("pos.buy_price"), ui_num(cost, 2))
     p2.metric(
         t("opt.put_strike"),
-        f"{put['strike']:,.2f}",
-        delta=t("opt.premium_delta", premium=f"{put['premium']:,.2f}"),
+        ui_num(put["strike"], 2),
+        delta=t("opt.premium_delta", premium=ui_num(put["premium"], 2)),
         delta_color="off",
     )
-    p3.metric(t("opt.col_floor"), f"{put['floor_exit']:,.2f}")
+    p3.metric(t("opt.col_floor"), ui_num(put["floor_exit"], 2))
     st.markdown(
         t(
             "opt.protect_text",
-            strike=f"{put['strike']:,.2f}",
+            strike=ui_num(put["strike"], 2),
             days=days,
-            premium=f"{put['premium']:,.2f}",
-            pct=f"{put['premium_pct']:.1%}",
-            floor=f"{put['floor_exit']:,.2f}",
+            premium=ui_num(put["premium"], 2),
+            pct=ui_pct(put["premium_pct"], 1),
+            floor=ui_num(put["floor_exit"], 2),
         )
     )
     locked = put["locked_pnl"]
@@ -167,8 +170,8 @@ def render(ctx: ViewContext) -> None:
         st.markdown(
             t(
                 key,
-                cost=f"{cost:,.2f}",
-                pnl=f"{locked:+,.2f}",
+                cost=ui_num(cost, 2),
+                pnl=ui_num(locked, 2, signed=True),
                 total=("+" if locked_total >= 0 else "") + eur(locked_total),
             )
         )
@@ -208,10 +211,10 @@ def render(ctx: ViewContext) -> None:
     st.markdown(
         t(
             "opt.income_text",
-            strike=f"{call['strike']:,.2f}",
+            strike=ui_num(call["strike"], 2),
             days=days,
-            premium=f"{call['premium']:,.2f}",
-            yld=f"{period_yield:.2%}",
+            premium=ui_num(call["premium"], 2),
+            yld=ui_pct(period_yield, 2),
         )
         + f" (~{period_yield * 365 / days:.1%}/y · {'+' if call['premium'] >= 0 else ''}"
         + eur(call["premium"] * qty * fx)
@@ -246,17 +249,17 @@ def render(ctx: ViewContext) -> None:
     st.markdown(
         t(
             "opt.collar_text",
-            cap=f"{collar['cap']:,.2f}",
-            floor=f"{collar['floor']:,.2f}",
-            net=f"{collar['premium_net']:+,.2f}",
+            cap=ui_num(collar["cap"], 2),
+            floor=ui_num(collar["floor"], 2),
+            net=ui_num(collar["premium_net"], 2, signed=True),
         )
     )
     if collar["locked_pnl"] is not None and collar["locked_pnl"] >= 0:
         st.markdown(
             t(
                 "opt.locked_gain",
-                cost=f"{cost:,.2f}",
-                pnl=f"{collar['locked_pnl']:+,.2f}",
+                cost=ui_num(cost, 2),
+                pnl=ui_num(collar["locked_pnl"], 2, signed=True),
                 total=("+" if collar["locked_pnl"] >= 0 else "")
                 + eur(collar["locked_pnl"] * qty * fx),
             )

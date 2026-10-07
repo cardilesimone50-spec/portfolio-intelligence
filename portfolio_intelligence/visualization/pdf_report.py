@@ -92,7 +92,7 @@ def dashboard_cells(r: ReportInput) -> tuple[list[tuple[str, str, str]], dict[in
             r.pct(r.pnl_pct, signed=True) if has_cost else T("inv.k_cost_unknown"),
         ),
         (
-            T("inv.k_total_return", period=r.period),
+            T("inv.k_total_return", period=r.period_label),
             r.pct(m.cum_return, signed=True),
             T("inv.k_window", start=fmt_date(m.start), end=fmt_date(m.end)),
         ),
@@ -285,7 +285,7 @@ def holdings_table(r: ReportInput, with_sector: bool = False, max_rows: int = MA
         T("inv.h_weight"),
         T("inv.h_risk"),
         T("inv.h_ratio"),
-        T("pdf.h_return", period=r.period),
+        T("pdf.h_return", period=r.period_label),
         T("pdf.h_pnl"),
     ]
     first_num = 3 if with_sector else 2
@@ -571,7 +571,7 @@ def notices_block(r: ReportInput):
     s, T = styles(), r.T
     rf = T("pdf.notice_rf2", rate=r.pct(r.risk_free, 2)) if r.risk_free is not None else ""
     bits = [
-        T("rep.n_data", period=r.period, source=r.price_source or T("rep.source_unknown")),
+        T("rep.n_data", period=r.period_label, source=r.price_source or T("rep.source_unknown")),
         T("rep.n_fundamentals"),
         *([T("pdf.notice_pnl")] if r.pnl is not None and finite(r.pnl) else []),
         T("pdf.notice_costs"),

@@ -28,7 +28,7 @@ from portfolio_intelligence.config import (
     MONITOR_MAX_USD,
     MONITOR_MIN_DRAWDOWN,
 )
-from portfolio_intelligence.i18n import t
+from portfolio_intelligence.i18n import period_text, t
 from portfolio_intelligence.portfolio.returns import per_ticker_cumulative_return
 from portfolio_intelligence.ui.components import eur, num, pct, sec, signed_eur
 from portfolio_intelligence.views import checkup
@@ -251,7 +251,7 @@ def key_figures(ctx: ViewContext) -> list[tuple[str, str, str, str]]:
             tone(ctx.irr),
         ),
         (
-            t("ov.kf_return", period=ctx.period),
+            t("ov.kf_return", period=period_text(ctx.period)),
             pct(c["cum_return"], signed=True),
             t("ov.kf_bench", benchmark=BENCHMARK, value=pct(bench_cum, signed=True)),
             tone(c["cum_return"]),
@@ -425,7 +425,9 @@ def _holdings_table(ctx: ViewContext) -> None:
             "pnl": st.column_config.NumberColumn(t("ov.col_pnl", ccy=ccy)),
             "pnl_pct": st.column_config.NumberColumn(t("ov.col_pnl_pct")),
             "risk": st.column_config.NumberColumn(t("ov.col_risk")),
-            "period_return": st.column_config.NumberColumn(t("chk.col_return", period=ctx.period)),
+            "period_return": st.column_config.NumberColumn(
+                t("chk.col_return", period=period_text(ctx.period))
+            ),
         },
         hide_index=True,
         width="stretch",
@@ -455,7 +457,7 @@ def render(ctx: ViewContext, recipient_field) -> None:
             [
                 t("ov.asof", date=f"<b>{price_date:%d/%m/%Y}</b>"),
                 t("ov.ccy", ccy="<b>EUR</b>" if ctx.in_eur else f"<b>{t('ov.native_ccy')}</b>"),
-                t("ov.window", period=f"<b>{ctx.period}</b>"),
+                t("ov.window", period=f"<b>{period_text(ctx.period)}</b>"),
                 t("ov.benchmark", benchmark=f"<b>{BENCHMARK}</b>"),
             ]
         )

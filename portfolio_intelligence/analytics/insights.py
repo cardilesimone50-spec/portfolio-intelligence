@@ -10,6 +10,7 @@ from portfolio_intelligence.config import (
     BETA_HIGH,
     BETA_LOW,
     CONCENTRATION_FAIR_SHARE_MULT,
+    CONCENTRATION_HHI_SCALE,
     CONCENTRATION_MIN_ABS,
     CONCENTRATION_PROBLEM_WEIGHT,
     CONCENTRATION_SUGGESTION_SCORE,
@@ -67,13 +68,24 @@ def risk_contributions(returns: pd.DataFrame, portfolio: Portfolio) -> pd.Series
 
 
 def concentration_score(portfolio: Portfolio) -> float:
-    """0 = perfettamente equipesato, 100 = tutto su un titolo (indice HHI normalizzato)."""
+    """0 = ampiamente diversificato (20+ posizioni effettive), 100 = uno o due titoli.
+
+    Scala assoluta sull'indice HHI: tre titoli equipesati restano concentrati,
+    come nella tabella dei rischi del report (RISK_LEVEL_HHI).
+    """
+    weights = weights_series(portfolio)
+    if len(weights) <= 1:
+        return 100.0
+    return _scale(float((weights**2).sum()), *CONCENTRATION_HHI_SCALE)
+
+
+def weight_imbalance(portfolio: Portfolio) -> float:
+    """0 = pesi uguali, 100 = tutto su un titolo (HHI normalizzato sul numero di titoli)."""
     weights = weights_series(portfolio)
     n = len(weights)
     if n <= 1:
         return 100.0
-    hhi = float((weights**2).sum())
-    return _scale(hhi, 1 / n, 1.0)
+    return _scale(float((weights**2).sum()), 1 / n, 1.0)
 
 
 def radar_scores(

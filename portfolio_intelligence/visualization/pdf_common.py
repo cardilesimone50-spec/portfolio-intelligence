@@ -102,6 +102,12 @@ class ReportInput:
     def T(self, key: str, **kwargs) -> str:
         return t_in(self.lang, key, **kwargs)
 
+    @property
+    def period_label(self) -> str:
+        """Orizzonte leggibile ("1 anno"), il codice tecnico se non tradotto."""
+        label = t_in(self.lang, f"period.{self.period}")
+        return self.period if label == f"period.{self.period}" else label
+
     def eur(self, value, decimals: int = 0, signed: bool = False) -> str:
         if not self.in_eur:
             # valute di quotazione miste: importo senza simbolo
@@ -253,7 +259,13 @@ def draw_footer(
     canvas.setFillColor(MUTED)
     label = page_label.format(n=page, total=total)
     room = width - 2 * MARGIN - canvas.stringWidth(label, "Helvetica", 6.3) - 4 * mm
-    canvas.drawString(MARGIN, 11 * mm, simpleSplit(line1, "Helvetica", 6.3, room)[0])
+    # la riga deve stare intera: se non entra si riduce il corpo invece di tagliarla
+    size = 6.3
+    while size > 5.0 and canvas.stringWidth(line1, "Helvetica", size) > room:
+        size -= 0.1
+    canvas.setFont("Helvetica", size)
+    canvas.drawString(MARGIN, 11 * mm, simpleSplit(line1, "Helvetica", size, room)[0])
+    canvas.setFont("Helvetica", 6.3)
     canvas.drawRightString(width - MARGIN, 11 * mm, label)
     # avvertenze su al massimo due righe dentro i margini, in qualunque lingua
     canvas.setFont("Helvetica", 6.0)
@@ -1008,7 +1020,7 @@ def render_pdf(
         title=title,
         author="SmarteeFinance",
     )
-    line1 = r.T("rep.footer1", rid=rid, source=r.price_source or r.T("rep.source_unknown"))
+    line1 = r.T("rep.footer1", rid=rid)
     line2 = r.T("pdf.footer_line2")
     page_label = r.T("rep.page")
     right = header_right or f"{title} · {r.portfolio_name}"

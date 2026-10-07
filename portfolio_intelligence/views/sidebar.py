@@ -12,6 +12,7 @@ import streamlit as st
 
 from portfolio_intelligence.config import HISTORY_PERIODS, INVESTOR_HISTORY_PERIOD, RISK_PROFILES
 from portfolio_intelligence.data.importers import parse_positions
+from portfolio_intelligence.formatting import ui_num
 from portfolio_intelligence.i18n import t
 from portfolio_intelligence.portfolio.positions import add_lot, aggregate, normalize_portfolio
 from portfolio_intelligence.ui.area_switch import area_switch
@@ -22,6 +23,7 @@ from portfolio_intelligence.ui.components import (
     sec,
     ticker_preview_html,
 )
+from portfolio_intelligence.views import portfolio_editor as pe
 from portfolio_intelligence.views.common import (
     cached_price_on,
     cached_risk_free,
@@ -30,6 +32,9 @@ from portfolio_intelligence.views.common import (
     ticker_preview,
 )
 from portfolio_intelligence.visualization.charts import PALETTE
+
+# chiave stabile dello storico; nei report il nome è tradotto (checkup.display_name)
+DEFAULT_PORTFOLIO = "My portfolio"
 
 
 @dataclass
@@ -69,6 +74,7 @@ def analysis_parameters(
         t("side.horizon"),
         list(HISTORY_PERIODS),
         index=HISTORY_PERIODS.index(default_period),
+        format_func=lambda code: t(f"period.{code}"),
         key=f"{key_prefix}_period",
     )
     in_eur = st.toggle(t("side.in_eur"), value=True, help=t("side.in_eur_help"))
@@ -84,7 +90,7 @@ def analysis_parameters(
         )
         / 100
     )
-    st.caption(t("side.risk_free_caption", rate=f"{rf_baseline_pct:.2f}"))
+    st.caption(t("side.risk_free_caption", rate=ui_num(rf_baseline_pct, 2)))
     return period, in_eur, risk_free
 
 
@@ -152,7 +158,7 @@ def render_sidebar() -> SidebarSettings:
                 key=f"add_price_{key}_{iso}",
                 help=t(
                     "pos.price_auto_help",
-                    current=f"{current_price:,.2f}" if current_price else "—",
+                    current=ui_num(current_price, 2) if current_price else "—",
                 ),
             )
             st.button(t("gate.add"), width="stretch", type="primary", on_click=_add_holding)
@@ -181,7 +187,7 @@ def render_sidebar() -> SidebarSettings:
                 weight = costs[ticker] / total if total else 0
                 company = known_names.get(ticker, "")
                 label = (
-                    f"{agg['qty']:g} × {agg['price']:,.2f}"
+                    f"{agg['qty']:g} × {ui_num(agg['price'], 2)}"
                     if agg is not None
                     else eur(costs[ticker])
                 )
@@ -243,7 +249,13 @@ def render_sidebar() -> SidebarSettings:
                     if col_del.button(t("side.remove"), key=f"del_{ticker}", width="stretch"):
                         st.session_state.positions.pop(ticker, None)
                         st.rerun()
-            st.caption(t("pos.total_cost", total=f"{total:,.0f}", n=len(positions)))
+            st.caption(
+                t(
+                    "pos.total_cost",
+                    total=pe.invested_text(st.session_state.positions, 0),
+                    n=len(positions),
+                )
+            )
         else:
             empty_state(t("side.empty_title"), t("side.empty_hint"))
 
@@ -277,7 +289,7 @@ def render_sidebar() -> SidebarSettings:
             )
 
     return SidebarSettings(
-        portfolio_name="My portfolio",
+        portfolio_name=DEFAULT_PORTFOLIO,
         period=period,
         in_eur=in_eur,
         risk_free=risk_free,

@@ -99,7 +99,7 @@ def ui_pct(value, decimals: int = 1, signed: bool = False) -> str:
     return fmt_pct(value, get_language(), decimals, signed)
 
 
-def ui_num(value, decimals: int = 2) -> str:
+def ui_num(value, decimals: int = 2, signed: bool = False) -> str:
     from portfolio_intelligence.i18n import get_language
 
-    return fmt_num(value, get_language(), decimals)
+    return fmt_num(value, get_language(), decimals, signed)

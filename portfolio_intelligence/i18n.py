@@ -24,6 +24,12 @@ def t(key: str, **kwargs) -> str:
     return t_in(_LANG, key, **kwargs)
 
 
+def period_text(code: str) -> str:
+    """Orizzonte leggibile nella lingua corrente ("1 anno"); il codice se sconosciuto."""
+    key = f"period.{code}"
+    return t(key) if key in _CATALOG else code
+
+
 def t_in(lang: str, key: str, **kwargs) -> str:
     entry = _CATALOG.get(key)
     if entry is None:
@@ -143,8 +149,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "dna.balanced": ("Balanced profile", "Profilo bilanciato"),
     # ---------------------------------------------------------------- executive summary
     "exec.ret": (
-        "Over the period ({period}), with current weights, the portfolio returned {ret}.",
-        "Nel periodo ({period}), a pesi attuali, il portafoglio ha reso {ret}.",
+        "Over the last {period}, with current weights, the portfolio returned {ret}.",
+        "Nell'ultimo periodo ({period}), a pesi attuali, il portafoglio ha reso {ret}.",
     ),
     "exec.corr_weak": (
         "Diversification is weak: the holdings move very similarly (average correlation {corr}).",
@@ -824,6 +830,12 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "gate.load_rates": ("Risk-free rate", "Tasso privo di rischio"),
     # ---------------------------------------------------------------- sidebar
     "side.logout": ("Log out", "Esci"),
+    "side.my_portfolio": ("My portfolio", "Il mio portafoglio"),
+    "period.1mo": ("1 month", "1 mese"),
+    "period.6mo": ("6 months", "6 mesi"),
+    "period.1y": ("1 year", "1 anno"),
+    "period.2y": ("2 years", "2 anni"),
+    "period.5y": ("5 years", "5 anni"),
     "side.add_stock": ("Add a stock", "Aggiungi un titolo"),
     "side.search_hint": (
         "Search a stock to see its name and price, then add it.",
@@ -1036,7 +1048,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "pdf.no_history": ("Price history not available.", "Storico prezzi non disponibile."),
     "pdf.h_ticker": ("Ticker", "Ticker"),
     "pdf.h_company": ("Company", "Società"),
-    "pdf.h_return": ("Return ({period})", "Rendimento ({period})"),
+    "pdf.h_return": ("Return {period}", "Rend. {period}"),
     "pdf.other_holdings": ("other holdings", "altre posizioni"),
     "pdf.coverage": ("Data coverage: ", "Copertura dati: "),
     "pdf.portfolio_legend": ("Portfolio", "Portafoglio"),
@@ -2105,10 +2117,10 @@ _CATALOG: dict[str, tuple[str, str]] = {
     # ---------------------------------------------------------------- report: elementi comuni
     "rep.page": ("Page {n} of {total}", "Pagina {n} di {total}"),
     "rep.footer1": (
-        "SmarteeFinance · Portfolio Intelligence · Ref. {rid} · prices: {source} · accuracy and "
-        "completeness of data not guaranteed",
-        "SmarteeFinance · Portfolio Intelligence · Rif. {rid} · prezzi: {source} · accuratezza e "
-        "completezza dei dati non garantite",
+        "SmarteeFinance · Portfolio Intelligence · Ref. {rid} · data sources in the methodology "
+        "notes; accuracy and completeness not guaranteed",
+        "SmarteeFinance · Portfolio Intelligence · Rif. {rid} · fonti dei dati nelle note di "
+        "metodologia; accuratezza e completezza non garantite",
     ),
     "rep.source_unknown": (
         "provider chain (EODHD where licensed, Yahoo, yfinance, Stooq)",

@@ -712,11 +712,16 @@ def investor_summary(
     """
     view = dict(investment_view(m, benchmark, profile_label, profile_band, lang))
     T = lambda key, **kw: t_in(lang, key, **kw)  # noqa: E731
+    concentration = view[T("rpt.vh_concentration")]
+    implications = view[T("rpt.vh_implications")]
+    # la frase sul titolo che guida il rischio ripete la concentrazione: una volta sola
+    if m.top_risk_ticker and any(m.top_risk_ticker in text for text in concentration):
+        implications = [text for text in implications if m.top_risk_ticker not in text]
     summary = [
         *view[T("rpt.vh_performance")],
         *view[T("rpt.vh_regime")][:1],
-        *view[T("rpt.vh_concentration")],
-        *view[T("rpt.vh_implications")][:2],
+        *concentration,
+        *implications[:2],
     ]
     attention = [text for text in view[T("rpt.vh_vulnerabilities")] if text != T("rpt.v_none")]
     return summary, attention

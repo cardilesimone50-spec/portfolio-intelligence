@@ -17,6 +17,7 @@ from portfolio_intelligence.analytics.insights import (
     radar_scores,
     reduce_position,
     usd_exposure,
+    weight_imbalance,
 )
 from portfolio_intelligence.analytics.interpret import (
     interpret_volatility,
@@ -27,7 +28,7 @@ from portfolio_intelligence.analytics.performance import (
 from portfolio_intelligence.analytics.report_metrics import compute_report_metrics, stress_tests
 from portfolio_intelligence.data.store import load_analyses, log_analysis, log_audit
 from portfolio_intelligence.formatting import ui_pct
-from portfolio_intelligence.i18n import t, t_in
+from portfolio_intelligence.i18n import period_text, t, t_in
 from portfolio_intelligence.portfolio.returns import (
     compute_daily_returns,
     per_ticker_cumulative_return,
@@ -86,7 +87,7 @@ def render(ctx: ViewContext) -> None:
         if c["dna"]:
             st.markdown(f"**{dna_label(c['dna'])}**")
     with col_equity:
-        sec(t("chk.capital_section", period=period))
+        sec(t("chk.capital_section", period=period_text(period)))
         st.altair_chart(
             equity_area(total * (1 + c["pf_daily"]).cumprod(), total),
             width="stretch",
@@ -167,9 +168,11 @@ def render(ctx: ViewContext) -> None:
             "PnLPct": st.column_config.NumberColumn(t("pos.pnl") + " %"),
             "Ann": st.column_config.NumberColumn(t("pos.ann")),
             "Weight": st.column_config.NumberColumn(t("chk.col_weight")),
-            "Return": st.column_config.NumberColumn(t("chk.col_return", period=period)),
+            "Return": st.column_config.NumberColumn(
+                t("chk.col_return", period=period_text(period))
+            ),
             "Trend": st.column_config.AreaChartColumn(
-                t("chk.col_trend", period=period), width="small"
+                t("chk.col_trend", period=period_text(period)), width="small"
             ),
         },
         hide_index=True,
@@ -269,7 +272,7 @@ def executive_text(ctx: ViewContext) -> str:
     assert ctx.computed is not None
     c = ctx.computed
     return executive_summary(
-        ctx.period,
+        period_text(ctx.period),
         c["cum_return"],
         c["breakdown"],
         c["contributions"],
@@ -329,7 +332,7 @@ def scenario_results(ctx: ViewContext) -> tuple[list[str], list[str], bool]:
     if len(portfolio) >= 2 and weights_sorted[0]["weight"] > 0.25:
         top_t = weights_sorted[0]["ticker"]
         candidates_sim[t("chk.halve", ticker=top_t)] = reduce_position(portfolio, top_t, 0.5)
-    if len(portfolio) >= 3 and c["radar"].get("Concentration", 0) > 25:
+    if len(portfolio) >= 3 and weight_imbalance(portfolio) > 25:
         candidates_sim[t("chk.equalize")] = equal_weight_portfolio(portfolio)
 
     simulations: list[str] = []
@@ -349,6 +352,15 @@ def scenario_results(ctx: ViewContext) -> tuple[list[str], list[str], bool]:
         )
         (simulations if improves else discarded).append(text)
     return simulations, discarded, bool(candidates_sim)
+
+
+def display_name(name: str, lang: str | None = None) -> str:
+    """Nome del portafoglio da mostrare: quello predefinito è tradotto."""
+    from portfolio_intelligence.views.sidebar import DEFAULT_PORTFOLIO
+
+    if name != DEFAULT_PORTFOLIO:
+        return name
+    return t_in(lang, "side.my_portfolio") if lang else t("side.my_portfolio")
 
 
 def report_input(
@@ -395,7 +407,7 @@ def report_input(
     sectors = c["fund"]["sector"] if "sector" in c["fund"].columns else pd.Series(dtype=object)
     pnl_totals = ctx.pnl_totals or {}
     return ReportInput(
-        portfolio_name=ctx.portfolio_name,
+        portfolio_name=display_name(ctx.portfolio_name, lang),
         positions=amounts,
         period=ctx.period,
         metrics=metrics,
@@ -495,7 +507,13 @@ def history_panel(ctx: ViewContext) -> None:
                 ).sort_index()
                 st.altair_chart(simple_line(series, y_format=".0f"), width="stretch")
                 delta_h = int(series.iloc[-1] - series.iloc[0])
-                st.caption(t("chk.history_caption", name=portfolio_name, delta=f"{delta_h:+d}"))
+                st.caption(
+                    t(
+                        "chk.history_caption",
+                        name=display_name(portfolio_name),
+                        delta=f"{delta_h:+d}",
+                    )
+                )
             st.dataframe(
                 styled(history, {"invested": ("eur", 0), "cum_return": ("pct", 1, True)}),
                 column_config={

@@ -39,7 +39,7 @@ from portfolio_intelligence.data.store import (
     save_portfolio,
 )
 from portfolio_intelligence.data.validators import is_valid_client_code
-from portfolio_intelligence.i18n import t
+from portfolio_intelligence.i18n import period_text, t
 from portfolio_intelligence.portfolio.positions import normalize_portfolio
 from portfolio_intelligence.router import compute_portfolio
 from portfolio_intelligence.ui.area_switch import area_switch
@@ -485,7 +485,9 @@ def _page_clients(advisor: str, clients: dict, period: str, in_eur: bool) -> Non
 
     asof = max((r["asof"] for r in analysed), default=None)
     if asof:
-        st.caption(t("adv.book_asof", date=f"{pd.Timestamp(asof):%d/%m/%Y}", period=period))
+        st.caption(
+            t("adv.book_asof", date=f"{pd.Timestamp(asof):%d/%m/%Y}", period=period_text(period))
+        )
     search_col, _gap, export_col, new_col = st.columns([2, 0.6, 1, 1], vertical_alignment="bottom")
     query = search_col.text_input(
         t("adv.search"),
@@ -634,13 +636,12 @@ def _page_new_client(advisor: str, clients: dict) -> None:
         pe.positions_table("adv", empty_hint=t("adv.empty_positions"))
     with side, st.container(border=True):
         positions = st.session_state.positions
-        invested = sum(cost for _, _, cost in pe.cost_basis(positions).values())
         profile = st.session_state.get("adv_new_profile", DEFAULT_RISK_PROFILE)
         rows = [
             (t("adv.client_code"), name or "—"),
             (t("side.risk_profile"), t(f"prof.{profile}")),
             (t("gate.sum_positions"), str(len(positions))),
-            (t("gate.sum_invested"), f"{invested:,.2f}" if invested else "—"),
+            (t("gate.sum_invested"), pe.invested_text(positions)),
         ]
         st.markdown(
             f'<div class="sum-h">{t("gate.summary")}</div>'
