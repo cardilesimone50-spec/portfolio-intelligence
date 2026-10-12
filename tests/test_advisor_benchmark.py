@@ -428,8 +428,10 @@ def test_benchmark_options_put_the_default_first_and_show_the_series():
     assert ws._benchmark_option("CSMIB.MI") == "FTSE MIB Net Total Return (ETF iShares CSMIB)"
 
 
-def test_analysis_views_render_against_the_client_benchmark():
+def test_analysis_views_render_against_the_client_benchmark(tmp_path, monkeypatch):
     """Panoramica, Analisi e Grafici con l'S&P 500 TR: etichette del benchmark del cliente."""
+    # la Panoramica legge lo storico delle analisi: DB temporaneo, mai quello locale vero
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'views.db'}")
 
     def app():
         from test_advisor_benchmark import _ctx
