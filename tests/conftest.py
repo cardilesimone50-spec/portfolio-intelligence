@@ -1,5 +1,7 @@
 """Fixture condivise: dati di report sintetici e deterministici (nessuna rete)."""
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -9,6 +11,23 @@ from portfolio_intelligence.analytics.pipeline import analyze_portfolio
 from portfolio_intelligence.analytics.report_metrics import compute_report_metrics, stress_tests
 from portfolio_intelligence.fundamentals.valuation import empty_fundamentals
 from portfolio_intelligence.visualization.pdf_common import ReportInput
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _local_database_untouched():
+    """Nessun test scrive nel database locale vero (data/market.db): solo DB temporanei.
+
+    Un test che dimentica DATABASE_URL creerebbe o modificherebbe i dati di mercato
+    (e le tabelle dei consulenti) di chi lancia la suite in locale.
+    """
+    from portfolio_intelligence.data.store import DB_PATH
+
+    path = Path(DB_PATH).resolve()
+    before = path.stat().st_mtime_ns if path.exists() else None
+    yield
+    after = path.stat().st_mtime_ns if path.exists() else None
+    assert after == before, f"un test ha scritto nel database locale {path}"
+
 
 TICKERS = ["NVDA", "AAPL", "MSFT"]
 WEIGHTS = {"NVDA": 0.4, "AAPL": 0.37, "MSFT": 0.23}
